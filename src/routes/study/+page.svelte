@@ -126,23 +126,15 @@
 </script>
 
 <div class="min-h-screen bg-[var(--gray-1)]">
-  <!-- Gradient background -->
-  <div class="fixed inset-0 overflow-hidden pointer-events-none">
-    <div class="absolute -top-[40%] -right-[20%] w-[70%] h-[70%] rounded-full bg-[var(--accent-9)] opacity-[0.03] blur-[100px]"></div>
-    <div class="absolute -bottom-[30%] -left-[10%] w-[50%] h-[50%] rounded-full bg-[var(--success)] opacity-[0.02] blur-[80px]"></div>
-  </div>
-
   <!-- Header -->
   <header class="relative z-10 border-b border-[var(--gray-3)] bg-[var(--gray-1)]/80 backdrop-blur-xl">
     <div class="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <a href="/" class="flex items-center gap-3 group">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--accent-8)] to-[var(--accent-9)] flex items-center justify-center shadow-lg shadow-[var(--accent-9)]/20">
-            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
-            </svg>
+          <div class="w-9 h-9 rounded-xl bg-[var(--accent)] flex items-center justify-center">
+            <span class="text-white font-bold text-sm">E</span>
           </div>
-          <span class="font-semibold text-[var(--gray-12)] group-hover:text-[var(--accent-11)] transition-colors">Tutor</span>
+          <span class="font-semibold text-[var(--gray-12)] group-hover:text-[var(--accent)] transition-colors">Eigen</span>
         </a>
         <span class="text-[var(--gray-7)]">/</span>
         <span class="text-[var(--gray-11)]">Study Session</span>
@@ -162,9 +154,9 @@
     {#if loading}
       <div class="flex flex-col items-center justify-center py-20">
         <div class="flex gap-1.5">
-          <span class="w-2 h-2 bg-[var(--accent-9)] rounded-full animate-bounce"></span>
-          <span class="w-2 h-2 bg-[var(--accent-9)] rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
-          <span class="w-2 h-2 bg-[var(--accent-9)] rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+          <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce"></span>
+          <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
+          <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
         </div>
         <p class="mt-4 text-sm text-[var(--gray-9)]">Loading topics...</p>
       </div>
@@ -179,8 +171,8 @@
         <!-- Timer Selection -->
         <div class="p-6 rounded-2xl bg-[var(--gray-2)] border border-[var(--gray-4)]">
           <div class="flex items-center gap-3 mb-5">
-            <div class="w-10 h-10 rounded-xl bg-[var(--accent-9)]/15 flex items-center justify-center">
-              <svg class="w-5 h-5 text-[var(--accent-11)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <div class="w-10 h-10 rounded-xl bg-[var(--accent-muted)] flex items-center justify-center">
+              <svg class="w-5 h-5 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
             </div>
@@ -193,7 +185,7 @@
             {#each [15, 25, 45, 60] as duration}
               <button
                 class="py-3 px-4 text-sm font-medium rounded-xl transition-colors {sessionDuration === duration
-                  ? 'bg-[var(--accent-9)] text-white shadow-lg shadow-[var(--accent-9)]/20'
+                  ? 'bg-[var(--accent)] text-white'
                   : 'bg-[var(--gray-3)] border border-[var(--gray-4)] text-[var(--gray-11)] hover:bg-[var(--gray-4)]'}"
                 onclick={() => (sessionDuration = duration)}
               >
@@ -222,7 +214,7 @@
             placeholder="e.g., Understand recursion basics"
             class="w-full px-4 py-3 text-sm rounded-xl border border-[var(--gray-4)] bg-[var(--gray-3)] text-[var(--gray-12)]
               placeholder:text-[var(--gray-8)]
-              focus:outline-none focus:border-[var(--accent-7)] focus:ring-1 focus:ring-[var(--accent-8)]/30 transition-colors"
+              focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent-muted)] transition-colors"
           />
         </div>
 
@@ -230,8 +222,8 @@
         <div class="p-6 rounded-2xl bg-[var(--gray-2)] border border-[var(--gray-4)]">
           <div class="flex items-center justify-between mb-5">
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-xl bg-[var(--info)]/15 flex items-center justify-center">
-                <svg class="w-5 h-5 text-[var(--info)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <div class="w-10 h-10 rounded-xl bg-[var(--accent-muted)] flex items-center justify-center">
+                <svg class="w-5 h-5 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
                 </svg>
               </div>
@@ -243,7 +235,7 @@
             <div class="flex gap-3">
               {#if topicsDue.length > 0}
                 <button
-                  class="text-sm font-medium text-[var(--accent-11)] hover:text-[var(--accent-12)]"
+                  class="text-sm font-medium text-[var(--accent)] hover:underline"
                   onclick={selectAllDue}
                 >
                   Select due ({topicsDue.length})
@@ -273,14 +265,14 @@
                 {@const isDue = topicsDue.some((t) => t.id === topic.id)}
                 <button
                   class="w-full flex items-center justify-between p-3 rounded-xl transition-colors text-left {selectedTopics.includes(topic.id)
-                    ? 'bg-[var(--accent-9)]/10 border border-[var(--accent-7)]'
+                    ? 'bg-[var(--accent-muted)] border border-[var(--accent)]'
                     : 'bg-[var(--gray-3)] border border-[var(--gray-4)] hover:bg-[var(--gray-4)]'}"
                   onclick={() => toggleTopic(topic.id)}
                 >
                   <div class="flex items-center gap-3">
                     <div
                       class="w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors {selectedTopics.includes(topic.id)
-                        ? 'bg-[var(--accent-9)] border-[var(--accent-9)]'
+                        ? 'bg-[var(--accent)] border-[var(--accent)]'
                         : 'border-[var(--gray-6)]'}"
                     >
                       {#if selectedTopics.includes(topic.id)}
@@ -303,7 +295,7 @@
 
         <!-- Start Button -->
         <button
-          class="w-full py-4 text-sm font-medium rounded-xl bg-[var(--accent-9)] text-white hover:bg-[var(--accent-10)] transition-colors shadow-lg shadow-[var(--accent-9)]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          class="w-full py-4 text-sm font-medium rounded-xl bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           onclick={startSession}
           disabled={allTopics.length === 0}
         >
@@ -325,7 +317,7 @@
           <!-- Progress Bar -->
           <div class="w-full h-2 bg-[var(--gray-4)] rounded-full overflow-hidden mb-8">
             <div
-              class="h-full bg-gradient-to-r from-[var(--accent-8)] to-[var(--accent-9)] transition-all duration-1000"
+              class="h-full bg-[var(--accent)] transition-all duration-1000"
               style="width: {progressPercent}%"
             ></div>
           </div>
@@ -362,8 +354,8 @@
 
         <!-- Session Info -->
         {#if sessionGoal}
-          <div class="p-5 rounded-2xl bg-[var(--accent-9)]/10 border border-[var(--accent-7)]">
-            <p class="text-xs font-medium text-[var(--accent-11)] mb-1">Session Goal</p>
+          <div class="p-5 rounded-2xl bg-[var(--accent-muted)] border border-[var(--accent)]">
+            <p class="text-xs font-medium text-[var(--accent)] mb-1">Session Goal</p>
             <p class="text-sm text-[var(--gray-12)]">{sessionGoal}</p>
           </div>
         {/if}
@@ -384,7 +376,7 @@
 
         <!-- Start Studying Button -->
         <button
-          class="w-full py-4 text-sm font-medium rounded-xl bg-[var(--accent-9)] text-white hover:bg-[var(--accent-10)] transition-colors shadow-lg shadow-[var(--accent-9)]/20 flex items-center justify-center gap-2"
+          class="w-full py-4 text-sm font-medium rounded-xl bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors flex items-center justify-center gap-2"
           onclick={startStudying}
         >
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

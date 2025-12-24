@@ -141,9 +141,9 @@
       {#if loading}
         <div class="flex flex-col items-center justify-center py-12">
           <div class="flex gap-1.5">
-            <span class="w-2 h-2 bg-[var(--accent-9)] rounded-full animate-bounce"></span>
-            <span class="w-2 h-2 bg-[var(--accent-9)] rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
-            <span class="w-2 h-2 bg-[var(--accent-9)] rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+            <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce"></span>
+            <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
+            <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
           </div>
           <p class="mt-3 text-sm text-[var(--gray-9)]">Loading history...</p>
         </div>
@@ -166,13 +166,13 @@
                 onclick={() => selectConversation(conversation)}
               >
                 <div class="flex items-start gap-3">
-                  <div class="w-6 h-6 rounded-lg bg-[var(--gray-4)] group-hover:bg-[var(--accent-9)]/20 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors">
-                    <svg class="w-3.5 h-3.5 text-[var(--gray-9)] group-hover:text-[var(--accent-11)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <div class="w-6 h-6 rounded-lg bg-[var(--gray-4)] group-hover:bg-[var(--accent-muted)] flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors">
+                    <svg class="w-3.5 h-3.5 text-[var(--gray-9)] group-hover:text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
                     </svg>
                   </div>
                   <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-[var(--gray-12)] truncate group-hover:text-[var(--accent-11)] transition-colors">
+                    <p class="text-sm font-medium text-[var(--gray-12)] truncate group-hover:text-[var(--accent)] transition-colors">
                       {getConversationPreview(conversation)}
                     </p>
                     <p class="text-xs text-[var(--gray-8)] mt-0.5">
@@ -187,9 +187,9 @@
           {#if loadingMore}
             <div class="flex items-center justify-center py-6">
               <div class="flex gap-1.5">
-                <span class="w-1.5 h-1.5 bg-[var(--accent-9)] rounded-full animate-bounce"></span>
-                <span class="w-1.5 h-1.5 bg-[var(--accent-9)] rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
-                <span class="w-1.5 h-1.5 bg-[var(--accent-9)] rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+                <span class="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce"></span>
+                <span class="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
+                <span class="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
               </div>
             </div>
           {:else if !hasMore && conversations.length > PAGE_SIZE}

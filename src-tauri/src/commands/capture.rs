@@ -1,6 +1,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
 use std::io::Cursor;
+use tauri::Window;
 use xcap::Monitor;
 
 #[derive(Debug, Clone, Serialize)]
@@ -10,9 +11,15 @@ pub struct ScreenContext {
 }
 
 #[tauri::command]
-pub async fn capture_screen() -> Result<String, String> {
+pub async fn capture_screen(window: Window) -> Result<String, String> {
+    // Hide the window before capturing
+    window.hide().map_err(|e| format!("Failed to hide window: {}", e))?;
+
+    // Small delay to ensure window is hidden
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+
     // Run the capture in a blocking thread since xcap is sync
-    tokio::task::spawn_blocking(|| {
+    let result = tokio::task::spawn_blocking(|| {
         // Get the primary monitor
         let monitors = Monitor::all().map_err(|e| format!("Failed to get monitors: {}", e))?;
 
@@ -34,10 +41,15 @@ pub async fn capture_screen() -> Result<String, String> {
 
         let base64_image = STANDARD.encode(buffer.into_inner());
 
-        Ok(base64_image)
+        Ok::<String, String>(base64_image)
     })
     .await
-    .map_err(|e| format!("Task failed: {}", e))?
+    .map_err(|e| format!("Task failed: {}", e))?;
+
+    // Show the window again
+    window.show().map_err(|e| format!("Failed to show window: {}", e))?;
+
+    result
 }
 
 #[tauri::command]

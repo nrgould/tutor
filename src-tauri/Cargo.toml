@@ -1,12 +1,12 @@
 [package]
-name = "tutor"
+name = "eigen"
 version = "0.1.0"
-description = "An AI tutor that sees your screen and helps you learn"
-authors = ["Tutor Team"]
+description = "An AI-powered learning companion that understands your screen"
+authors = ["Eigen Team"]
 edition = "2021"
 
 [lib]
-name = "tutor_lib"
+name = "eigen_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

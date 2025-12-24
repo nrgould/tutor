@@ -159,29 +159,20 @@
   });
 </script>
 
-<div class="h-screen flex flex-col bg-[var(--gray-1)] relative">
-  <!-- Gradient background effect -->
-  <div class="absolute inset-0 overflow-hidden pointer-events-none">
-    <div class="absolute -top-[40%] -left-[20%] w-[80%] h-[80%] rounded-full bg-[var(--accent-9)] opacity-[0.03] blur-[100px]"></div>
-    <div class="absolute -bottom-[20%] -right-[20%] w-[60%] h-[60%] rounded-full bg-[var(--accent-9)] opacity-[0.02] blur-[80px]"></div>
-  </div>
-
+<div class="h-screen flex flex-col bg-[var(--gray-1)]">
   <!-- Header -->
-  <header class="relative z-10 flex items-center justify-between px-4 h-14 border-b border-[var(--gray-4)] bg-[var(--gray-2)]/80 backdrop-blur-xl">
+  <header class="flex items-center justify-between px-4 h-14 border-b border-[var(--gray-4)] bg-[var(--gray-2)]">
     <div class="flex items-center gap-4">
       <button
         class="flex items-center gap-3 group"
         onclick={() => (showHistory = true)}
         title="View conversation history"
       >
-        <div class="relative">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--accent-8)] to-[var(--accent-9)] flex items-center justify-center shadow-lg shadow-[var(--accent-9)]/20">
-            <span class="text-white font-bold text-sm">T</span>
-          </div>
-          <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[var(--success)] rounded-full border-2 border-[var(--gray-2)]"></div>
+        <div class="w-8 h-8 rounded-lg bg-[var(--accent)] flex items-center justify-center">
+          <span class="text-white font-bold text-sm">E</span>
         </div>
         <div class="flex flex-col">
-          <span class="font-semibold text-[var(--gray-12)] text-sm group-hover:text-[var(--accent-11)] transition-colors">Tutor</span>
+          <span class="font-semibold text-[var(--gray-12)] text-sm group-hover:text-[var(--accent)] transition-colors">Eigen</span>
           <span class="text-[10px] text-[var(--gray-9)] -mt-0.5">AI Learning Assistant</span>
         </div>
       </button>
@@ -235,10 +226,10 @@
 
   <!-- Review Reminder Banner -->
   {#if showReviewBanner && topicsDue.length > 0 && chat.messages.length === 0}
-    <div class="relative z-10 px-4 py-3 bg-gradient-to-r from-[var(--warning)]/10 to-transparent border-b border-[var(--warning)]/20">
+    <div class="px-4 py-3 bg-[var(--warning)]/10 border-b border-[var(--warning)]/20">
       <div class="flex items-center justify-between max-w-3xl mx-auto">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-[var(--warning)]/15 flex items-center justify-center">
+          <div class="w-10 h-10 rounded-lg bg-[var(--warning)]/15 flex items-center justify-center">
             <svg class="w-5 h-5 text-[var(--warning)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -274,17 +265,14 @@
   {/if}
 
   <!-- Messages area -->
-  <div bind:this={messagesContainer} class="relative z-10 flex-1 overflow-y-auto">
+  <div bind:this={messagesContainer} class="flex-1 overflow-y-auto">
     {#if chat.messages.length === 0}
       <div class="h-full flex flex-col items-center justify-center text-center px-4 py-12">
-        <!-- Hero Section -->
-        <div class="relative mb-8">
-          <div class="absolute inset-0 bg-gradient-to-r from-[var(--accent-9)] to-[var(--accent-8)] rounded-3xl blur-2xl opacity-20"></div>
-          <div class="relative w-20 h-20 rounded-2xl bg-gradient-to-br from-[var(--accent-8)] to-[var(--accent-9)] flex items-center justify-center shadow-2xl shadow-[var(--accent-9)]/30">
-            <svg class="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
-            </svg>
-          </div>
+        <!-- Logo -->
+        <div class="w-16 h-16 rounded-xl bg-[var(--accent)] flex items-center justify-center mb-6">
+          <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
+          </svg>
         </div>
 
         <h1 class="text-2xl font-bold text-[var(--gray-12)] mb-2 tracking-tight">
@@ -299,7 +287,7 @@
           {#if !settings.anthropic_api_key}
             <a
               href="/settings"
-              class="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-gradient-to-r from-[var(--accent-8)] to-[var(--accent-9)] text-white shadow-lg shadow-[var(--accent-9)]/25 hover:shadow-[var(--accent-9)]/40 transition-all"
+              class="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors"
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
@@ -308,7 +296,7 @@
             </a>
           {:else}
             <button
-              class="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-[var(--gray-3)] text-[var(--gray-11)] border border-[var(--gray-5)] hover:bg-[var(--gray-4)] hover:border-[var(--gray-6)] transition-all"
+              class="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-[var(--gray-3)] text-[var(--gray-11)] border border-[var(--gray-5)] hover:bg-[var(--gray-4)] transition-colors"
               onclick={() => document.querySelector('textarea')?.focus()}
             >
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -320,7 +308,7 @@
 
           <a
             href="/study"
-            class="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl bg-[var(--gray-3)] text-[var(--gray-11)] border border-[var(--gray-5)] hover:bg-[var(--gray-4)] hover:border-[var(--gray-6)] transition-all"
+            class="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-[var(--gray-3)] text-[var(--gray-11)] border border-[var(--gray-5)] hover:bg-[var(--gray-4)] transition-colors"
           >
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -332,7 +320,7 @@
         <!-- Feature Pills -->
         <div class="flex flex-wrap justify-center gap-2">
           <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--gray-3)] border border-[var(--gray-4)] text-xs text-[var(--gray-10)]">
-            <svg class="w-3.5 h-3.5 text-[var(--accent-11)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg class="w-3.5 h-3.5 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
             </svg>
             Screen Capture
@@ -360,9 +348,9 @@
         {#if chat.isLoading}
           <div class="flex items-center gap-3 pl-10">
             <div class="flex gap-1.5">
-              <span class="w-2 h-2 bg-[var(--accent-9)] rounded-full animate-bounce"></span>
-              <span class="w-2 h-2 bg-[var(--accent-9)] rounded-full animate-bounce" style="animation-delay: 0.15s"></span>
-              <span class="w-2 h-2 bg-[var(--accent-9)] rounded-full animate-bounce" style="animation-delay: 0.3s"></span>
+              <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce"></span>
+              <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style="animation-delay: 0.15s"></span>
+              <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style="animation-delay: 0.3s"></span>
             </div>
             <span class="text-xs text-[var(--gray-9)]">Thinking...</span>
           </div>

@@ -52,16 +52,15 @@
     <!-- Screenshot preview -->
     {#if pendingScreenshot}
       <div class="mb-3 relative inline-block animate-fade-in">
-        <div class="relative rounded-xl overflow-hidden border border-[var(--gray-4)] shadow-lg">
+        <div class="relative rounded-xl overflow-hidden border border-[var(--gray-4)]">
           <img
             src="data:image/png;base64,{pendingScreenshot}"
             alt="Screenshot preview"
             class="h-24 object-cover"
           />
-          <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
         </div>
         <button
-          class="absolute -top-2 -right-2 w-6 h-6 bg-[var(--gray-2)] border border-[var(--gray-4)] text-[var(--gray-11)] rounded-full flex items-center justify-center hover:bg-[var(--error)] hover:border-[var(--error)] hover:text-white transition-colors shadow-lg"
+          class="absolute -top-2 -right-2 w-6 h-6 bg-[var(--gray-2)] border border-[var(--gray-4)] text-[var(--gray-11)] rounded-full flex items-center justify-center hover:bg-[var(--error)] hover:border-[var(--error)] hover:text-white transition-colors"
           onclick={clearScreenshot}
           aria-label="Remove screenshot"
         >
@@ -103,7 +102,7 @@
           rows="1"
           class="w-full px-4 py-3 text-sm rounded-xl bg-[var(--gray-2)] border border-[var(--gray-4)] text-[var(--gray-12)]
             placeholder:text-[var(--gray-8)] resize-none
-            focus:outline-none focus:border-[var(--accent-7)] focus:ring-1 focus:ring-[var(--accent-8)]/30
+            focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent-muted)]
             disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           onkeydown={handleKeydown}
         ></textarea>
@@ -111,7 +110,7 @@
 
       <!-- Send button -->
       <button
-        class="flex-shrink-0 w-10 h-10 rounded-xl bg-[var(--accent-9)] text-white hover:bg-[var(--accent-10)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center shadow-lg shadow-[var(--accent-9)]/20"
+        class="flex-shrink-0 w-10 h-10 rounded-xl bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
         onclick={handleSubmit}
         disabled={disabled || (!inputValue.trim() && !pendingScreenshot)}
         title="Send message"

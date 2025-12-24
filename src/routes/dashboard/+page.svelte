@@ -62,7 +62,7 @@
 
   function getMasteryColor(level: number): string {
     if (level >= 0.8) return 'bg-[var(--success)]';
-    if (level >= 0.6) return 'bg-[var(--info)]';
+    if (level >= 0.6) return 'bg-[var(--accent)]';
     if (level >= 0.4) return 'bg-[var(--warning)]';
     if (level >= 0.2) return 'bg-orange-500';
     return 'bg-[var(--error)]';
@@ -73,7 +73,7 @@
       case 'mastered':
         return { text: 'Mastered', class: 'bg-[var(--success)]/15 text-[var(--success)]' };
       case 'proficient':
-        return { text: 'Proficient', class: 'bg-[var(--info)]/15 text-[var(--info)]' };
+        return { text: 'Proficient', class: 'bg-[var(--accent)]/15 text-[var(--accent)]' };
       case 'learning':
         return { text: 'Learning', class: 'bg-[var(--warning)]/15 text-[var(--warning)]' };
       case 'struggling':
@@ -122,23 +122,15 @@
 </script>
 
 <div class="min-h-screen bg-[var(--gray-1)]">
-  <!-- Gradient background -->
-  <div class="fixed inset-0 overflow-hidden pointer-events-none">
-    <div class="absolute -top-[40%] -right-[20%] w-[70%] h-[70%] rounded-full bg-[var(--accent-9)] opacity-[0.03] blur-[100px]"></div>
-    <div class="absolute -bottom-[30%] -left-[10%] w-[50%] h-[50%] rounded-full bg-[var(--info)] opacity-[0.02] blur-[80px]"></div>
-  </div>
-
   <!-- Header -->
   <header class="relative z-10 border-b border-[var(--gray-3)] bg-[var(--gray-1)]/80 backdrop-blur-xl">
     <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <a href="/" class="flex items-center gap-3 group">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-[var(--accent-8)] to-[var(--accent-9)] flex items-center justify-center shadow-lg shadow-[var(--accent-9)]/20">
-            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
-            </svg>
+          <div class="w-9 h-9 rounded-xl bg-[var(--accent)] flex items-center justify-center">
+            <span class="text-white font-bold text-sm">E</span>
           </div>
-          <span class="font-semibold text-[var(--gray-12)] group-hover:text-[var(--accent-11)] transition-colors">Tutor</span>
+          <span class="font-semibold text-[var(--gray-12)] group-hover:text-[var(--accent)] transition-colors">Eigen</span>
         </a>
         <span class="text-[var(--gray-7)]">/</span>
         <span class="text-[var(--gray-11)]">Dashboard</span>
@@ -153,7 +145,7 @@
         </a>
         <a
           href="/"
-          class="px-4 py-2 text-sm font-medium rounded-xl bg-[var(--accent-9)] text-white hover:bg-[var(--accent-10)] transition-colors shadow-lg shadow-[var(--accent-9)]/20"
+          class="px-4 py-2 text-sm font-medium rounded-xl bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors"
         >
           Back to Chat
         </a>
@@ -167,8 +159,8 @@
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div class="p-5 rounded-2xl bg-[var(--gray-2)] border border-[var(--gray-4)]">
           <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 rounded-xl bg-[var(--accent-9)]/15 flex items-center justify-center">
-              <svg class="w-5 h-5 text-[var(--accent-11)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <div class="w-10 h-10 rounded-xl bg-[var(--accent-muted)] flex items-center justify-center">
+              <svg class="w-5 h-5 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
               </svg>
             </div>
@@ -179,8 +171,8 @@
 
         <div class="p-5 rounded-2xl bg-[var(--gray-2)] border border-[var(--gray-4)]">
           <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 rounded-xl bg-[var(--info)]/15 flex items-center justify-center">
-              <svg class="w-5 h-5 text-[var(--info)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <div class="w-10 h-10 rounded-xl bg-[var(--accent-muted)] flex items-center justify-center">
+              <svg class="w-5 h-5 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
               </svg>
             </div>
@@ -247,9 +239,9 @@
     {#if loading}
       <div class="flex flex-col items-center justify-center py-20">
         <div class="flex gap-1.5">
-          <span class="w-2 h-2 bg-[var(--accent-9)] rounded-full animate-bounce"></span>
-          <span class="w-2 h-2 bg-[var(--accent-9)] rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
-          <span class="w-2 h-2 bg-[var(--accent-9)] rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+          <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce"></span>
+          <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
+          <span class="w-2 h-2 bg-[var(--accent)] rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
         </div>
         <p class="mt-4 text-sm text-[var(--gray-9)]">Loading your learning data...</p>
       </div>
@@ -265,7 +257,7 @@
           <p class="text-sm text-[var(--gray-9)] max-w-sm">
             Start learning! Topics will appear here as you have conversations with your tutor.
           </p>
-          <a href="/" class="mt-6 px-5 py-2.5 text-sm font-medium rounded-xl bg-[var(--accent-9)] text-white hover:bg-[var(--accent-10)] transition-colors shadow-lg shadow-[var(--accent-9)]/20">
+          <a href="/" class="mt-6 px-5 py-2.5 text-sm font-medium rounded-xl bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors">
             Start Learning
           </a>
         </div>
@@ -387,7 +379,7 @@
                 memory.memory_type === 'preference' ? 'bg-pink-500/15 text-pink-400' :
                 memory.memory_type === 'struggle' ? 'bg-orange-500/15 text-orange-400' :
                 memory.memory_type === 'success' ? 'bg-[var(--success)]/15 text-[var(--success)]' :
-                'bg-[var(--info)]/15 text-[var(--info)]'
+                'bg-[var(--accent-muted)] text-[var(--accent)]'
               }">
                 {#if memory.memory_type === 'preference'}
                   <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -443,7 +435,7 @@
               </div>
               <div class="flex items-center gap-2">
                 <div class="w-16 h-1.5 bg-[var(--gray-4)] rounded-full overflow-hidden">
-                  <div class="h-full bg-[var(--accent-9)]" style="width: {fact.confidence * 100}%"></div>
+                  <div class="h-full bg-[var(--accent)]" style="width: {fact.confidence * 100}%"></div>
                 </div>
                 <span class="text-xs font-medium text-[var(--gray-9)] min-w-[2.5rem] text-right">
                   {Math.round(fact.confidence * 100)}%

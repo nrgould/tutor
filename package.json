@@ -1,7 +1,7 @@
 {
-  "name": "tutor",
+  "name": "eigen",
   "version": "0.1.0",
-  "description": "An OS-level AI tutor that sees your screen and helps you learn",
+  "description": "An AI-powered learning companion that understands your screen",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
