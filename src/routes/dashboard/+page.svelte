@@ -1,6 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getTopics, getUserFacts, getRecentMemories } from '$lib/services/memoryService';
+  import {
+    getTopicsDueForReview,
+    calculateNextReview,
+    getReviewTimeText,
+  } from '$lib/utils/spacedRepetition';
   import type { Topic, Fact, Memory } from '$lib/types';
 
   interface StoredTopic {
@@ -111,6 +116,22 @@
   const successCount = $derived(
     memories.filter((m) => m.memory_type === 'success').length
   );
+
+  // Topics due for review
+  const topicsDue = $derived(getTopicsDueForReview(topics));
+
+  // Get review info for a topic
+  function getReviewInfo(topic: StoredTopic) {
+    const schedule = calculateNextReview(
+      topic.mastery_level,
+      topic.status,
+      topic.last_practiced
+    );
+    return {
+      ...schedule,
+      timeText: getReviewTimeText(schedule.nextReview),
+    };
+  }
 </script>
 
 <div class="h-screen flex flex-col bg-tutor-bg">
@@ -219,9 +240,49 @@
         </div>
       {:else}
         <div class="grid gap-3 max-w-2xl mx-auto">
+          <!-- Due for Review Section -->
+          {#if topicsDue.length > 0}
+            <div class="p-4 rounded-xl bg-orange-500/10 border border-orange-500/30 mb-2">
+              <div class="flex items-center gap-2 mb-3">
+                <svg class="w-5 h-5 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 class="font-medium text-orange-400">Due for Review ({topicsDue.length})</h3>
+              </div>
+              <div class="space-y-2">
+                {#each topicsDue as topic}
+                  {@const reviewInfo = getReviewInfo(topic)}
+                  <a
+                    href="/?topic={encodeURIComponent(topic.name)}"
+                    class="flex items-center justify-between p-2 rounded-lg bg-tutor-surface/50 hover:bg-tutor-surface transition-colors"
+                  >
+                    <span class="text-sm text-tutor-text">{topic.name}</span>
+                    <span class="text-xs px-2 py-0.5 rounded-full {
+                      reviewInfo.urgency === 'overdue' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'
+                    }">
+                      {reviewInfo.timeText}
+                    </span>
+                  </a>
+                {/each}
+              </div>
+              <a
+                href="/?review=true"
+                class="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Start Review Session
+              </a>
+            </div>
+          {/if}
           {#each topics as topic}
             {@const badge = getStatusBadge(topic.status)}
-            <div class="p-4 rounded-xl bg-tutor-surface border border-tutor-border">
+            {@const reviewInfo = getReviewInfo(topic)}
+            <div class="p-4 rounded-xl bg-tutor-surface border border-tutor-border {
+              reviewInfo.urgency === 'overdue' ? 'border-red-500/50' :
+              reviewInfo.urgency === 'due' ? 'border-orange-500/50' : ''
+            }">
               <div class="flex items-start justify-between mb-3">
                 <div>
                   <h3 class="font-medium text-tutor-text">{topic.name}</h3>
@@ -232,9 +293,18 @@
                     {/if}
                   </p>
                 </div>
-                <span class="px-2 py-0.5 text-xs font-medium rounded-full {badge.class}">
-                  {badge.text}
-                </span>
+                <div class="flex items-center gap-2">
+                  {#if reviewInfo.urgency === 'overdue' || reviewInfo.urgency === 'due'}
+                    <span class="px-2 py-0.5 text-xs font-medium rounded-full {
+                      reviewInfo.urgency === 'overdue' ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400'
+                    }">
+                      {reviewInfo.timeText}
+                    </span>
+                  {/if}
+                  <span class="px-2 py-0.5 text-xs font-medium rounded-full {badge.class}">
+                    {badge.text}
+                  </span>
+                </div>
               </div>
               <div class="flex items-center gap-3">
                 <div class="flex-1 h-2 bg-tutor-border rounded-full overflow-hidden">
@@ -247,6 +317,11 @@
                   {Math.round(topic.mastery_level * 100)}%
                 </span>
               </div>
+              {#if reviewInfo.urgency !== 'overdue' && reviewInfo.urgency !== 'due'}
+                <p class="text-xs text-tutor-text-secondary mt-2">
+                  Next review: {reviewInfo.timeText}
+                </p>
+              {/if}
             </div>
           {/each}
         </div>

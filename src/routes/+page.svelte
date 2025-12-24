@@ -4,7 +4,8 @@
   import { settingsStore } from '$lib/stores/settings';
   import { streamChat } from '$lib/utils/api';
   import { createConversation, saveMessage, getConversations, getMessages } from '$lib/utils/db';
-  import { processConversationMemories } from '$lib/services/memoryService';
+  import { processConversationMemories, getTopics } from '$lib/services/memoryService';
+  import { getTopicsDueForReview } from '$lib/utils/spacedRepetition';
   import ChatMessage from '$lib/components/overlay/ChatMessage.svelte';
   import ChatInput from '$lib/components/overlay/ChatInput.svelte';
   import Button from '$lib/components/shared/Button.svelte';
@@ -12,9 +13,20 @@
   import ConversationHistory from '$lib/components/ConversationHistory.svelte';
   import type { Message, ScreenContext } from '$lib/types';
 
+  interface TopicInfo {
+    id: string;
+    name: string;
+    mastery_level: number;
+    status: string;
+    last_practiced?: string;
+    next_review?: string;
+  }
+
   let messagesContainer: HTMLDivElement;
   let showSettings = $state(false);
   let showHistory = $state(false);
+  let showReviewBanner = $state(true);
+  let topicsDue = $state<TopicInfo[]>([]);
   let apiKeyInput = $state('');
   let apiKeyError = $state('');
   let openaiKeyInput = $state('');
@@ -41,6 +53,14 @@
     } catch (error) {
       console.error('Failed to load conversations:', error);
       await startNewConversation();
+    }
+
+    // Check for topics due for review
+    try {
+      const allTopics = await getTopics();
+      topicsDue = getTopicsDueForReview(allTopics);
+    } catch (error) {
+      console.warn('Failed to load topics for review:', error);
     }
   });
 
@@ -257,6 +277,46 @@
       </button>
     </div>
   </div>
+
+  <!-- Review Reminder Banner -->
+  {#if showReviewBanner && topicsDue.length > 0 && chat.messages.length === 0}
+    <div class="px-4 py-3 bg-orange-500/10 border-b border-orange-500/30">
+      <div class="flex items-center justify-between max-w-2xl mx-auto">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
+            <svg class="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-orange-400">
+              {topicsDue.length} topic{topicsDue.length > 1 ? 's' : ''} due for review
+            </p>
+            <p class="text-xs text-tutor-text-secondary">
+              {topicsDue.slice(0, 3).map(t => t.name).join(', ')}{topicsDue.length > 3 ? '...' : ''}
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <a
+            href="/dashboard"
+            class="px-3 py-1.5 text-xs font-medium rounded-lg bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+          >
+            Review Now
+          </a>
+          <button
+            class="p-1 text-tutor-text-secondary hover:text-tutor-text transition-colors"
+            onclick={() => (showReviewBanner = false)}
+            aria-label="Dismiss"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   <!-- Messages area -->
   <div bind:this={messagesContainer} class="flex-1 overflow-y-auto p-4 space-y-4">
