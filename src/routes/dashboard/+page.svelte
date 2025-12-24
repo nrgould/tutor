@@ -150,12 +150,20 @@
       <span class="text-tutor-text">Dashboard</span>
     </div>
 
-    <a
-      href="/"
-      class="px-3 py-1.5 text-sm rounded-lg bg-tutor-accent text-white hover:bg-tutor-accent/90 transition-colors"
-    >
-      Back to Chat
-    </a>
+    <div class="flex items-center gap-2">
+      <a
+        href="/analytics"
+        class="px-3 py-1.5 text-sm rounded-lg bg-tutor-border text-tutor-text hover:bg-tutor-border/80 transition-colors"
+      >
+        Analytics
+      </a>
+      <a
+        href="/"
+        class="px-3 py-1.5 text-sm rounded-lg bg-tutor-accent text-white hover:bg-tutor-accent/90 transition-colors"
+      >
+        Back to Chat
+      </a>
+    </div>
   </div>
 
   <!-- Stats Summary -->
