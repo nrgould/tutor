@@ -80,8 +80,7 @@ pub async fn import_conversation(conversation: Conversation) -> Result<(), Strin
                 conversation.topic,
                 conversation.summary,
             ],
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         Ok(())
     })
 }
@@ -105,8 +104,7 @@ pub async fn import_message(message: Message) -> Result<(), String> {
                 screen_context_json,
                 message.created_at,
             ],
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
         Ok(())
     })
 }
