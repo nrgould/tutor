@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { chatStore } from '$lib/stores/chat';
   import { settingsStore } from '$lib/stores/settings';
   import { streamChat } from '$lib/utils/api';
@@ -8,8 +9,6 @@
   import { getTopicsDueForReview } from '$lib/utils/spacedRepetition';
   import ChatMessage from '$lib/components/overlay/ChatMessage.svelte';
   import ChatInput from '$lib/components/overlay/ChatInput.svelte';
-  import Button from '$lib/components/shared/Button.svelte';
-  import Modal from '$lib/components/shared/Modal.svelte';
   import ConversationHistory from '$lib/components/ConversationHistory.svelte';
   import type { Message, ScreenContext } from '$lib/types';
 
@@ -23,14 +22,9 @@
   }
 
   let messagesContainer: HTMLDivElement;
-  let showSettings = $state(false);
   let showHistory = $state(false);
   let showReviewBanner = $state(true);
   let topicsDue = $state<TopicInfo[]>([]);
-  let apiKeyInput = $state('');
-  let apiKeyError = $state('');
-  let openaiKeyInput = $state('');
-  let openaiKeyError = $state('');
 
   // Subscribe to stores
   const chat = $derived($chatStore);
@@ -83,7 +77,7 @@
 
   async function handleSendMessage(content: string, screenshot?: string) {
     if (!settings.anthropic_api_key) {
-      showSettings = true;
+      goto('/settings');
       return;
     }
 
@@ -166,38 +160,6 @@
     }
   }
 
-  async function handleSaveApiKey() {
-    let hasError = false;
-
-    // Validate Anthropic key if provided or if none exists
-    if (apiKeyInput.trim()) {
-      try {
-        await settingsStore.setApiKey('anthropic_api_key', apiKeyInput.trim());
-        apiKeyInput = '';
-        apiKeyError = '';
-      } catch {
-        apiKeyError = 'Failed to save Anthropic API key';
-        hasError = true;
-      }
-    }
-
-    // Save OpenAI key if provided
-    if (openaiKeyInput.trim()) {
-      try {
-        await settingsStore.setApiKey('openai_api_key', openaiKeyInput.trim());
-        openaiKeyInput = '';
-        openaiKeyError = '';
-      } catch {
-        openaiKeyError = 'Failed to save OpenAI API key';
-        hasError = true;
-      }
-    }
-
-    if (!hasError) {
-      showSettings = false;
-    }
-  }
-
   // Auto-scroll when new messages arrive
   $effect(() => {
     if (chat.messages.length > 0) {
@@ -255,9 +217,24 @@
         </svg>
       </a>
 
-      <button
+      <a
+        href="/study"
         class="p-2 rounded-lg text-tutor-text-secondary hover:text-tutor-text hover:bg-tutor-border/50 transition-colors"
-        onclick={() => (showSettings = true)}
+        title="Study Session"
+      >
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+      </a>
+
+      <a
+        href="/settings"
+        class="p-2 rounded-lg text-tutor-text-secondary hover:text-tutor-text hover:bg-tutor-border/50 transition-colors"
         title="Settings"
       >
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -274,7 +251,7 @@
             d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
           />
         </svg>
-      </button>
+      </a>
     </div>
   </div>
 
@@ -343,7 +320,12 @@
           understand and learn.
         </p>
         {#if !settings.anthropic_api_key}
-          <Button class="mt-4" onclick={() => (showSettings = true)}>Set up API key</Button>
+          <a
+            href="/settings"
+            class="mt-4 inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg bg-tutor-accent text-white hover:bg-tutor-accent/90 transition-colors"
+          >
+            Set up API key
+          </a>
         {/if}
       </div>
     {:else}
@@ -373,66 +355,6 @@
   <!-- Chat input -->
   <ChatInput disabled={chat.isLoading} onsubmit={handleSendMessage} />
 </div>
-
-<!-- Settings Modal -->
-<Modal bind:open={showSettings} title="Settings">
-  <div class="space-y-4">
-    <div>
-      <label for="api-key" class="block text-sm font-medium text-tutor-text mb-1">
-        Anthropic API Key <span class="text-red-400">*</span>
-      </label>
-      <input
-        id="api-key"
-        type="password"
-        bind:value={apiKeyInput}
-        placeholder={settings.anthropic_api_key ? '••••••••••••••••' : 'sk-ant-...'}
-        class="w-full px-3 py-2 text-sm rounded-lg border border-tutor-border bg-tutor-surface text-tutor-text
-          placeholder:text-tutor-text-secondary
-          focus:outline-none focus:ring-2 focus:ring-tutor-accent focus:border-transparent"
-      />
-      {#if apiKeyError}
-        <p class="mt-1 text-sm text-red-500">{apiKeyError}</p>
-      {/if}
-      <p class="mt-1 text-xs text-tutor-text-secondary">
-        Required for tutoring. Get your key from <a
-          href="https://console.anthropic.com"
-          target="_blank"
-          class="text-tutor-accent hover:underline">console.anthropic.com</a
-        >
-      </p>
-    </div>
-
-    <div>
-      <label for="openai-key" class="block text-sm font-medium text-tutor-text mb-1">
-        OpenAI API Key <span class="text-tutor-text-secondary">(optional)</span>
-      </label>
-      <input
-        id="openai-key"
-        type="password"
-        bind:value={openaiKeyInput}
-        placeholder={settings.openai_api_key ? '••••••••••••••••' : 'sk-...'}
-        class="w-full px-3 py-2 text-sm rounded-lg border border-tutor-border bg-tutor-surface text-tutor-text
-          placeholder:text-tutor-text-secondary
-          focus:outline-none focus:ring-2 focus:ring-tutor-accent focus:border-transparent"
-      />
-      {#if openaiKeyError}
-        <p class="mt-1 text-sm text-red-500">{openaiKeyError}</p>
-      {/if}
-      <p class="mt-1 text-xs text-tutor-text-secondary">
-        Enables memory features. Get your key from <a
-          href="https://platform.openai.com/api-keys"
-          target="_blank"
-          class="text-tutor-accent hover:underline">platform.openai.com</a
-        >
-      </p>
-    </div>
-
-    <div class="flex gap-2 justify-end">
-      <Button variant="secondary" onclick={() => (showSettings = false)}>Cancel</Button>
-      <Button onclick={handleSaveApiKey}>Save</Button>
-    </div>
-  </div>
-</Modal>
 
 <!-- Conversation History Sidebar -->
 <ConversationHistory open={showHistory} onclose={() => (showHistory = false)} />

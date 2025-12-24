@@ -52,6 +52,9 @@ pub fn run() {
             commands::get_messages,
             commands::get_setting,
             commands::set_setting,
+            // Import commands
+            commands::import_conversation,
+            commands::import_message,
             // Memory commands
             commands::save_memory,
             commands::get_memories,
