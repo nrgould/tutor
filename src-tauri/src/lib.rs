@@ -17,6 +17,9 @@ pub fn run() {
             // Register global shortcut (Ctrl+Shift+Space)
             let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
 
+            // Unregister first in case it's stuck from a previous crash
+            let _ = app.global_shortcut().unregister(shortcut);
+
             let app_handle = app.handle().clone();
             app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, _event| {
                 if let Some(window) = app_handle.get_webview_window("overlay") {
@@ -29,7 +32,10 @@ pub fn run() {
                 }
             })?;
 
-            app.global_shortcut().register(shortcut)?;
+            // Try to register, ignore error if already registered
+            if let Err(e) = app.global_shortcut().register(shortcut) {
+                eprintln!("Warning: Could not register hotkey: {}", e);
+            }
 
             Ok(())
         })
