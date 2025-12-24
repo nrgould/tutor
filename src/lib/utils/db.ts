@@ -44,7 +44,7 @@ export async function getConversations(limit: number = 50, offset: number = 0): 
   }
 
   // Return sliced portion based on offset and limit
-  return conversationsCache.slice(offset, offset + limit);
+  return (conversationsCache ?? []).slice(offset, offset + limit);
 }
 
 export async function getConversation(id: string): Promise<Conversation | null> {

@@ -47,22 +47,25 @@
   }
 </script>
 
-<div class="border-t border-tutor-border bg-tutor-bg px-4 py-3">
+<div class="border-t border-[var(--gray-3)] bg-[var(--gray-1)]/80 backdrop-blur-xl px-4 py-4">
   <div class="max-w-3xl mx-auto">
     <!-- Screenshot preview -->
     {#if pendingScreenshot}
-      <div class="mb-3 relative inline-block">
-        <img
-          src="data:image/png;base64,{pendingScreenshot}"
-          alt="Screenshot preview"
-          class="h-20 rounded-lg border border-tutor-border"
-        />
+      <div class="mb-3 relative inline-block animate-fade-in">
+        <div class="relative rounded-xl overflow-hidden border border-[var(--gray-4)] shadow-lg">
+          <img
+            src="data:image/png;base64,{pendingScreenshot}"
+            alt="Screenshot preview"
+            class="h-24 object-cover"
+          />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+        </div>
         <button
-          class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-tutor-error text-white rounded-full flex items-center justify-center hover:opacity-90"
+          class="absolute -top-2 -right-2 w-6 h-6 bg-[var(--gray-2)] border border-[var(--gray-4)] text-[var(--gray-11)] rounded-full flex items-center justify-center hover:bg-[var(--error)] hover:border-[var(--error)] hover:text-white transition-colors shadow-lg"
           onclick={clearScreenshot}
           aria-label="Remove screenshot"
         >
-          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -70,17 +73,17 @@
     {/if}
 
     <!-- Input area -->
-    <div class="flex items-end gap-2">
+    <div class="flex items-end gap-3">
       <!-- Screenshot button -->
       <button
-        class="flex-shrink-0 p-2.5 rounded-lg text-tutor-text-tertiary hover:text-tutor-text hover:bg-tutor-surface-elevated disabled:opacity-50"
+        class="flex-shrink-0 w-10 h-10 rounded-xl bg-[var(--gray-3)] border border-[var(--gray-4)] text-[var(--gray-10)] hover:text-[var(--gray-12)] hover:bg-[var(--gray-4)] hover:border-[var(--gray-5)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
         onclick={captureScreen}
         disabled={disabled || isCapturing}
         title="Capture screen"
       >
         {#if isCapturing}
           <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
         {:else}
@@ -95,26 +98,26 @@
       <div class="flex-1 relative">
         <textarea
           bind:value={inputValue}
-          placeholder="Ask about your screen..."
+          placeholder="Ask a question..."
           {disabled}
           rows="1"
-          class="w-full px-4 py-2.5 text-sm rounded-xl bg-tutor-surface text-tutor-text
-            placeholder:text-tutor-text-tertiary resize-none
-            focus:outline-none focus:ring-2 focus:ring-tutor-accent/50
-            disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full px-4 py-3 text-sm rounded-xl bg-[var(--gray-2)] border border-[var(--gray-4)] text-[var(--gray-12)]
+            placeholder:text-[var(--gray-8)] resize-none
+            focus:outline-none focus:border-[var(--accent-7)] focus:ring-1 focus:ring-[var(--accent-8)]/30
+            disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           onkeydown={handleKeydown}
         ></textarea>
       </div>
 
       <!-- Send button -->
       <button
-        class="flex-shrink-0 p-2.5 rounded-lg bg-tutor-accent text-white hover:bg-tutor-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
+        class="flex-shrink-0 w-10 h-10 rounded-xl bg-[var(--accent-9)] text-white hover:bg-[var(--accent-10)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex items-center justify-center shadow-lg shadow-[var(--accent-9)]/20"
         onclick={handleSubmit}
         disabled={disabled || (!inputValue.trim() && !pendingScreenshot)}
         title="Send message"
       >
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
         </svg>
       </button>
     </div>
