@@ -77,6 +77,9 @@
       created_at: new Date().toISOString(),
     };
 
+    // Get existing messages BEFORE adding the new one (for API call)
+    const existingMessages = [...chat.messages];
+
     chatStore.addMessage(userMessage);
 
     try {
@@ -98,11 +101,11 @@
     chatStore.setLoading(true);
 
     try {
-      // Get all messages for context
-      const allMessages = [...chat.messages, userMessage];
+      // Send existing messages + new user message (NOT the empty assistant placeholder)
+      const messagesToSend = [...existingMessages, userMessage];
 
       // Stream the response
-      for await (const chunk of streamChat(allMessages)) {
+      for await (const chunk of streamChat(messagesToSend)) {
         chatStore.appendToLastMessage(chunk);
         scrollToBottom();
       }
