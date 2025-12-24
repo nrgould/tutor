@@ -4,6 +4,7 @@
   import { settingsStore } from '$lib/stores/settings';
   import { streamChat } from '$lib/utils/api';
   import { createConversation, saveMessage, getConversations, getMessages } from '$lib/utils/db';
+  import { processConversationMemories } from '$lib/services/memoryService';
   import ChatMessage from '$lib/components/overlay/ChatMessage.svelte';
   import ChatInput from '$lib/components/overlay/ChatInput.svelte';
   import Button from '$lib/components/shared/Button.svelte';
@@ -14,6 +15,8 @@
   let showSettings = $state(false);
   let apiKeyInput = $state('');
   let apiKeyError = $state('');
+  let openaiKeyInput = $state('');
+  let openaiKeyError = $state('');
 
   // Subscribe to stores
   const chat = $derived($chatStore);
@@ -41,6 +44,13 @@
 
   async function startNewConversation() {
     try {
+      // Process memories from previous conversation before starting new one
+      if (chat.currentConversation && chat.messages.length >= 4) {
+        processConversationMemories(chat.messages, chat.currentConversation.id).catch((e) =>
+          console.warn('Failed to process memories:', e)
+        );
+      }
+
       const conversation = await createConversation();
       chatStore.setConversation(conversation);
       chatStore.setMessages([]);
@@ -135,18 +145,34 @@
   }
 
   async function handleSaveApiKey() {
-    if (!apiKeyInput.trim()) {
-      apiKeyError = 'Please enter an API key';
-      return;
+    let hasError = false;
+
+    // Validate Anthropic key if provided or if none exists
+    if (apiKeyInput.trim()) {
+      try {
+        await settingsStore.setApiKey('anthropic_api_key', apiKeyInput.trim());
+        apiKeyInput = '';
+        apiKeyError = '';
+      } catch {
+        apiKeyError = 'Failed to save Anthropic API key';
+        hasError = true;
+      }
     }
 
-    try {
-      await settingsStore.setApiKey('anthropic_api_key', apiKeyInput.trim());
+    // Save OpenAI key if provided
+    if (openaiKeyInput.trim()) {
+      try {
+        await settingsStore.setApiKey('openai_api_key', openaiKeyInput.trim());
+        openaiKeyInput = '';
+        openaiKeyError = '';
+      } catch {
+        openaiKeyError = 'Failed to save OpenAI API key';
+        hasError = true;
+      }
+    }
+
+    if (!hasError) {
       showSettings = false;
-      apiKeyInput = '';
-      apiKeyError = '';
-    } catch {
-      apiKeyError = 'Failed to save API key';
     }
   }
 
@@ -270,7 +296,7 @@
   <div class="space-y-4">
     <div>
       <label for="api-key" class="block text-sm font-medium text-tutor-text mb-1">
-        Anthropic API Key
+        Anthropic API Key <span class="text-red-400">*</span>
       </label>
       <input
         id="api-key"
@@ -285,10 +311,35 @@
         <p class="mt-1 text-sm text-red-500">{apiKeyError}</p>
       {/if}
       <p class="mt-1 text-xs text-tutor-text-secondary">
-        Get your API key from <a
+        Required for tutoring. Get your key from <a
           href="https://console.anthropic.com"
           target="_blank"
           class="text-tutor-accent hover:underline">console.anthropic.com</a
+        >
+      </p>
+    </div>
+
+    <div>
+      <label for="openai-key" class="block text-sm font-medium text-tutor-text mb-1">
+        OpenAI API Key <span class="text-tutor-text-secondary">(optional)</span>
+      </label>
+      <input
+        id="openai-key"
+        type="password"
+        bind:value={openaiKeyInput}
+        placeholder={settings.openai_api_key ? '••••••••••••••••' : 'sk-...'}
+        class="w-full px-3 py-2 text-sm rounded-lg border border-tutor-border bg-tutor-surface text-tutor-text
+          placeholder:text-tutor-text-secondary
+          focus:outline-none focus:ring-2 focus:ring-tutor-accent focus:border-transparent"
+      />
+      {#if openaiKeyError}
+        <p class="mt-1 text-sm text-red-500">{openaiKeyError}</p>
+      {/if}
+      <p class="mt-1 text-xs text-tutor-text-secondary">
+        Enables memory features. Get your key from <a
+          href="https://platform.openai.com/api-keys"
+          target="_blank"
+          class="text-tutor-accent hover:underline">platform.openai.com</a
         >
       </p>
     </div>

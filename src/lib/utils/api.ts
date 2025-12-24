@@ -1,6 +1,7 @@
 import type { Message, TutorContext, ClaudeMessage, ClaudeContent } from '$lib/types';
 import { settingsStore } from '$lib/stores/settings';
 import { get } from 'svelte/store';
+import { buildMemoryContext } from '$lib/services/memoryService';
 
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
@@ -68,7 +69,26 @@ export async function* streamChat(
     throw new Error('Anthropic API key not configured. Please add your API key in settings.');
   }
 
-  const systemPrompt = buildSystemPrompt(context);
+  // Build memory context if not provided
+  let enhancedContext = context;
+  if (!context?.memories?.length) {
+    try {
+      const lastUserMessage = messages.filter((m) => m.role === 'user').pop();
+      if (lastUserMessage) {
+        const memoryContextStr = await buildMemoryContext(lastUserMessage.content);
+        if (memoryContextStr) {
+          enhancedContext = {
+            ...context,
+            memories: [memoryContextStr],
+          };
+        }
+      }
+    } catch {
+      // Continue without memory context if it fails
+    }
+  }
+
+  const systemPrompt = buildSystemPrompt(enhancedContext);
   const claudeMessages = messages.map(convertToClaudeMessage);
 
   const response = await fetch(CLAUDE_API_URL, {

@@ -52,6 +52,16 @@ pub fn run() {
             commands::get_messages,
             commands::get_setting,
             commands::set_setting,
+            // Memory commands
+            commands::save_memory,
+            commands::get_memories,
+            commands::get_memories_with_embeddings,
+            commands::update_memory_access,
+            commands::save_topic,
+            commands::get_topics,
+            commands::update_topic_mastery,
+            commands::save_fact,
+            commands::get_facts,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -74,6 +74,7 @@ pub fn init_database(conn: &Connection) -> rusqlite::Result<()> {
             type TEXT NOT NULL CHECK (type IN ('preference', 'struggle', 'success', 'context')),
             topic_id TEXT,
             source_conversation_id TEXT,
+            embedding TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             last_accessed TEXT,
             access_count INTEGER DEFAULT 0,
@@ -106,6 +107,19 @@ pub fn init_database(conn: &Connection) -> rusqlite::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_topics_parent_id ON topics(parent_id);
         "#,
     )?;
+
+    // Migration: Add embedding column if it doesn't exist (for existing databases)
+    let has_embedding: bool = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('memories') WHERE name='embedding'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0) > 0;
+
+    if !has_embedding {
+        conn.execute("ALTER TABLE memories ADD COLUMN embedding TEXT", [])?;
+    }
 
     Ok(())
 }
