@@ -47,99 +47,76 @@
   }
 </script>
 
-<div class="border-t border-tutor-border bg-tutor-bg p-3">
-  <!-- Screenshot preview -->
-  {#if pendingScreenshot}
-    <div class="mb-2 relative inline-block">
-      <img
-        src="data:image/png;base64,{pendingScreenshot}"
-        alt="Screenshot preview"
-        class="h-16 rounded border border-tutor-border"
-      />
+<div class="border-t border-tutor-border bg-tutor-bg px-4 py-3">
+  <div class="max-w-3xl mx-auto">
+    <!-- Screenshot preview -->
+    {#if pendingScreenshot}
+      <div class="mb-3 relative inline-block">
+        <img
+          src="data:image/png;base64,{pendingScreenshot}"
+          alt="Screenshot preview"
+          class="h-20 rounded-lg border border-tutor-border"
+        />
+        <button
+          class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-tutor-error text-white rounded-full flex items-center justify-center hover:opacity-90"
+          onclick={clearScreenshot}
+          aria-label="Remove screenshot"
+        >
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    {/if}
+
+    <!-- Input area -->
+    <div class="flex items-end gap-2">
+      <!-- Screenshot button -->
       <button
-        class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
-        onclick={clearScreenshot}
-        aria-label="Remove screenshot"
+        class="flex-shrink-0 p-2.5 rounded-lg text-tutor-text-tertiary hover:text-tutor-text hover:bg-tutor-surface-elevated disabled:opacity-50"
+        onclick={captureScreen}
+        disabled={disabled || isCapturing}
+        title="Capture screen"
       >
-        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M6 18L18 6M6 6l12 12"
-          />
+        {#if isCapturing}
+          <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        {:else}
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+          </svg>
+        {/if}
+      </button>
+
+      <!-- Text input -->
+      <div class="flex-1 relative">
+        <textarea
+          bind:value={inputValue}
+          placeholder="Ask about your screen..."
+          {disabled}
+          rows="1"
+          class="w-full px-4 py-2.5 text-sm rounded-xl bg-tutor-surface text-tutor-text
+            placeholder:text-tutor-text-tertiary resize-none
+            focus:outline-none focus:ring-2 focus:ring-tutor-accent/50
+            disabled:opacity-50 disabled:cursor-not-allowed"
+          onkeydown={handleKeydown}
+        ></textarea>
+      </div>
+
+      <!-- Send button -->
+      <button
+        class="flex-shrink-0 p-2.5 rounded-lg bg-tutor-accent text-white hover:bg-tutor-accent-hover disabled:opacity-40 disabled:cursor-not-allowed"
+        onclick={handleSubmit}
+        disabled={disabled || (!inputValue.trim() && !pendingScreenshot)}
+        title="Send message"
+      >
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
         </svg>
       </button>
     </div>
-  {/if}
-
-  <!-- Input area -->
-  <div class="flex items-end gap-2">
-    <!-- Screenshot button -->
-    <button
-      class="flex-shrink-0 p-2 rounded-lg text-tutor-text-secondary hover:text-tutor-text hover:bg-tutor-surface transition-colors disabled:opacity-50"
-      onclick={captureScreen}
-      disabled={disabled || isCapturing}
-      title="Capture screen (Ctrl+Shift+S)"
-    >
-      {#if isCapturing}
-        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"
-          ></circle>
-          <path
-            class="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          ></path>
-        </svg>
-      {:else}
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-          />
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-          />
-        </svg>
-      {/if}
-    </button>
-
-    <!-- Text input -->
-    <div class="flex-1">
-      <textarea
-        bind:value={inputValue}
-        placeholder="Ask about your screen..."
-        {disabled}
-        rows="1"
-        class="w-full px-3 py-2 text-sm rounded-lg border border-tutor-border bg-tutor-surface text-tutor-text
-          placeholder:text-tutor-text-secondary resize-none
-          focus:outline-none focus:ring-2 focus:ring-tutor-accent focus:border-transparent
-          disabled:opacity-50 disabled:cursor-not-allowed"
-        onkeydown={handleKeydown}
-      ></textarea>
-    </div>
-
-    <!-- Send button -->
-    <button
-      class="flex-shrink-0 p-2 rounded-lg bg-tutor-accent text-white hover:bg-tutor-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      onclick={handleSubmit}
-      disabled={disabled || (!inputValue.trim() && !pendingScreenshot)}
-      title="Send message"
-    >
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-        />
-      </svg>
-    </button>
   </div>
 </div>

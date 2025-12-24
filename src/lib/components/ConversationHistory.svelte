@@ -40,7 +40,6 @@
 
     loadingMore = true;
     try {
-      // Get more conversations starting after the last one we have
       const moreConversations = await getConversations(PAGE_SIZE, conversations.length);
       if (moreConversations.length > 0) {
         conversations = [...conversations, ...moreConversations];
@@ -55,12 +54,10 @@
     }
   }
 
-  // Infinite scroll detection
   function handleScroll() {
     if (!scrollContainer || loadingMore || !hasMore) return;
 
     const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
-    // Load more when user is 100px from the bottom
     if (scrollHeight - scrollTop - clientHeight < 100) {
       loadMore();
     }
@@ -101,28 +98,31 @@
 
 {#if open}
   <!-- Backdrop -->
-  <button
-    class="fixed inset-0 bg-black/50 z-40"
+  <div
+    class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] animate-fade-in"
     onclick={onclose}
+    onkeydown={(e) => e.key === 'Escape' && onclose()}
+    role="button"
+    tabindex="-1"
     aria-label="Close history"
-  ></button>
+  ></div>
 
   <!-- Sidebar -->
-  <div
-    class="fixed left-0 top-0 bottom-0 w-80 bg-tutor-surface border-r border-tutor-border z-50 flex flex-col"
+  <aside
+    class="fixed left-0 top-0 bottom-0 w-72 bg-tutor-surface border-r border-tutor-border z-[101] flex flex-col animate-slide-up"
   >
-    <div class="flex items-center justify-between p-4 border-b border-tutor-border">
-      <h2 class="font-semibold text-tutor-text">Conversation History</h2>
+    <header class="flex items-center justify-between px-4 h-14 border-b border-tutor-border">
+      <h2 class="font-semibold text-tutor-text">History</h2>
       <button
-        class="p-1.5 rounded-lg text-tutor-text-secondary hover:text-tutor-text hover:bg-tutor-border/50 transition-colors"
+        class="p-1.5 rounded-lg text-tutor-text-tertiary hover:text-tutor-text hover:bg-tutor-surface-elevated"
         onclick={onclose}
         aria-label="Close history"
       >
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
-    </div>
+    </header>
 
     <div
       bind:this={scrollContainer}
@@ -132,50 +132,51 @@
       {#if loading}
         <div class="flex items-center justify-center py-8">
           <div class="flex gap-1">
-            <span class="w-2 h-2 bg-tutor-accent rounded-full animate-bounce"></span>
-            <span class="w-2 h-2 bg-tutor-accent rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
-            <span class="w-2 h-2 bg-tutor-accent rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+            <span class="w-1.5 h-1.5 bg-tutor-accent rounded-full animate-bounce"></span>
+            <span class="w-1.5 h-1.5 bg-tutor-accent rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
+            <span class="w-1.5 h-1.5 bg-tutor-accent rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
           </div>
         </div>
       {:else if conversations.length === 0}
-        <div class="flex flex-col items-center justify-center py-8 text-center px-4">
-          <svg class="w-12 h-12 text-tutor-text-secondary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
+        <div class="flex flex-col items-center justify-center py-12 text-center px-4">
+          <div class="w-10 h-10 rounded-xl bg-tutor-surface-elevated flex items-center justify-center mb-3">
+            <svg class="w-5 h-5 text-tutor-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+            </svg>
+          </div>
           <p class="text-sm text-tutor-text-secondary">No conversations yet</p>
         </div>
       {:else}
-        <div class="p-2">
+        <nav class="p-2 space-y-0.5">
           {#each conversations as conversation}
             <button
-              class="w-full text-left p-3 rounded-lg hover:bg-tutor-border/50 transition-colors mb-1"
+              class="w-full text-left px-3 py-2.5 rounded-lg hover:bg-tutor-surface-elevated group"
               onclick={() => selectConversation(conversation)}
             >
-              <p class="text-sm font-medium text-tutor-text truncate">
+              <p class="text-sm font-medium text-tutor-text truncate group-hover:text-tutor-accent">
                 {getConversationPreview(conversation)}
               </p>
-              <p class="text-xs text-tutor-text-secondary mt-0.5">
+              <p class="text-xs text-tutor-text-tertiary mt-0.5">
                 {formatDate(conversation.started_at)}
               </p>
             </button>
           {/each}
 
-          <!-- Loading more indicator -->
           {#if loadingMore}
             <div class="flex items-center justify-center py-4">
               <div class="flex gap-1">
-                <span class="w-2 h-2 bg-tutor-accent rounded-full animate-bounce"></span>
-                <span class="w-2 h-2 bg-tutor-accent rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
-                <span class="w-2 h-2 bg-tutor-accent rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+                <span class="w-1.5 h-1.5 bg-tutor-accent rounded-full animate-bounce"></span>
+                <span class="w-1.5 h-1.5 bg-tutor-accent rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
+                <span class="w-1.5 h-1.5 bg-tutor-accent rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
               </div>
             </div>
           {:else if !hasMore && conversations.length > PAGE_SIZE}
-            <p class="text-center text-xs text-tutor-text-secondary py-4">
-              No more conversations
+            <p class="text-center text-xs text-tutor-text-tertiary py-3">
+              End of history
             </p>
           {/if}
-        </div>
+        </nav>
       {/if}
     </div>
-  </div>
+  </aside>
 {/if}

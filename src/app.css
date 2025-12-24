@@ -1,16 +1,24 @@
 @import "tailwindcss";
 
-/* Custom CSS variables for theming */
+/* Premium dark theme - Linear/Stripe inspired */
 :root {
-  --tutor-bg: #f8fafc;
+  /* Light theme (fallback) */
+  --tutor-bg: #fafafa;
   --tutor-surface: #ffffff;
-  --tutor-border: #e2e8f0;
-  --tutor-text: #1e293b;
-  --tutor-text-secondary: #64748b;
-  --tutor-accent: #3b82f6;
-  --tutor-accent-hover: #2563eb;
+  --tutor-surface-elevated: #ffffff;
+  --tutor-border: #e5e5e5;
+  --tutor-border-subtle: #f0f0f0;
+  --tutor-text: #171717;
+  --tutor-text-secondary: #737373;
+  --tutor-text-tertiary: #a3a3a3;
+  --tutor-accent: #6366f1;
+  --tutor-accent-hover: #4f46e5;
+  --tutor-accent-subtle: rgba(99, 102, 241, 0.1);
+  --tutor-success: #10b981;
+  --tutor-warning: #f59e0b;
+  --tutor-error: #ef4444;
 
-  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   font-weight: 400;
@@ -18,17 +26,26 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
 
+/* Dark theme - default for this app */
 @media (prefers-color-scheme: dark) {
   :root {
-    --tutor-bg: #0f172a;
-    --tutor-surface: #1e293b;
-    --tutor-border: #334155;
-    --tutor-text: #f1f5f9;
-    --tutor-text-secondary: #94a3b8;
-    --tutor-accent: #60a5fa;
-    --tutor-accent-hover: #3b82f6;
+    --tutor-bg: #09090b;
+    --tutor-surface: #18181b;
+    --tutor-surface-elevated: #27272a;
+    --tutor-border: #27272a;
+    --tutor-border-subtle: #3f3f46;
+    --tutor-text: #fafafa;
+    --tutor-text-secondary: #a1a1aa;
+    --tutor-text-tertiary: #71717a;
+    --tutor-accent: #818cf8;
+    --tutor-accent-hover: #6366f1;
+    --tutor-accent-subtle: rgba(129, 140, 248, 0.1);
+    --tutor-success: #34d399;
+    --tutor-warning: #fbbf24;
+    --tutor-error: #f87171;
   }
 }
 
@@ -37,12 +54,13 @@ body {
   padding: 0;
   background-color: var(--tutor-bg);
   color: var(--tutor-text);
+  letter-spacing: -0.011em;
 }
 
-/* Scrollbar styling */
+/* Refined scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -50,16 +68,130 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--tutor-border);
-  border-radius: 4px;
+  background: var(--tutor-border-subtle);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--tutor-text-secondary);
+  background: var(--tutor-text-tertiary);
 }
 
-/* Custom selection color */
+/* Selection */
 ::selection {
   background-color: var(--tutor-accent);
   color: white;
+}
+
+/* Focus styles */
+*:focus-visible {
+  outline: 2px solid var(--tutor-accent);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions globally */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Disable transitions for elements that shouldn't animate */
+*:not(:defined),
+[data-no-transition] {
+  transition: none !important;
+}
+
+/* Typography utilities */
+.text-balance {
+  text-wrap: balance;
+}
+
+/* Markdown content styling */
+.markdown-content {
+  line-height: 1.625;
+}
+
+.markdown-content p {
+  margin-bottom: 0.75em;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content strong {
+  font-weight: 600;
+  color: var(--tutor-text);
+}
+
+.markdown-content em {
+  font-style: italic;
+}
+
+.markdown-content code {
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Monaco, monospace;
+  font-size: 0.875em;
+  padding: 0.125em 0.375em;
+  background: var(--tutor-surface-elevated);
+  border-radius: 4px;
+  color: var(--tutor-accent);
+}
+
+.markdown-content pre {
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Monaco, monospace;
+  font-size: 0.875em;
+  padding: 1em;
+  background: var(--tutor-surface-elevated);
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+
+.markdown-content pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.markdown-content li {
+  margin: 0.25em 0;
+}
+
+.markdown-content a {
+  color: var(--tutor-accent);
+  text-decoration: none;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
+}
+
+.markdown-content blockquote {
+  border-left: 3px solid var(--tutor-border-subtle);
+  padding-left: 1em;
+  margin: 0.75em 0;
+  color: var(--tutor-text-secondary);
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  font-weight: 600;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+  color: var(--tutor-text);
+}
+
+.markdown-content h1:first-child,
+.markdown-content h2:first-child,
+.markdown-content h3:first-child,
+.markdown-content h4:first-child {
+  margin-top: 0;
 }
