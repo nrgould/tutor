@@ -1,0 +1,140 @@
+import type { Message, TutorContext, ClaudeMessage, ClaudeContent } from '$lib/types';
+import { settingsStore } from '$lib/stores/settings';
+import { get } from 'svelte/store';
+
+const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+
+function buildSystemPrompt(context?: TutorContext): string {
+  let prompt = `You are a personal tutor helping someone learn. You can see their screen when they share it.
+
+Your approach:
+- Be encouraging but honest
+- Adapt explanations to their level
+- Ask clarifying questions when needed
+- Use examples and analogies
+- Focus on understanding, not just answers
+- Keep responses concise and actionable
+- When looking at code or technical content, be specific about what you see`;
+
+  if (context?.memories?.length) {
+    prompt += `\n\nWhat you know about this learner:\n${context.memories.map((m) => `- ${m}`).join('\n')}`;
+  }
+
+  if (context?.currentTopic) {
+    prompt += `\n\nThey are currently learning: ${context.currentTopic}`;
+    if (context.masteryLevel !== undefined) {
+      prompt += ` (${Math.round(context.masteryLevel * 100)}% mastery)`;
+    }
+  }
+
+  return prompt;
+}
+
+function convertToClaudeMessage(message: Message): ClaudeMessage {
+  const content: ClaudeContent[] = [];
+
+  // Add screenshot if present
+  if (message.screen_context?.screenshot) {
+    content.push({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: 'image/png',
+        data: message.screen_context.screenshot,
+      },
+    });
+  }
+
+  // Add text content
+  content.push({
+    type: 'text',
+    text: message.content,
+  });
+
+  return {
+    role: message.role,
+    content: content.length === 1 && content[0].type === 'text' ? message.content : content,
+  };
+}
+
+export async function* streamChat(
+  messages: Message[],
+  context?: TutorContext
+): AsyncGenerator<string, void, unknown> {
+  const settings = get(settingsStore);
+
+  if (!settings.anthropic_api_key) {
+    throw new Error('Anthropic API key not configured. Please add your API key in settings.');
+  }
+
+  const systemPrompt = buildSystemPrompt(context);
+  const claudeMessages = messages.map(convertToClaudeMessage);
+
+  const response = await fetch(CLAUDE_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': settings.anthropic_api_key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: claudeMessages,
+      stream: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+    throw new Error(error.error?.message || `API error: ${response.status}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('No response body');
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+
+          try {
+            const event = JSON.parse(data);
+            if (event.type === 'content_block_delta' && event.delta?.text) {
+              yield event.delta.text;
+            }
+          } catch {
+            // Skip invalid JSON
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+export async function chat(messages: Message[], context?: TutorContext): Promise<string> {
+  let fullResponse = '';
+  for await (const chunk of streamChat(messages, context)) {
+    fullResponse += chunk;
+  }
+  return fullResponse;
+}

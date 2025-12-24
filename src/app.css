@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+/* Custom CSS variables for theming */
+:root {
+  --tutor-bg: #f8fafc;
+  --tutor-surface: #ffffff;
+  --tutor-border: #e2e8f0;
+  --tutor-text: #1e293b;
+  --tutor-text-secondary: #64748b;
+  --tutor-accent: #3b82f6;
+  --tutor-accent-hover: #2563eb;
+
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tutor-bg: #0f172a;
+    --tutor-surface: #1e293b;
+    --tutor-border: #334155;
+    --tutor-text: #f1f5f9;
+    --tutor-text-secondary: #94a3b8;
+    --tutor-accent: #60a5fa;
+    --tutor-accent-hover: #3b82f6;
+  }
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--tutor-bg);
+  color: var(--tutor-text);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--tutor-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--tutor-text-secondary);
+}
+
+/* Custom selection color */
+::selection {
+  background-color: var(--tutor-accent);
+  color: white;
+}
