@@ -9,10 +9,12 @@
   import ChatInput from '$lib/components/overlay/ChatInput.svelte';
   import Button from '$lib/components/shared/Button.svelte';
   import Modal from '$lib/components/shared/Modal.svelte';
+  import ConversationHistory from '$lib/components/ConversationHistory.svelte';
   import type { Message, ScreenContext } from '$lib/types';
 
   let messagesContainer: HTMLDivElement;
   let showSettings = $state(false);
+  let showHistory = $state(false);
   let apiKeyInput = $state('');
   let apiKeyError = $state('');
   let openaiKeyInput = $state('');
@@ -190,10 +192,16 @@
     class="flex items-center justify-between px-4 py-3 border-b border-tutor-border bg-tutor-surface"
   >
     <div class="flex items-center gap-2">
-      <div class="w-8 h-8 rounded-lg bg-tutor-accent flex items-center justify-center">
-        <span class="text-white font-bold text-sm">T</span>
-      </div>
-      <span class="font-semibold text-tutor-text">Tutor</span>
+      <button
+        class="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        onclick={() => (showHistory = true)}
+        title="View conversation history"
+      >
+        <div class="w-8 h-8 rounded-lg bg-tutor-accent flex items-center justify-center">
+          <span class="text-white font-bold text-sm">T</span>
+        </div>
+        <span class="font-semibold text-tutor-text">Tutor</span>
+      </button>
     </div>
 
     <div class="flex items-center gap-2">
@@ -211,6 +219,21 @@
           />
         </svg>
       </button>
+
+      <a
+        href="/dashboard"
+        class="p-2 rounded-lg text-tutor-text-secondary hover:text-tutor-text hover:bg-tutor-border/50 transition-colors"
+        title="Learning Dashboard"
+      >
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+          />
+        </svg>
+      </a>
 
       <button
         class="p-2 rounded-lg text-tutor-text-secondary hover:text-tutor-text hover:bg-tutor-border/50 transition-colors"
@@ -350,3 +373,6 @@
     </div>
   </div>
 </Modal>
+
+<!-- Conversation History Sidebar -->
+<ConversationHistory open={showHistory} onclose={() => (showHistory = false)} />
