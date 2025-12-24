@@ -7,6 +7,7 @@
   import { createConversation, saveMessage, getConversations, getMessages } from '$lib/utils/db';
   import { processConversationMemories, getTopics } from '$lib/services/memoryService';
   import { getTopicsDueForReview } from '$lib/utils/spacedRepetition';
+  import { notifyReviewDue, ensureNotificationPermission } from '$lib/services/notificationService';
   import ChatMessage from '$lib/components/overlay/ChatMessage.svelte';
   import ChatInput from '$lib/components/overlay/ChatInput.svelte';
   import ConversationHistory from '$lib/components/ConversationHistory.svelte';
@@ -53,6 +54,24 @@
     try {
       const allTopics = await getTopics();
       topicsDue = getTopicsDueForReview(allTopics);
+
+      // Request notification permission early
+      await ensureNotificationPermission();
+
+      // Send a reminder notification if there are topics due and user hasn't been notified recently
+      if (topicsDue.length > 0) {
+        const lastNotified = localStorage.getItem('lastReviewNotification');
+        const now = Date.now();
+        const oneHour = 60 * 60 * 1000;
+
+        if (!lastNotified || now - parseInt(lastNotified) > oneHour) {
+          await notifyReviewDue(
+            topicsDue.length,
+            topicsDue.map((t) => t.name)
+          );
+          localStorage.setItem('lastReviewNotification', now.toString());
+        }
+      }
     } catch (error) {
       console.warn('Failed to load topics for review:', error);
     }

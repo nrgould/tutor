@@ -11,8 +11,12 @@
 
   let { open, onclose }: Props = $props();
 
+  const PAGE_SIZE = 20;
   let conversations = $state<Conversation[]>([]);
   let loading = $state(true);
+  let loadingMore = $state(false);
+  let hasMore = $state(true);
+  let scrollContainer: HTMLDivElement;
 
   onMount(async () => {
     await loadConversations();
@@ -21,11 +25,44 @@
   async function loadConversations() {
     loading = true;
     try {
-      conversations = await getConversations(50);
+      const result = await getConversations(PAGE_SIZE);
+      conversations = result;
+      hasMore = result.length === PAGE_SIZE;
     } catch (error) {
       console.error('Failed to load conversations:', error);
     } finally {
       loading = false;
+    }
+  }
+
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+
+    loadingMore = true;
+    try {
+      // Get more conversations starting after the last one we have
+      const moreConversations = await getConversations(PAGE_SIZE, conversations.length);
+      if (moreConversations.length > 0) {
+        conversations = [...conversations, ...moreConversations];
+        hasMore = moreConversations.length === PAGE_SIZE;
+      } else {
+        hasMore = false;
+      }
+    } catch (error) {
+      console.error('Failed to load more conversations:', error);
+    } finally {
+      loadingMore = false;
+    }
+  }
+
+  // Infinite scroll detection
+  function handleScroll() {
+    if (!scrollContainer || loadingMore || !hasMore) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+    // Load more when user is 100px from the bottom
+    if (scrollHeight - scrollTop - clientHeight < 100) {
+      loadMore();
     }
   }
 
@@ -87,7 +124,11 @@
       </button>
     </div>
 
-    <div class="flex-1 overflow-y-auto">
+    <div
+      bind:this={scrollContainer}
+      class="flex-1 overflow-y-auto"
+      onscroll={handleScroll}
+    >
       {#if loading}
         <div class="flex items-center justify-center py-8">
           <div class="flex gap-1">
@@ -118,6 +159,21 @@
               </p>
             </button>
           {/each}
+
+          <!-- Loading more indicator -->
+          {#if loadingMore}
+            <div class="flex items-center justify-center py-4">
+              <div class="flex gap-1">
+                <span class="w-2 h-2 bg-tutor-accent rounded-full animate-bounce"></span>
+                <span class="w-2 h-2 bg-tutor-accent rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
+                <span class="w-2 h-2 bg-tutor-accent rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+              </div>
+            </div>
+          {:else if !hasMore && conversations.length > PAGE_SIZE}
+            <p class="text-center text-xs text-tutor-text-secondary py-4">
+              No more conversations
+            </p>
+          {/if}
         </div>
       {/if}
     </div>

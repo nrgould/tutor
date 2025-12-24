@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { getTopics } from '$lib/services/memoryService';
   import { getTopicsDueForReview } from '$lib/utils/spacedRepetition';
+  import { notifyStudySessionComplete, notifyBreakTime } from '$lib/services/notificationService';
   import Button from '$lib/components/shared/Button.svelte';
 
   interface TopicInfo {
@@ -74,12 +75,18 @@
     isPaused = !isPaused;
   }
 
-  function endSession() {
+  async function endSession() {
     isSessionActive = false;
     if (timerInterval) {
       clearInterval(timerInterval);
       timerInterval = null;
     }
+
+    // Send notification about session completion
+    const duration = sessionStartTime
+      ? Math.floor((Date.now() - sessionStartTime.getTime()) / 1000 / 60)
+      : sessionDuration;
+    await notifyStudySessionComplete(duration, selectedTopics.length);
   }
 
   function formatTime(seconds: number): string {

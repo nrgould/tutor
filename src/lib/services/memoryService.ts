@@ -5,6 +5,12 @@ import {
   convertToMemoryObjects,
   convertToTopicObjects,
 } from '$lib/utils/memory';
+import {
+  topicsCache,
+  memoriesCache,
+  withCache,
+  CACHE_TTL,
+} from '$lib/utils/cache';
 import type { Message } from '$lib/types';
 
 interface StoredMemory {
@@ -178,6 +184,10 @@ export async function processConversationMemories(
       memories: memoryObjects.length,
       topics: topicObjects.length,
     });
+
+    // Invalidate caches so fresh data is fetched
+    invalidateTopicsCache();
+    invalidateMemoriesCache();
   } catch (error) {
     console.error('Failed to process conversation memories:', error);
   }
@@ -188,14 +198,33 @@ export async function getUserFacts(): Promise<StoredFact[]> {
   return invoke<StoredFact[]>('get_facts');
 }
 
-// Get all tracked topics
+// Get all tracked topics (with caching)
 export async function getTopics(): Promise<StoredTopic[]> {
-  return invoke<StoredTopic[]>('get_topics');
+  return withCache(topicsCache, 'all_topics', CACHE_TTL.TOPICS, () =>
+    invoke<StoredTopic[]>('get_topics')
+  );
 }
 
-// Get recent memories (not by similarity, just recent)
+// Get topics without cache (for forced refresh)
+export async function getTopicsUncached(): Promise<StoredTopic[]> {
+  topicsCache.delete('all_topics');
+  return getTopics();
+}
+
+// Get recent memories (with caching)
 export async function getRecentMemories(limit: number = 10): Promise<StoredMemory[]> {
-  return invoke<StoredMemory[]>('get_memories', { limit });
+  return withCache(memoriesCache, `recent_${limit}`, CACHE_TTL.MEMORIES, () =>
+    invoke<StoredMemory[]>('get_memories', { limit })
+  );
+}
+
+// Invalidate caches when data changes
+export function invalidateTopicsCache(): void {
+  topicsCache.clear();
+}
+
+export function invalidateMemoriesCache(): void {
+  memoriesCache.clear();
 }
 
 // Build context string for Claude from memories and facts

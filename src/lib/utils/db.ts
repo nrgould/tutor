@@ -6,6 +6,16 @@ export function generateId(): string {
   return crypto.randomUUID();
 }
 
+// Cache for conversations to support client-side pagination
+let conversationsCache: Conversation[] | null = null;
+let conversationsCacheTime = 0;
+const CACHE_DURATION = 30000; // 30 seconds
+
+// Invalidate the conversations cache
+export function invalidateConversationsCache(): void {
+  conversationsCache = null;
+}
+
 // Conversation operations
 export async function createConversation(title?: string): Promise<Conversation> {
   const id = generateId();
@@ -16,11 +26,25 @@ export async function createConversation(title?: string): Promise<Conversation> 
   };
 
   await invoke('create_conversation', { conversation });
+
+  // Invalidate cache since we have new data
+  invalidateConversationsCache();
+
   return conversation;
 }
 
-export async function getConversations(limit: number = 50): Promise<Conversation[]> {
-  return invoke('get_conversations', { limit });
+export async function getConversations(limit: number = 50, offset: number = 0): Promise<Conversation[]> {
+  const now = Date.now();
+
+  // Refresh cache if expired or if we need more data than cached
+  if (!conversationsCache || now - conversationsCacheTime > CACHE_DURATION) {
+    // Fetch a larger batch for caching
+    conversationsCache = await invoke('get_conversations', { limit: Math.max(100, limit + offset) });
+    conversationsCacheTime = now;
+  }
+
+  // Return sliced portion based on offset and limit
+  return conversationsCache.slice(offset, offset + limit);
 }
 
 export async function getConversation(id: string): Promise<Conversation | null> {
