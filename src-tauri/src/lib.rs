@@ -36,6 +36,11 @@ pub fn run() {
             // Initialize database
             db::init(app.handle())?;
 
+            // Explicitly set window decorations off (config may not apply on Windows)
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.set_decorations(false);
+            }
+
             // Initialize recording state
             let recording_state: RecordingStateHandle = Arc::new(Mutex::new(RecordingState::default()));
             app.manage(recording_state);
