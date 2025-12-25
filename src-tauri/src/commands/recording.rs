@@ -1,15 +1,16 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use image::imageops::FilterType;
 use parking_lot::Mutex;
+use rusqlite::Row;
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 use xcap::Monitor;
 
-use crate::db;
+use crate::db::with_connection;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecordingSession {
@@ -65,6 +66,37 @@ impl Default for RecordingState {
 
 pub type RecordingStateHandle = Arc<Mutex<RecordingState>>;
 
+fn row_to_session(row: &Row) -> rusqlite::Result<RecordingSession> {
+    Ok(RecordingSession {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        started_at: row.get(2)?,
+        ended_at: row.get(3)?,
+        interval_seconds: row.get(4)?,
+        screenshot_count: row.get(5)?,
+        notes: row.get(6)?,
+        summary: row.get(7)?,
+    })
+}
+
+fn row_to_screenshot(row: &Row, include_full: bool) -> rusqlite::Result<Screenshot> {
+    let image_data: String = if include_full {
+        row.get(2)?
+    } else {
+        String::new()
+    };
+    Ok(Screenshot {
+        id: row.get(0)?,
+        session_id: row.get(1)?,
+        image_data,
+        thumbnail_data: row.get(3)?,
+        captured_at: row.get(4)?,
+        app_name: row.get(5)?,
+        window_title: row.get(6)?,
+        notes: row.get(7)?,
+    })
+}
+
 fn capture_screenshot_sync() -> Result<(String, String), String> {
     let monitors = Monitor::all().map_err(|e| format!("Failed to get monitors: {}", e))?;
 
@@ -118,12 +150,17 @@ pub async fn start_recording(
     let session_id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-    let conn = db::get_connection(&app).map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT INTO recording_sessions (id, started_at, interval_seconds) VALUES (?1, ?2, ?3)",
-        [&session_id, &now, &interval.to_string()],
-    )
-    .map_err(|e| format!("Failed to create session: {}", e))?;
+    let session_id_clone = session_id.clone();
+    let now_clone = now.clone();
+    let interval_str = interval.to_string();
+
+    with_connection(|conn| {
+        conn.execute(
+            "INSERT INTO recording_sessions (id, started_at, interval_seconds) VALUES (?1, ?2, ?3)",
+            [&session_id_clone, &now_clone, &interval_str],
+        )?;
+        Ok(())
+    })?;
 
     let session = RecordingSession {
         id: session_id.clone(),
@@ -209,21 +246,24 @@ async fn take_and_save_screenshot(
 
     let screenshot_id = Uuid::new_v4().to_string();
     let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let session_id_owned = session_id.to_string();
+    let thumbnail_clone = thumbnail.clone();
 
     // Save to database
-    let conn = db::get_connection(app).map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT INTO screenshots (id, session_id, image_data, thumbnail_data, captured_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-        [&screenshot_id, session_id, &full_image, &thumbnail, &now],
-    )
-    .map_err(|e| format!("Failed to save screenshot: {}", e))?;
+    with_connection(|conn| {
+        conn.execute(
+            "INSERT INTO screenshots (id, session_id, image_data, thumbnail_data, captured_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            [&screenshot_id, &session_id_owned, &full_image, &thumbnail, &now],
+        )?;
 
-    // Update session screenshot count
-    conn.execute(
-        "UPDATE recording_sessions SET screenshot_count = screenshot_count + 1 WHERE id = ?1",
-        [session_id],
-    )
-    .map_err(|e| format!("Failed to update session: {}", e))?;
+        // Update session screenshot count
+        conn.execute(
+            "UPDATE recording_sessions SET screenshot_count = screenshot_count + 1 WHERE id = ?1",
+            [&session_id_owned],
+        )?;
+
+        Ok(())
+    })?;
 
     // Update state and emit event
     let count = {
@@ -236,7 +276,7 @@ async fn take_and_save_screenshot(
         id: screenshot_id,
         session_id: session_id.to_string(),
         image_data: String::new(), // Don't send full image in event
-        thumbnail_data: Some(thumbnail),
+        thumbnail_data: Some(thumbnail_clone),
         captured_at: now.clone(),
         app_name: None,
         window_title: None,
@@ -281,33 +321,19 @@ pub async fn stop_recording(
     let session_id = session_id.ok_or_else(|| "No session ID".to_string())?;
     let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
 
-    // Update session in database
-    let conn = db::get_connection(&app).map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE recording_sessions SET ended_at = ?1 WHERE id = ?2",
-        [&now, &session_id],
-    )
-    .map_err(|e| format!("Failed to update session: {}", e))?;
+    // Update session in database and get the session
+    let session = with_connection(|conn| {
+        conn.execute(
+            "UPDATE recording_sessions SET ended_at = ?1 WHERE id = ?2",
+            [&now, &session_id],
+        )?;
 
-    // Get session data
-    let session = conn
-        .query_row(
+        conn.query_row(
             "SELECT id, name, started_at, ended_at, interval_seconds, screenshot_count, notes, summary FROM recording_sessions WHERE id = ?1",
             [&session_id],
-            |row| {
-                Ok(RecordingSession {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    started_at: row.get(2)?,
-                    ended_at: row.get(3)?,
-                    interval_seconds: row.get(4)?,
-                    screenshot_count: row.get(5)?,
-                    notes: row.get(6)?,
-                    summary: row.get(7)?,
-                })
-            },
+            row_to_session,
         )
-        .map_err(|e| format!("Failed to get session: {}", e))?;
+    })?;
 
     // Emit status update
     let _ = app.emit("recording-status", RecordingStatus {
@@ -334,177 +360,105 @@ pub async fn get_recording_status(
 }
 
 #[tauri::command]
-pub async fn get_recording_sessions(
-    app: AppHandle,
-    limit: Option<i32>,
-) -> Result<Vec<RecordingSession>, String> {
+pub async fn get_recording_sessions(limit: Option<i32>) -> Result<Vec<RecordingSession>, String> {
     let limit = limit.unwrap_or(50);
-    let conn = db::get_connection(&app).map_err(|e| e.to_string())?;
 
-    let mut stmt = conn
-        .prepare(
+    with_connection(move |conn| {
+        let mut stmt = conn.prepare(
             "SELECT id, name, started_at, ended_at, interval_seconds, screenshot_count, notes, summary
              FROM recording_sessions
              ORDER BY started_at DESC
              LIMIT ?1",
-        )
-        .map_err(|e| format!("Failed to prepare query: {}", e))?;
+        )?;
 
-    let sessions = stmt
-        .query_map([limit], |row| {
-            Ok(RecordingSession {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                started_at: row.get(2)?,
-                ended_at: row.get(3)?,
-                interval_seconds: row.get(4)?,
-                screenshot_count: row.get(5)?,
-                notes: row.get(6)?,
-                summary: row.get(7)?,
-            })
-        })
-        .map_err(|e| format!("Failed to query sessions: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Failed to collect sessions: {}", e))?;
+        let sessions = stmt
+            .query_map([limit], row_to_session)?
+            .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(sessions)
+        Ok(sessions)
+    })
 }
 
 #[tauri::command]
 pub async fn get_session_screenshots(
-    app: AppHandle,
     session_id: String,
     include_full_image: Option<bool>,
 ) -> Result<Vec<Screenshot>, String> {
     let include_full = include_full_image.unwrap_or(false);
-    let conn = db::get_connection(&app).map_err(|e| e.to_string())?;
 
-    let mut stmt = conn
-        .prepare(
+    with_connection(move |conn| {
+        let mut stmt = conn.prepare(
             "SELECT id, session_id, image_data, thumbnail_data, captured_at, app_name, window_title, notes
              FROM screenshots
              WHERE session_id = ?1
              ORDER BY captured_at ASC",
-        )
-        .map_err(|e| format!("Failed to prepare query: {}", e))?;
+        )?;
 
-    let screenshots = stmt
-        .query_map([&session_id], |row| {
-            let image_data: String = if include_full {
-                row.get(2)?
-            } else {
-                String::new()
-            };
-            Ok(Screenshot {
-                id: row.get(0)?,
-                session_id: row.get(1)?,
-                image_data,
-                thumbnail_data: row.get(3)?,
-                captured_at: row.get(4)?,
-                app_name: row.get(5)?,
-                window_title: row.get(6)?,
-                notes: row.get(7)?,
-            })
-        })
-        .map_err(|e| format!("Failed to query screenshots: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("Failed to collect screenshots: {}", e))?;
+        let screenshots = stmt
+            .query_map([&session_id], |row| row_to_screenshot(row, include_full))?
+            .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(screenshots)
+        Ok(screenshots)
+    })
 }
 
 #[tauri::command]
-pub async fn get_screenshot(
-    app: AppHandle,
-    screenshot_id: String,
-) -> Result<Screenshot, String> {
-    let conn = db::get_connection(&app).map_err(|e| e.to_string())?;
-
-    conn.query_row(
-        "SELECT id, session_id, image_data, thumbnail_data, captured_at, app_name, window_title, notes
-         FROM screenshots
-         WHERE id = ?1",
-        [&screenshot_id],
-        |row| {
-            Ok(Screenshot {
-                id: row.get(0)?,
-                session_id: row.get(1)?,
-                image_data: row.get(2)?,
-                thumbnail_data: row.get(3)?,
-                captured_at: row.get(4)?,
-                app_name: row.get(5)?,
-                window_title: row.get(6)?,
-                notes: row.get(7)?,
-            })
-        },
-    )
-    .map_err(|e| format!("Failed to get screenshot: {}", e))
+pub async fn get_screenshot(screenshot_id: String) -> Result<Screenshot, String> {
+    with_connection(|conn| {
+        conn.query_row(
+            "SELECT id, session_id, image_data, thumbnail_data, captured_at, app_name, window_title, notes
+             FROM screenshots
+             WHERE id = ?1",
+            [&screenshot_id],
+            |row| row_to_screenshot(row, true),
+        )
+    })
 }
 
 #[tauri::command]
 pub async fn update_session(
-    app: AppHandle,
     session_id: String,
     name: Option<String>,
     notes: Option<String>,
 ) -> Result<RecordingSession, String> {
-    let conn = db::get_connection(&app).map_err(|e| e.to_string())?;
+    with_connection(|conn| {
+        if let Some(ref name) = name {
+            conn.execute(
+                "UPDATE recording_sessions SET name = ?1 WHERE id = ?2",
+                [name, &session_id],
+            )?;
+        }
 
-    if let Some(name) = &name {
-        conn.execute(
-            "UPDATE recording_sessions SET name = ?1 WHERE id = ?2",
-            [name, &session_id],
+        if let Some(ref notes) = notes {
+            conn.execute(
+                "UPDATE recording_sessions SET notes = ?1 WHERE id = ?2",
+                [notes, &session_id],
+            )?;
+        }
+
+        conn.query_row(
+            "SELECT id, name, started_at, ended_at, interval_seconds, screenshot_count, notes, summary FROM recording_sessions WHERE id = ?1",
+            [&session_id],
+            row_to_session,
         )
-        .map_err(|e| format!("Failed to update name: {}", e))?;
-    }
-
-    if let Some(notes) = &notes {
-        conn.execute(
-            "UPDATE recording_sessions SET notes = ?1 WHERE id = ?2",
-            [notes, &session_id],
-        )
-        .map_err(|e| format!("Failed to update notes: {}", e))?;
-    }
-
-    conn.query_row(
-        "SELECT id, name, started_at, ended_at, interval_seconds, screenshot_count, notes, summary FROM recording_sessions WHERE id = ?1",
-        [&session_id],
-        |row| {
-            Ok(RecordingSession {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                started_at: row.get(2)?,
-                ended_at: row.get(3)?,
-                interval_seconds: row.get(4)?,
-                screenshot_count: row.get(5)?,
-                notes: row.get(6)?,
-                summary: row.get(7)?,
-            })
-        },
-    )
-    .map_err(|e| format!("Failed to get session: {}", e))
+    })
 }
 
 #[tauri::command]
-pub async fn delete_session(
-    app: AppHandle,
-    session_id: String,
-) -> Result<(), String> {
-    let conn = db::get_connection(&app).map_err(|e| e.to_string())?;
+pub async fn delete_session(session_id: String) -> Result<(), String> {
+    with_connection(|conn| {
+        // Delete screenshots first
+        conn.execute(
+            "DELETE FROM screenshots WHERE session_id = ?1",
+            [&session_id],
+        )?;
 
-    // Delete screenshots first
-    conn.execute(
-        "DELETE FROM screenshots WHERE session_id = ?1",
-        [&session_id],
-    )
-    .map_err(|e| format!("Failed to delete screenshots: {}", e))?;
+        // Delete session
+        conn.execute(
+            "DELETE FROM recording_sessions WHERE id = ?1",
+            [&session_id],
+        )?;
 
-    // Delete session
-    conn.execute(
-        "DELETE FROM recording_sessions WHERE id = ?1",
-        [&session_id],
-    )
-    .map_err(|e| format!("Failed to delete session: {}", e))?;
-
-    Ok(())
+        Ok(())
+    })
 }
