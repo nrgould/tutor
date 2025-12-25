@@ -303,20 +303,22 @@ pub async fn stop_recording(
     app: AppHandle,
     state: State<'_, RecordingStateHandle>,
 ) -> Result<RecordingSession, String> {
-    let session_id = {
+    // Extract what we need from state, then release the lock before awaiting
+    let (session_id, stop_sender) = {
         let mut state_guard = state.lock();
         if !state_guard.is_recording {
             return Err("Not recording".to_string());
         }
 
-        // Send stop signal
-        if let Some(sender) = state_guard.stop_sender.take() {
-            let _ = sender.send(()).await;
-        }
-
+        let sender = state_guard.stop_sender.take();
         state_guard.is_recording = false;
-        state_guard.session_id.take()
+        (state_guard.session_id.take(), sender)
     };
+
+    // Send stop signal outside the lock
+    if let Some(sender) = stop_sender {
+        let _ = sender.send(()).await;
+    }
 
     let session_id = session_id.ok_or_else(|| "No session ID".to_string())?;
     let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
