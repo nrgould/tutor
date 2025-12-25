@@ -145,3 +145,38 @@ export interface RecordingState {
   sessions: RecordingSession[];
   isLoading: boolean;
 }
+
+// Note types
+export interface Note {
+  id: string;
+  title?: string;
+  content: string;
+  summary?: string;
+  session_id?: string;
+  topic_id?: string;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateNoteInput {
+  title?: string;
+  content: string;
+  session_id?: string;
+  topic_id?: string;
+}
+
+export interface UpdateNoteInput {
+  title?: string;
+  content?: string;
+  summary?: string;
+  topic_id?: string;
+  is_pinned?: boolean;
+}
+
+export interface NotesState {
+  notes: Note[];
+  selectedNote: Note | null;
+  isLoading: boolean;
+  searchQuery: string;
+}

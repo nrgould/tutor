@@ -117,6 +117,27 @@ pub fn init_database(conn: &Connection) -> rusqlite::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_screenshots_session_id ON screenshots(session_id);
         CREATE INDEX IF NOT EXISTS idx_screenshots_captured_at ON screenshots(captured_at);
 
+        -- Notes table
+        CREATE TABLE IF NOT EXISTS notes (
+            id TEXT PRIMARY KEY,
+            title TEXT,
+            content TEXT NOT NULL,
+            summary TEXT,
+            session_id TEXT,
+            topic_id TEXT,
+            is_pinned INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (session_id) REFERENCES recording_sessions(id),
+            FOREIGN KEY (topic_id) REFERENCES topics(id)
+        );
+
+        -- Create indexes for notes
+        CREATE INDEX IF NOT EXISTS idx_notes_session_id ON notes(session_id);
+        CREATE INDEX IF NOT EXISTS idx_notes_topic_id ON notes(topic_id);
+        CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at);
+        CREATE INDEX IF NOT EXISTS idx_notes_is_pinned ON notes(is_pinned);
+
         -- Insert default settings if they don't exist
         INSERT OR IGNORE INTO settings (key, value) VALUES
             ('anthropic_api_key', ''),

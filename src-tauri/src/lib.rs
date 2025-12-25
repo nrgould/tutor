@@ -150,6 +150,14 @@ pub fn run() {
             commands::get_screenshot,
             commands::update_session,
             commands::delete_session,
+            // Notes commands
+            commands::create_note,
+            commands::get_note,
+            commands::get_notes,
+            commands::update_note,
+            commands::delete_note,
+            commands::toggle_note_pin,
+            commands::search_notes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
