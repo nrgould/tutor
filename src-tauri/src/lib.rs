@@ -158,6 +158,17 @@ pub fn run() {
             commands::delete_note,
             commands::toggle_note_pin,
             commands::search_notes,
+            // Courses commands
+            commands::create_course,
+            commands::get_courses,
+            commands::get_course,
+            commands::update_course,
+            commands::delete_course,
+            commands::add_course_material,
+            commands::get_course_materials,
+            commands::toggle_material_completed,
+            commands::delete_material,
+            commands::get_upcoming_assignments,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

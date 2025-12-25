@@ -180,3 +180,58 @@ export interface NotesState {
   isLoading: boolean;
   searchQuery: string;
 }
+
+// Course types
+export interface Course {
+  id: string;
+  name: string;
+  code?: string;
+  description?: string;
+  instructor?: string;
+  semester?: string;
+  color: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type MaterialType = 'syllabus' | 'reading' | 'assignment' | 'lecture' | 'resource' | 'other';
+
+export interface CourseMaterial {
+  id: string;
+  course_id: string;
+  title: string;
+  material_type: MaterialType;
+  content?: string;
+  file_path?: string;
+  url?: string;
+  due_date?: string;
+  is_completed: boolean;
+  created_at: string;
+}
+
+export interface CreateCourseInput {
+  name: string;
+  code?: string;
+  description?: string;
+  instructor?: string;
+  semester?: string;
+  color?: string;
+}
+
+export interface CreateMaterialInput {
+  course_id: string;
+  title: string;
+  material_type: MaterialType;
+  content?: string;
+  file_path?: string;
+  url?: string;
+  due_date?: string;
+}
+
+export interface CoursesState {
+  courses: Course[];
+  selectedCourse: Course | null;
+  materials: CourseMaterial[];
+  isLoading: boolean;
+}

@@ -138,6 +138,41 @@ pub fn init_database(conn: &Connection) -> rusqlite::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at);
         CREATE INDEX IF NOT EXISTS idx_notes_is_pinned ON notes(is_pinned);
 
+        -- Courses table
+        CREATE TABLE IF NOT EXISTS courses (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            code TEXT,
+            description TEXT,
+            instructor TEXT,
+            semester TEXT,
+            color TEXT DEFAULT '#3b82f6',
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        -- Course materials table
+        CREATE TABLE IF NOT EXISTS course_materials (
+            id TEXT PRIMARY KEY,
+            course_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            type TEXT NOT NULL CHECK (type IN ('syllabus', 'reading', 'assignment', 'lecture', 'resource', 'other')),
+            content TEXT,
+            file_path TEXT,
+            url TEXT,
+            due_date TEXT,
+            is_completed INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (course_id) REFERENCES courses(id)
+        );
+
+        -- Create indexes for courses
+        CREATE INDEX IF NOT EXISTS idx_courses_is_active ON courses(is_active);
+        CREATE INDEX IF NOT EXISTS idx_course_materials_course_id ON course_materials(course_id);
+        CREATE INDEX IF NOT EXISTS idx_course_materials_type ON course_materials(type);
+        CREATE INDEX IF NOT EXISTS idx_course_materials_due_date ON course_materials(due_date);
+
         -- Insert default settings if they don't exist
         INSERT OR IGNORE INTO settings (key, value) VALUES
             ('anthropic_api_key', ''),
