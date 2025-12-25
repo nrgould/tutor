@@ -18,7 +18,7 @@
         "height": 600,
         "resizable": true,
         "alwaysOnTop": true,
-        "decorations": false,
+        "decorations": true,
         "transparent": false,
         "visible": false,
         "focus": true,
