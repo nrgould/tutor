@@ -19,6 +19,10 @@
 
   const appWindow = getCurrentWindow();
 
+  function startDrag() {
+    appWindow.startDragging();
+  }
+
   function minimizeWindow() {
     appWindow.minimize();
   }
@@ -186,17 +190,19 @@
 <div class="h-full flex flex-col bg-[var(--gray-1)] rounded-xl overflow-hidden">
   <!-- Titlebar with drag region -->
   <div
-    class="flex items-center justify-between h-8 bg-[var(--gray-2)] border-b border-[var(--gray-4)] select-none"
-    data-tauri-drag-region
+    class="flex items-center justify-between h-8 bg-[var(--gray-2)] border-b border-[var(--gray-4)] select-none cursor-grab active:cursor-grabbing"
+    onmousedown={startDrag}
+    role="toolbar"
   >
-    <div class="flex items-center gap-2 pl-3" data-tauri-drag-region>
+    <div class="flex items-center gap-2 pl-3 pointer-events-none">
       <div class="w-3 h-3 rounded-full bg-[var(--accent)]"></div>
-      <span class="text-xs font-medium text-[var(--gray-10)]" data-tauri-drag-region>Eigen</span>
+      <span class="text-xs font-medium text-[var(--gray-10)]">Eigen</span>
     </div>
-    <div class="flex items-center">
+    <div class="flex items-center pointer-events-auto">
       <button
         class="w-8 h-8 flex items-center justify-center text-[var(--gray-9)] hover:bg-[var(--gray-4)] transition-colors"
-        onclick={minimizeWindow}
+        onclick={(e) => { e.stopPropagation(); minimizeWindow(); }}
+        onmousedown={(e) => e.stopPropagation()}
         aria-label="Minimize"
       >
         <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -205,7 +211,8 @@
       </button>
       <button
         class="w-8 h-8 flex items-center justify-center text-[var(--gray-9)] hover:bg-[var(--error)] hover:text-white transition-colors"
-        onclick={closeWindow}
+        onclick={(e) => { e.stopPropagation(); closeWindow(); }}
+        onmousedown={(e) => e.stopPropagation()}
         aria-label="Close"
       >
         <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
