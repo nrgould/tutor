@@ -37,12 +37,24 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-body {
+html, body {
   margin: 0;
   padding: 0;
-  background: var(--gray-1);
+  background: transparent;
   color: var(--gray-12);
   letter-spacing: -0.01em;
+  overflow: hidden;
+  height: 100%;
+}
+
+/* Window drag region */
+[data-tauri-drag-region] {
+  cursor: grab;
+  user-select: none;
+}
+
+[data-tauri-drag-region]:active {
+  cursor: grabbing;
 }
 
 /* Scrollbar */
