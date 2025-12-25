@@ -108,3 +108,40 @@ export interface ChatState {
   isLoading: boolean;
   error: string | null;
 }
+
+// Recording types
+export interface RecordingSession {
+  id: string;
+  name?: string;
+  started_at: string;
+  ended_at?: string;
+  interval_seconds: number;
+  screenshot_count: number;
+  notes?: string;
+  summary?: string;
+}
+
+export interface Screenshot {
+  id: string;
+  session_id: string;
+  image_data: string;
+  thumbnail_data?: string;
+  captured_at: string;
+  app_name?: string;
+  window_title?: string;
+  notes?: string;
+}
+
+export interface RecordingStatus {
+  is_recording: boolean;
+  session_id?: string;
+  screenshot_count: number;
+  started_at?: string;
+}
+
+export interface RecordingState {
+  status: RecordingStatus;
+  currentSession: RecordingSession | null;
+  sessions: RecordingSession[];
+  isLoading: boolean;
+}

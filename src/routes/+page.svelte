@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { chatStore } from '$lib/stores/chat';
   import { settingsStore } from '$lib/stores/settings';
+  import { recordingStore } from '$lib/stores/recording';
   import { streamChat } from '$lib/utils/api';
   import { createConversation, saveMessage, getConversations, getMessages } from '$lib/utils/db';
   import { processConversationMemories, getTopics } from '$lib/services/memoryService';
@@ -11,6 +12,8 @@
   import ChatMessage from '$lib/components/overlay/ChatMessage.svelte';
   import ChatInput from '$lib/components/overlay/ChatInput.svelte';
   import ConversationHistory from '$lib/components/ConversationHistory.svelte';
+  import RecordingIndicator from '$lib/components/recording/RecordingIndicator.svelte';
+  import SessionsPanel from '$lib/components/recording/SessionsPanel.svelte';
   import type { Message, ScreenContext } from '$lib/types';
 
   interface TopicInfo {
@@ -24,47 +27,57 @@
 
   let messagesContainer: HTMLDivElement;
   let showHistory = $state(false);
+  let showSessions = $state(false);
   let showReviewBanner = $state(true);
   let topicsDue = $state<TopicInfo[]>([]);
 
   const chat = $derived($chatStore);
   const settings = $derived($settingsStore);
 
-  onMount(async () => {
-    await settingsStore.load();
+  onMount(() => {
+    const init = async () => {
+      await settingsStore.load();
+      await recordingStore.init();
 
-    try {
-      const conversations = await getConversations(1);
-      if (conversations.length > 0) {
-        chatStore.setConversation(conversations[0]);
-        const msgs = await getMessages(conversations[0].id);
-        chatStore.setMessages(msgs);
-      } else {
+      try {
+        const conversations = await getConversations(1);
+        if (conversations.length > 0) {
+          chatStore.setConversation(conversations[0]);
+          const msgs = await getMessages(conversations[0].id);
+          chatStore.setMessages(msgs);
+        } else {
+          await startNewConversation();
+        }
+      } catch (error) {
+        console.error('Failed to load conversations:', error);
         await startNewConversation();
       }
-    } catch (error) {
-      console.error('Failed to load conversations:', error);
-      await startNewConversation();
-    }
 
-    try {
-      const allTopics = await getTopics();
-      topicsDue = getTopicsDueForReview(allTopics);
-      await ensureNotificationPermission();
+      try {
+        const allTopics = await getTopics();
+        topicsDue = getTopicsDueForReview(allTopics);
+        await ensureNotificationPermission();
 
-      if (topicsDue.length > 0) {
-        const lastNotified = localStorage.getItem('lastReviewNotification');
-        const now = Date.now();
-        const oneHour = 60 * 60 * 1000;
+        if (topicsDue.length > 0) {
+          const lastNotified = localStorage.getItem('lastReviewNotification');
+          const now = Date.now();
+          const oneHour = 60 * 60 * 1000;
 
-        if (!lastNotified || now - parseInt(lastNotified) > oneHour) {
-          await notifyReviewDue(topicsDue.length, topicsDue.map((t) => t.name));
-          localStorage.setItem('lastReviewNotification', now.toString());
+          if (!lastNotified || now - parseInt(lastNotified) > oneHour) {
+            await notifyReviewDue(topicsDue.length, topicsDue.map((t) => t.name));
+            localStorage.setItem('lastReviewNotification', now.toString());
+          }
         }
+      } catch (error) {
+        console.warn('Failed to load topics for review:', error);
       }
-    } catch (error) {
-      console.warn('Failed to load topics for review:', error);
-    }
+    };
+
+    init();
+
+    return () => {
+      recordingStore.cleanup();
+    };
   });
 
   async function startNewConversation() {
@@ -179,6 +192,17 @@
       >
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      </button>
+      <div class="w-px h-4 bg-[var(--gray-5)] mx-1"></div>
+      <RecordingIndicator />
+      <button
+        class="p-2 rounded-lg text-[var(--gray-9)] hover:text-[var(--gray-12)] hover:bg-[var(--gray-4)] transition-colors"
+        onclick={() => (showSessions = true)}
+        title="Recording sessions"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
       </button>
     </div>
@@ -316,3 +340,6 @@
 
 <!-- Conversation History Sidebar -->
 <ConversationHistory open={showHistory} onclose={() => (showHistory = false)} />
+
+<!-- Recording Sessions Panel -->
+<SessionsPanel open={showSessions} onclose={() => (showSessions = false)} />

@@ -7,14 +7,18 @@
 
   let { children } = $props();
 
-  onMount(async () => {
+  onMount(() => {
+    let unlisten: (() => void) | undefined;
+
     // Listen for navigation events from the tray menu
-    const unlisten = await listen<string>('navigate', (event) => {
+    listen<string>('navigate', (event) => {
       goto(event.payload);
+    }).then((fn) => {
+      unlisten = fn;
     });
 
     return () => {
-      unlisten();
+      unlisten?.();
     };
   });
 

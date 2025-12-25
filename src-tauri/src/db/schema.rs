@@ -88,6 +88,35 @@ pub fn init_database(conn: &Connection) -> rusqlite::Result<()> {
             value TEXT NOT NULL
         );
 
+        -- Recording sessions table
+        CREATE TABLE IF NOT EXISTS recording_sessions (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            started_at TEXT DEFAULT (datetime('now')),
+            ended_at TEXT,
+            interval_seconds INTEGER DEFAULT 30,
+            screenshot_count INTEGER DEFAULT 0,
+            notes TEXT,
+            summary TEXT
+        );
+
+        -- Screenshots table
+        CREATE TABLE IF NOT EXISTS screenshots (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            image_data TEXT NOT NULL,
+            thumbnail_data TEXT,
+            captured_at TEXT DEFAULT (datetime('now')),
+            app_name TEXT,
+            window_title TEXT,
+            notes TEXT,
+            FOREIGN KEY (session_id) REFERENCES recording_sessions(id)
+        );
+
+        -- Create indexes for screenshots
+        CREATE INDEX IF NOT EXISTS idx_screenshots_session_id ON screenshots(session_id);
+        CREATE INDEX IF NOT EXISTS idx_screenshots_captured_at ON screenshots(captured_at);
+
         -- Insert default settings if they don't exist
         INSERT OR IGNORE INTO settings (key, value) VALUES
             ('anthropic_api_key', ''),

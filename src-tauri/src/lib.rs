@@ -2,6 +2,8 @@ mod commands;
 mod db;
 mod utils;
 
+use parking_lot::Mutex;
+use std::sync::Arc;
 use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
@@ -9,6 +11,8 @@ use tauri::{
     Manager,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
+
+use commands::recording::{RecordingState, RecordingStateHandle};
 
 fn toggle_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -31,6 +35,10 @@ pub fn run() {
         .setup(|app| {
             // Initialize database
             db::init(app.handle())?;
+
+            // Initialize recording state
+            let recording_state: RecordingStateHandle = Arc::new(Mutex::new(RecordingState::default()));
+            app.manage(recording_state);
 
             // Build tray menu
             let show_item = MenuItemBuilder::with_id("show", "Show Eigen").build(app)?;
@@ -133,6 +141,15 @@ pub fn run() {
             commands::update_topic_mastery,
             commands::save_fact,
             commands::get_facts,
+            // Recording commands
+            commands::start_recording,
+            commands::stop_recording,
+            commands::get_recording_status,
+            commands::get_recording_sessions,
+            commands::get_session_screenshots,
+            commands::get_screenshot,
+            commands::update_session,
+            commands::delete_session,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
