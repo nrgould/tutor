@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
   import { chatStore } from '$lib/stores/chat';
   import { settingsStore } from '$lib/stores/settings';
   import { recordingStore } from '$lib/stores/recording';
@@ -15,6 +16,16 @@
   import RecordingIndicator from '$lib/components/recording/RecordingIndicator.svelte';
   import SessionsPanel from '$lib/components/recording/SessionsPanel.svelte';
   import type { Message, ScreenContext } from '$lib/types';
+
+  const appWindow = getCurrentWindow();
+
+  function minimizeWindow() {
+    appWindow.minimize();
+  }
+
+  function closeWindow() {
+    appWindow.hide();
+  }
 
   interface TopicInfo {
     id: string;
@@ -172,7 +183,38 @@
   });
 </script>
 
-<div class="h-full flex flex-col bg-[var(--gray-1)]">
+<div class="h-full flex flex-col bg-[var(--gray-1)] rounded-xl overflow-hidden">
+  <!-- Titlebar with drag region -->
+  <div
+    class="flex items-center justify-between h-8 bg-[var(--gray-2)] border-b border-[var(--gray-4)] select-none"
+    data-tauri-drag-region
+  >
+    <div class="flex items-center gap-2 pl-3" data-tauri-drag-region>
+      <div class="w-3 h-3 rounded-full bg-[var(--accent)]"></div>
+      <span class="text-xs font-medium text-[var(--gray-10)]" data-tauri-drag-region>Eigen</span>
+    </div>
+    <div class="flex items-center">
+      <button
+        class="w-8 h-8 flex items-center justify-center text-[var(--gray-9)] hover:bg-[var(--gray-4)] transition-colors"
+        onclick={minimizeWindow}
+        aria-label="Minimize"
+      >
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
+        </svg>
+      </button>
+      <button
+        class="w-8 h-8 flex items-center justify-center text-[var(--gray-9)] hover:bg-[var(--error)] hover:text-white transition-colors"
+        onclick={closeWindow}
+        aria-label="Close"
+      >
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
   <!-- Toolbar -->
   <div class="flex items-center justify-between px-3 py-2 border-b border-[var(--gray-4)] bg-[var(--gray-2)]">
     <div class="flex items-center gap-1">

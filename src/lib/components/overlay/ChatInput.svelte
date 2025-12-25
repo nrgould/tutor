@@ -72,7 +72,7 @@
     {/if}
 
     <!-- Input area -->
-    <div class="flex items-end gap-3">
+    <div class="flex items-center gap-3">
       <!-- Screenshot button -->
       <button
         class="flex-shrink-0 w-10 h-10 rounded-xl bg-[var(--gray-3)] border border-[var(--gray-4)] text-[var(--gray-10)] hover:text-[var(--gray-12)] hover:bg-[var(--gray-4)] hover:border-[var(--gray-5)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
