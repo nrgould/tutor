@@ -158,3 +158,45 @@ export async function chat(messages: Message[], context?: TutorContext): Promise
   }
   return fullResponse;
 }
+
+export async function generateNoteSummary(content: string): Promise<string> {
+  const settings = get(settingsStore);
+
+  if (!settings.anthropic_api_key) {
+    throw new Error('Anthropic API key not configured.');
+  }
+
+  const response = await fetch(CLAUDE_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': settings.anthropic_api_key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 500,
+      system: `You are a helpful assistant that creates concise summaries of study notes.
+Your summaries should:
+- Be 2-3 sentences maximum
+- Capture the key concepts and main takeaways
+- Be written in a clear, direct style
+- Focus on what the learner should remember`,
+      messages: [
+        {
+          role: 'user',
+          content: `Please summarize the following study notes:\n\n${content}`,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+    throw new Error(error.error?.message || `API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.content?.[0]?.text || 'Unable to generate summary.';
+}

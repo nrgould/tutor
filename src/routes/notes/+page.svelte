@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { notesStore } from '$lib/stores/notes';
+  import { generateNoteSummary } from '$lib/utils/api';
   import type { Note } from '$lib/types';
 
   const notes = $derived($notesStore);
@@ -12,6 +13,8 @@
   let newNoteContent = $state('');
   let searchInput = $state('');
   let searchTimeout: ReturnType<typeof setTimeout>;
+  let generatingSummaryFor = $state<string | null>(null);
+  let expandedNote = $state<string | null>(null);
 
   onMount(async () => {
     await notesStore.loadNotes();
@@ -116,6 +119,25 @@
     newNoteTitle = '';
     newNoteContent = '';
   }
+
+  async function handleGenerateSummary(note: Note) {
+    if (generatingSummaryFor) return;
+
+    generatingSummaryFor = note.id;
+    try {
+      const summary = await generateNoteSummary(note.content);
+      await notesStore.updateNote(note.id, { summary });
+    } catch (e) {
+      console.error('Failed to generate summary:', e);
+      alert('Failed to generate summary. Make sure your API key is configured.');
+    } finally {
+      generatingSummaryFor = null;
+    }
+  }
+
+  function toggleExpand(noteId: string) {
+    expandedNote = expandedNote === noteId ? null : noteId;
+  }
 </script>
 
 <div class="h-full flex flex-col bg-[var(--gray-1)]">
@@ -211,61 +233,135 @@
     {:else}
       <div class="divide-y divide-[var(--gray-4)]">
         {#each notes.notes as note (note.id)}
-          <div class="group px-4 py-3 hover:bg-[var(--gray-3)] transition-colors">
-            <div class="flex items-start gap-3">
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  {#if note.is_pinned}
-                    <svg class="w-3 h-3 text-[var(--accent)]" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
-                    </svg>
-                  {/if}
-                  <span class="text-sm font-medium text-[var(--gray-12)] truncate">
-                    {note.title || 'Untitled'}
-                  </span>
-                </div>
-                <p class="mt-0.5 text-xs text-[var(--gray-10)] line-clamp-2">
-                  {truncate(note.content, 120)}
-                </p>
-                <div class="mt-1.5 flex items-center gap-2 text-[10px] text-[var(--gray-9)]">
-                  <span>{formatDate(note.updated_at)}</span>
-                  {#if note.summary}
-                    <span class="px-1.5 py-0.5 rounded bg-[var(--gray-4)] text-[var(--gray-10)]">
-                      Summary
+          <div class="group">
+            <button
+              class="w-full text-left px-4 py-3 hover:bg-[var(--gray-3)] transition-colors"
+              onclick={() => toggleExpand(note.id)}
+            >
+              <div class="flex items-start gap-3">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    {#if note.is_pinned}
+                      <svg class="w-3 h-3 text-[var(--accent)]" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+                      </svg>
+                    {/if}
+                    <span class="text-sm font-medium text-[var(--gray-12)] truncate">
+                      {note.title || 'Untitled'}
                     </span>
-                  {/if}
+                  </div>
+                  <p class="mt-0.5 text-xs text-[var(--gray-10)] line-clamp-2">
+                    {truncate(note.content, 120)}
+                  </p>
+                  <div class="mt-1.5 flex items-center gap-2 text-[10px] text-[var(--gray-9)]">
+                    <span>{formatDate(note.updated_at)}</span>
+                    {#if note.summary}
+                      <span class="px-1.5 py-0.5 rounded bg-[var(--accent-muted)] text-[var(--accent)]">
+                        AI Summary
+                      </span>
+                    {/if}
+                  </div>
+                </div>
+                <svg
+                  class="w-4 h-4 text-[var(--gray-8)] transition-transform {expandedNote === note.id ? 'rotate-180' : ''}"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                </svg>
+              </div>
+            </button>
+
+            {#if expandedNote === note.id}
+              <div class="px-4 pb-3 space-y-3 animate-slide-up">
+                <!-- Full content -->
+                <div class="p-3 rounded-lg bg-[var(--gray-3)] border border-[var(--gray-4)]">
+                  <p class="text-xs text-[var(--gray-11)] whitespace-pre-wrap">{note.content}</p>
+                </div>
+
+                <!-- Summary section -->
+                {#if note.summary}
+                  <div class="p-3 rounded-lg bg-[var(--accent-muted)] border border-[var(--accent)]/20">
+                    <div class="flex items-center gap-1.5 mb-1.5">
+                      <svg class="w-3 h-3 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+                      </svg>
+                      <span class="text-[10px] font-medium text-[var(--accent)]">AI Summary</span>
+                    </div>
+                    <p class="text-xs text-[var(--gray-11)]">{note.summary}</p>
+                  </div>
+                {/if}
+
+                <!-- Actions -->
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-1">
+                    {#if !note.summary}
+                      <button
+                        class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50"
+                        onclick={() => handleGenerateSummary(note)}
+                        disabled={generatingSummaryFor === note.id}
+                      >
+                        {#if generatingSummaryFor === note.id}
+                          <div class="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          Generating...
+                        {:else}
+                          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+                          </svg>
+                          Generate Summary
+                        {/if}
+                      </button>
+                    {:else}
+                      <button
+                        class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg text-[var(--gray-11)] hover:bg-[var(--gray-4)] transition-colors disabled:opacity-50"
+                        onclick={() => handleGenerateSummary(note)}
+                        disabled={generatingSummaryFor === note.id}
+                      >
+                        {#if generatingSummaryFor === note.id}
+                          <div class="w-3 h-3 border-2 border-[var(--gray-6)] border-t-[var(--gray-11)] rounded-full animate-spin"></div>
+                        {:else}
+                          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                          </svg>
+                          Regenerate
+                        {/if}
+                      </button>
+                    {/if}
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <button
+                      class="p-1.5 rounded-lg text-[var(--gray-8)] hover:text-[var(--accent)] hover:bg-[var(--gray-4)] transition-colors"
+                      onclick={() => handleTogglePin(note.id)}
+                      title={note.is_pinned ? 'Unpin' : 'Pin'}
+                    >
+                      <svg class="w-4 h-4" fill={note.is_pinned ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
+                      </svg>
+                    </button>
+                    <button
+                      class="p-1.5 rounded-lg text-[var(--gray-8)] hover:text-[var(--gray-12)] hover:bg-[var(--gray-4)] transition-colors"
+                      onclick={() => startEditing(note)}
+                      title="Edit"
+                    >
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                      </svg>
+                    </button>
+                    <button
+                      class="p-1.5 rounded-lg text-[var(--gray-8)] hover:text-[var(--error)] hover:bg-[var(--gray-4)] transition-colors"
+                      onclick={() => handleDeleteNote(note.id)}
+                      title="Delete"
+                    >
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  class="p-1.5 rounded-lg text-[var(--gray-8)] hover:text-[var(--accent)] hover:bg-[var(--gray-4)] transition-colors"
-                  onclick={() => handleTogglePin(note.id)}
-                  title={note.is_pinned ? 'Unpin' : 'Pin'}
-                >
-                  <svg class="w-4 h-4" fill={note.is_pinned ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z" />
-                  </svg>
-                </button>
-                <button
-                  class="p-1.5 rounded-lg text-[var(--gray-8)] hover:text-[var(--gray-12)] hover:bg-[var(--gray-4)] transition-colors"
-                  onclick={() => startEditing(note)}
-                  title="Edit"
-                >
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                  </svg>
-                </button>
-                <button
-                  class="p-1.5 rounded-lg text-[var(--gray-8)] hover:text-[var(--error)] hover:bg-[var(--gray-4)] transition-colors"
-                  onclick={() => handleDeleteNote(note.id)}
-                  title="Delete"
-                >
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-            </div>
+            {/if}
           </div>
         {/each}
       </div>
