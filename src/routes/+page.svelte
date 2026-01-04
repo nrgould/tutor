@@ -15,8 +15,16 @@
   import RecordingIndicator from '$lib/components/recording/RecordingIndicator.svelte';
   import SessionsPanel from '$lib/components/recording/SessionsPanel.svelte';
   import ProactiveHint from '$lib/components/ProactiveHint.svelte';
+  import Onboarding from '$lib/components/Onboarding.svelte';
   import { proactiveHintsStore } from '$lib/services/proactiveHints';
   import type { Message, ScreenContext, RecordingSession, Screenshot } from '$lib/types';
+  import { getSetting, setSetting } from '$lib/utils/db';
+
+  interface UserProfile {
+    name: string;
+    courses: string[];
+    goals: string;
+  }
 
   interface TopicInfo {
     id: string;
@@ -31,6 +39,8 @@
   let showHistory = $state(false);
   let showSessions = $state(false);
   let showReviewBanner = $state(true);
+  let showOnboarding = $state(false);
+  let checkingOnboarding = $state(true);
   let topicsDue = $state<TopicInfo[]>([]);
 
   const chat = $derived($chatStore);
@@ -48,6 +58,18 @@
     const init = async () => {
       await settingsStore.load();
       await recordingStore.init();
+
+      // Check if onboarding has been completed
+      try {
+        const onboardingComplete = await getSetting('onboarding_complete');
+        if (!onboardingComplete) {
+          showOnboarding = true;
+        }
+      } catch {
+        // If we can't read the setting, show onboarding
+        showOnboarding = true;
+      }
+      checkingOnboarding = false;
 
       try {
         const conversations = await getConversations(1);
@@ -147,6 +169,31 @@
 
   function handleHintAction(prompt: string) {
     handleSendMessage(prompt);
+  }
+
+  async function handleOnboardingComplete(profile: UserProfile) {
+    // Save onboarding complete flag
+    await setSetting('onboarding_complete', 'true');
+
+    // Save user profile data as settings
+    if (profile.name) {
+      await setSetting('user_name', profile.name);
+    }
+    if (profile.courses.length > 0) {
+      await setSetting('user_courses', JSON.stringify(profile.courses));
+    }
+    if (profile.goals) {
+      await setSetting('user_goals', profile.goals);
+    }
+
+    showOnboarding = false;
+
+    // If user provided a name, send a welcome message
+    if (profile.name && settings.anthropic_api_key) {
+      setTimeout(() => {
+        handleSendMessage(`Hi! I'm ${profile.name}. I'm studying ${profile.courses.join(', ') || 'some subjects'}. My goals are: ${profile.goals || 'to learn effectively'}. Can you introduce yourself and tell me how you can help me?`);
+      }, 500);
+    }
   }
 
   async function handleSendMessage(content: string, screenshot?: string) {
@@ -422,3 +469,8 @@
   onclose={() => (showSessions = false)}
   oncontinue={handleContinueSession}
 />
+
+<!-- Onboarding flow -->
+{#if showOnboarding && !checkingOnboarding}
+  <Onboarding oncomplete={handleOnboardingComplete} />
+{/if}
