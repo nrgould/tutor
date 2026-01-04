@@ -1,13 +1,15 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import { recordingStore } from '$lib/stores/recording';
   import type { RecordingSession, Screenshot } from '$lib/types';
 
   interface Props {
     open: boolean;
     onclose: () => void;
+    oncontinue?: (session: RecordingSession, screenshots: Screenshot[]) => void;
   }
 
-  let { open, onclose }: Props = $props();
+  let { open, onclose, oncontinue }: Props = $props();
 
   const recording = $derived($recordingStore);
 
@@ -16,6 +18,7 @@
   let loadingScreenshots = $state(false);
   let selectedScreenshot = $state<Screenshot | null>(null);
   let loadingFullImage = $state(false);
+  let generatingSummary = $state(false);
 
   function formatDate(dateStr: string): string {
     const date = new Date(dateStr + 'Z');
@@ -91,6 +94,29 @@
       console.error('Failed to delete session:', e);
     }
   }
+
+  async function continueSession() {
+    if (!selectedSession) return;
+
+    if (oncontinue) {
+      oncontinue(selectedSession, screenshots);
+    }
+    onclose();
+  }
+
+  async function regenerateSummary() {
+    if (!selectedSession) return;
+
+    generatingSummary = true;
+    try {
+      const updatedSession = await recordingStore.generateSummary(selectedSession);
+      selectedSession = updatedSession;
+    } catch (e) {
+      console.error('Failed to regenerate summary:', e);
+    } finally {
+      generatingSummary = false;
+    }
+  }
 </script>
 
 {#if open}
@@ -156,9 +182,10 @@
             </div>
           </div>
         {:else if selectedSession}
-          <!-- Session screenshots grid -->
-          <div class="p-4">
-            <div class="mb-4 flex items-center justify-between">
+          <!-- Session detail view -->
+          <div class="p-4 space-y-4">
+            <!-- Session info -->
+            <div class="flex items-center justify-between">
               <div class="text-xs text-[var(--gray-10)]">
                 {screenshots.length} screenshot{screenshots.length !== 1 ? 's' : ''}
               </div>
@@ -167,39 +194,96 @@
               </div>
             </div>
 
-            {#if loadingScreenshots}
-              <div class="flex items-center justify-center py-12">
-                <div class="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full"></div>
-              </div>
-            {:else if screenshots.length === 0}
-              <div class="text-center py-12 text-sm text-[var(--gray-10)]">
-                No screenshots in this session
-              </div>
-            {:else}
-              <div class="grid grid-cols-2 gap-2">
-                {#each screenshots as screenshot (screenshot.id)}
+            <!-- AI Summary section -->
+            {#if selectedSession.summary || generatingSummary}
+              <div class="bg-[var(--gray-3)] rounded-xl p-4 border border-[var(--gray-4)]">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                    </svg>
+                    <span class="text-xs font-medium text-[var(--gray-11)]">AI Summary</span>
+                  </div>
                   <button
-                    class="group relative rounded-lg overflow-hidden border border-[var(--gray-4)] bg-[var(--gray-3)] hover:border-[var(--accent)] transition-colors"
-                    onclick={() => viewScreenshot(screenshot)}
+                    class="text-xs text-[var(--gray-9)] hover:text-[var(--accent)] transition-colors disabled:opacity-50"
+                    onclick={regenerateSummary}
+                    disabled={generatingSummary}
                   >
-                    {#if screenshot.thumbnail_data}
-                      <img
-                        src="data:image/png;base64,{screenshot.thumbnail_data}"
-                        alt="Screenshot thumbnail"
-                        class="w-full aspect-video object-cover"
-                      />
-                    {:else}
-                      <div class="w-full aspect-video flex items-center justify-center">
-                        <svg class="w-6 h-6 text-[var(--gray-7)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    {/if}
-                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
+                    {generatingSummary ? 'Generating...' : 'Regenerate'}
                   </button>
-                {/each}
+                </div>
+                {#if generatingSummary}
+                  <div class="flex items-center gap-2 text-sm text-[var(--gray-10)]">
+                    <div class="animate-spin w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full"></div>
+                    Generating summary...
+                  </div>
+                {:else}
+                  <p class="text-sm text-[var(--gray-11)] leading-relaxed">{selectedSession.summary}</p>
+                {/if}
               </div>
+            {:else if selectedSession.ended_at}
+              <button
+                class="w-full bg-[var(--gray-3)] rounded-xl p-4 border border-dashed border-[var(--gray-5)] text-sm text-[var(--gray-10)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors flex items-center justify-center gap-2"
+                onclick={regenerateSummary}
+                disabled={generatingSummary}
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                </svg>
+                Generate AI Summary
+              </button>
             {/if}
+
+            <!-- Continue Session button -->
+            {#if selectedSession.ended_at && screenshots.length > 0}
+              <button
+                class="w-full py-3 px-4 bg-[var(--accent)] text-white rounded-xl font-medium text-sm hover:bg-[var(--accent-hover)] transition-colors flex items-center justify-center gap-2"
+                onclick={continueSession}
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                </svg>
+                Continue this Session
+              </button>
+            {/if}
+
+            <!-- Screenshots grid -->
+            <div>
+              <h3 class="text-xs font-medium text-[var(--gray-10)] mb-3">Screenshots</h3>
+              {#if loadingScreenshots}
+                <div class="flex items-center justify-center py-12">
+                  <div class="animate-spin w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full"></div>
+                </div>
+              {:else if screenshots.length === 0}
+                <div class="text-center py-12 text-sm text-[var(--gray-10)]">
+                  No screenshots in this session
+                </div>
+              {:else}
+                <div class="grid grid-cols-2 gap-2">
+                  {#each screenshots as screenshot (screenshot.id)}
+                    <button
+                      class="group relative rounded-lg overflow-hidden border border-[var(--gray-4)] bg-[var(--gray-3)] hover:border-[var(--accent)] transition-colors"
+                      onclick={() => viewScreenshot(screenshot)}
+                    >
+                      {#if screenshot.thumbnail_data}
+                        <img
+                          src="data:image/png;base64,{screenshot.thumbnail_data}"
+                          alt="Screenshot thumbnail"
+                          class="w-full aspect-video object-cover"
+                        />
+                      {:else}
+                        <div class="w-full aspect-video flex items-center justify-center">
+                          <svg class="w-6 h-6 text-[var(--gray-7)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      {/if}
+                      <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
           </div>
         {:else}
           <!-- Sessions list -->

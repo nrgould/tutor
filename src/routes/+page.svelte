@@ -14,7 +14,7 @@
   import ConversationHistory from '$lib/components/ConversationHistory.svelte';
   import RecordingIndicator from '$lib/components/recording/RecordingIndicator.svelte';
   import SessionsPanel from '$lib/components/recording/SessionsPanel.svelte';
-  import type { Message, ScreenContext } from '$lib/types';
+  import type { Message, ScreenContext, RecordingSession, Screenshot } from '$lib/types';
 
   interface TopicInfo {
     id: string;
@@ -94,6 +94,43 @@
     } catch (error) {
       console.error('Failed to create conversation:', error);
     }
+  }
+
+  async function handleContinueSession(session: RecordingSession, screenshots: Screenshot[]) {
+    // Start a new conversation with context from the session
+    await startNewConversation();
+
+    // Build context message about what was captured
+    const sessionDuration = session.ended_at
+      ? Math.round((new Date(session.ended_at + 'Z').getTime() - new Date(session.started_at + 'Z').getTime()) / 60000)
+      : 0;
+
+    let contextMessage = `I'd like to continue working on what I was studying in my ${sessionDuration} minute session with ${screenshots.length} screenshots.`;
+
+    if (session.summary) {
+      contextMessage += `\n\nSession summary: ${session.summary}`;
+    }
+
+    if (session.notes) {
+      contextMessage += `\n\nMy notes: ${session.notes}`;
+    }
+
+    // If we have screenshots, use the last one as context
+    const lastScreenshot = screenshots[screenshots.length - 1];
+    if (lastScreenshot?.thumbnail_data) {
+      // Get the full screenshot for better context
+      try {
+        const fullScreenshot = await recordingStore.getScreenshot(lastScreenshot.id);
+        if (fullScreenshot?.image_data) {
+          handleSendMessage(contextMessage, fullScreenshot.image_data);
+          return;
+        }
+      } catch {
+        // Continue without screenshot
+      }
+    }
+
+    handleSendMessage(contextMessage);
   }
 
   async function handleSendMessage(content: string, screenshot?: string) {
@@ -361,4 +398,8 @@
 <ConversationHistory open={showHistory} onclose={() => (showHistory = false)} />
 
 <!-- Recording Sessions Panel -->
-<SessionsPanel open={showSessions} onclose={() => (showSessions = false)} />
+<SessionsPanel
+  open={showSessions}
+  onclose={() => (showSessions = false)}
+  oncontinue={handleContinueSession}
+/>

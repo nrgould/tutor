@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { RecordingSession, RecordingStatus, RecordingState, Screenshot } from '$lib/types';
+import { generateSessionSummary } from '$lib/utils/api';
 
 function createRecordingStore() {
   const { subscribe, set, update } = writable<RecordingState>({
@@ -80,7 +81,7 @@ function createRecordingStore() {
       }
     },
 
-    async stopRecording() {
+    async stopRecording(autoGenerateSummary: boolean = true) {
       update((state) => ({ ...state, isLoading: true }));
       try {
         const session = await invoke<RecordingSession>('stop_recording');
@@ -94,11 +95,41 @@ function createRecordingStore() {
           },
           isLoading: false,
         }));
+
+        // Generate AI summary in the background if enabled
+        if (autoGenerateSummary && session.ended_at && session.screenshot_count > 0) {
+          this.generateSummary(session).catch((e) => {
+            console.error('Failed to generate session summary:', e);
+          });
+        }
+
         return session;
       } catch (e) {
         console.error('Failed to stop recording:', e);
         update((state) => ({ ...state, isLoading: false }));
         throw e;
+      }
+    },
+
+    async generateSummary(session: RecordingSession) {
+      if (!session.ended_at) return session;
+
+      const startTime = new Date(session.started_at + 'Z').getTime();
+      const endTime = new Date(session.ended_at + 'Z').getTime();
+      const durationMinutes = Math.round((endTime - startTime) / 60000);
+
+      try {
+        const summary = await generateSessionSummary(
+          session.screenshot_count,
+          durationMinutes,
+          session.notes ?? undefined
+        );
+
+        // Update session with summary
+        return this.updateSession(session.id, undefined, undefined, summary);
+      } catch (e) {
+        console.error('Failed to generate summary:', e);
+        return session;
       }
     },
 
@@ -113,11 +144,12 @@ function createRecordingStore() {
       return invoke<Screenshot>('get_screenshot', { screenshotId });
     },
 
-    async updateSession(sessionId: string, name?: string, notes?: string) {
+    async updateSession(sessionId: string, name?: string, notes?: string, summary?: string) {
       const session = await invoke<RecordingSession>('update_session', {
         sessionId,
         name,
         notes,
+        summary,
       });
       update((state) => ({
         ...state,

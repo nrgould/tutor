@@ -422,6 +422,7 @@ pub async fn update_session(
     session_id: String,
     name: Option<String>,
     notes: Option<String>,
+    summary: Option<String>,
 ) -> Result<RecordingSession, String> {
     with_connection(|conn| {
         if let Some(ref name) = name {
@@ -435,6 +436,13 @@ pub async fn update_session(
             conn.execute(
                 "UPDATE recording_sessions SET notes = ?1 WHERE id = ?2",
                 [notes, &session_id],
+            )?;
+        }
+
+        if let Some(ref summary) = summary {
+            conn.execute(
+                "UPDATE recording_sessions SET summary = ?1 WHERE id = ?2",
+                [summary, &session_id],
             )?;
         }
 

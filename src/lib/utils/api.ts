@@ -159,6 +159,56 @@ export async function chat(messages: Message[], context?: TutorContext): Promise
   return fullResponse;
 }
 
+export async function generateSessionSummary(
+  screenshotCount: number,
+  durationMinutes: number,
+  sessionNotes?: string
+): Promise<string> {
+  const settings = get(settingsStore);
+
+  if (!settings.anthropic_api_key) {
+    throw new Error('Anthropic API key not configured.');
+  }
+
+  const response = await fetch(CLAUDE_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': settings.anthropic_api_key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: CLAUDE_MODEL,
+      max_tokens: 300,
+      system: `You are a helpful study companion summarizing a learning session.
+Create a brief, encouraging summary of the study session.
+Focus on:
+- Acknowledging the time and effort spent
+- Suggesting what might have been studied based on duration
+- Encouraging continued learning`,
+      messages: [
+        {
+          role: 'user',
+          content: `Study session completed:
+- Duration: ${durationMinutes} minutes
+- Screenshots captured: ${screenshotCount}${sessionNotes ? `\n- Notes: ${sessionNotes}` : ''}
+
+Please provide a brief summary of this study session.`,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: { message: response.statusText } }));
+    throw new Error(error.error?.message || `API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.content?.[0]?.text || 'Session completed successfully.';
+}
+
 export async function generateNoteSummary(content: string): Promise<string> {
   const settings = get(settingsStore);
 
