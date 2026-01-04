@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import RegionSelector from './RegionSelector.svelte';
+  import { listen } from '@tauri-apps/api/event';
 
   interface Props {
     disabled?: boolean;
@@ -13,8 +14,22 @@
   let pendingScreenshot = $state<string | null>(null);
   let isCapturing = $state(false);
   let showCaptureMenu = $state(false);
-  let showRegionSelector = $state(false);
-  let fullScreenshot = $state<string | null>(null);
+
+  onMount(() => {
+    // Listen for region capture results from the region selector window
+    let unlisten: (() => void) | undefined;
+
+    listen<string>('region-captured', (event) => {
+      pendingScreenshot = event.payload;
+      isCapturing = false;
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      unlisten?.();
+    };
+  });
 
   async function captureFullScreen() {
     if (isCapturing) return;
@@ -37,27 +52,13 @@
     isCapturing = true;
     showCaptureMenu = false;
     try {
-      // Capture full screen first, then show selector
-      const screenshot = await invoke<string>('capture_screen');
-      fullScreenshot = screenshot;
-      showRegionSelector = true;
+      // Open the region selector window (snipping tool style)
+      await invoke('open_region_selector');
+      // The result will come back via the 'region-captured' event
     } catch (error) {
-      console.error('Failed to capture screen:', error);
+      console.error('Failed to open region selector:', error);
       isCapturing = false;
     }
-  }
-
-  function handleRegionSelect(croppedImage: string) {
-    pendingScreenshot = croppedImage;
-    showRegionSelector = false;
-    fullScreenshot = null;
-    isCapturing = false;
-  }
-
-  function handleRegionCancel() {
-    showRegionSelector = false;
-    fullScreenshot = null;
-    isCapturing = false;
   }
 
   function clearScreenshot() {
@@ -94,7 +95,7 @@
 
 <svelte:window on:click={handleClickOutside} />
 
-<div class="border-t border-[var(--gray-3)] bg-[var(--gray-1)]/80 backdrop-blur-xl px-4 py-4">
+<div class="chat-input-bg border-t border-[var(--gray-3)] bg-[var(--gray-1)]/80 backdrop-blur-xl px-4 py-4">
   <div class="max-w-3xl mx-auto">
     <!-- Screenshot preview -->
     {#if pendingScreenshot}
@@ -195,12 +196,3 @@
     </div>
   </div>
 </div>
-
-<!-- Region selector overlay -->
-{#if showRegionSelector && fullScreenshot}
-  <RegionSelector
-    screenshot={fullScreenshot}
-    onselect={handleRegionSelect}
-    oncancel={handleRegionCancel}
-  />
-{/if}

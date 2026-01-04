@@ -118,6 +118,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // Capture commands
             commands::capture_screen,
+            commands::capture_region,
+            commands::open_region_selector,
+            commands::close_region_selector,
+            commands::region_selected,
             commands::get_screen_context,
             // Database commands
             commands::create_conversation,

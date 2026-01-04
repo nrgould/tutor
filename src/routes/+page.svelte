@@ -23,6 +23,9 @@
 
   const isOverlayMode = $derived($overlayModeStore);
 
+  // Dynamic background class based on overlay mode
+  const bgClass = $derived(isOverlayMode ? '' : 'bg-[var(--gray-1)]');
+
   interface UserProfile {
     name: string;
     courses: string[];
@@ -275,9 +278,12 @@
   });
 </script>
 
-<div class="h-full flex flex-col bg-[var(--gray-1)]">
+<div class="h-full flex flex-col {bgClass}">
   <!-- Toolbar -->
-  <div class="flex items-center justify-between px-3 py-2 border-b border-[var(--gray-4)] bg-[var(--gray-2)]">
+  <div
+    class="toolbar-bg flex items-center justify-between px-3 py-2 border-b border-[var(--gray-4)] bg-[var(--gray-2)]"
+    data-tauri-drag-region={isOverlayMode ? true : undefined}
+  >
     <div class="flex items-center gap-1">
       <button
         class="p-2 rounded-lg text-[var(--gray-9)] hover:text-[var(--gray-12)] hover:bg-[var(--gray-4)] transition-colors"

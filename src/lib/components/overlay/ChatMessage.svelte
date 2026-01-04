@@ -51,7 +51,7 @@
 
     <!-- Message bubble -->
     <div
-      class="px-4 py-3 rounded-2xl text-sm max-w-[85%] {isUser ? 'rounded-br-md' : 'rounded-bl-md'}
+      class="px-4 py-3 rounded-2xl text-sm max-w-[85%] {isUser ? 'rounded-br-md' : 'rounded-bl-md message-bg'}
         {isUser
         ? 'bg-[var(--accent)] text-white'
         : 'bg-[var(--gray-2)] border border-[var(--gray-4)] text-[var(--gray-12)]'}"
