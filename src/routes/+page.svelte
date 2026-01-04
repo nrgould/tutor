@@ -14,6 +14,8 @@
   import ConversationHistory from '$lib/components/ConversationHistory.svelte';
   import RecordingIndicator from '$lib/components/recording/RecordingIndicator.svelte';
   import SessionsPanel from '$lib/components/recording/SessionsPanel.svelte';
+  import ProactiveHint from '$lib/components/ProactiveHint.svelte';
+  import { proactiveHintsStore } from '$lib/services/proactiveHints';
   import type { Message, ScreenContext, RecordingSession, Screenshot } from '$lib/types';
 
   interface TopicInfo {
@@ -35,6 +37,14 @@
   const settings = $derived($settingsStore);
 
   onMount(() => {
+    // Start proactive hints monitoring
+    const unsubscribeHints = proactiveHintsStore.startMonitoring();
+
+    // Register for screenshot events to update hints
+    const unsubscribeScreenshot = recordingStore.onScreenshot(() => {
+      proactiveHintsStore.onScreenshotCaptured();
+    });
+
     const init = async () => {
       await settingsStore.load();
       await recordingStore.init();
@@ -77,6 +87,8 @@
 
     return () => {
       recordingStore.cleanup();
+      unsubscribeHints();
+      unsubscribeScreenshot();
     };
   });
 
@@ -131,6 +143,10 @@
     }
 
     handleSendMessage(contextMessage);
+  }
+
+  function handleHintAction(prompt: string) {
+    handleSendMessage(prompt);
   }
 
   async function handleSendMessage(content: string, screenshot?: string) {
@@ -326,6 +342,9 @@
       </div>
     </div>
   {/if}
+
+  <!-- Proactive hints -->
+  <ProactiveHint onaction={handleHintAction} />
 
   <!-- Messages area -->
   <div bind:this={messagesContainer} class="flex-1 overflow-y-auto">

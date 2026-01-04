@@ -17,9 +17,18 @@ function createRecordingStore() {
 
   let unlistenStatus: (() => void) | null = null;
   let unlistenScreenshot: (() => void) | null = null;
+  let screenshotCallbacks: ((screenshot: Screenshot) => void)[] = [];
 
   return {
     subscribe,
+
+    // Allow external systems to register for screenshot events
+    onScreenshot(callback: (screenshot: Screenshot) => void) {
+      screenshotCallbacks.push(callback);
+      return () => {
+        screenshotCallbacks = screenshotCallbacks.filter((cb) => cb !== callback);
+      };
+    },
 
     async init() {
       // Get initial status
@@ -40,8 +49,9 @@ function createRecordingStore() {
 
       // Listen for screenshot captures
       unlistenScreenshot = await listen<Screenshot>('screenshot-captured', (event) => {
-        // Could trigger a notification or update UI
         console.log('Screenshot captured:', event.payload.captured_at);
+        // Notify all registered callbacks
+        screenshotCallbacks.forEach((cb) => cb(event.payload));
       });
     },
 
