@@ -124,19 +124,33 @@ pub async fn open_region_selector(app: AppHandle) -> Result<(), String> {
     // Small delay to ensure main window is hidden
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    // Get screen dimensions from primary monitor
-    let (width, height) = tokio::task::spawn_blocking(|| {
+    // Capture the screen and get dimensions
+    let (width, height, screenshot) = tokio::task::spawn_blocking(|| {
         let monitors = Monitor::all().map_err(|e| format!("Failed to get monitors: {}", e))?;
         let monitor = monitors
             .into_iter()
             .next()
             .ok_or_else(|| "No monitors found".to_string())?;
-        Ok::<(u32, u32), String>((monitor.width(), monitor.height()))
+
+        // Capture the screen
+        let image = monitor
+            .capture_image()
+            .map_err(|e| format!("Failed to capture screen: {}", e))?;
+
+        // Convert to PNG and base64 encode
+        let mut buffer = Cursor::new(Vec::new());
+        image
+            .write_to(&mut buffer, image::ImageFormat::Png)
+            .map_err(|e| format!("Failed to encode image: {}", e))?;
+
+        let base64_image = STANDARD.encode(buffer.into_inner());
+
+        Ok::<(u32, u32, String), String>((monitor.width(), monitor.height(), base64_image))
     })
     .await
     .map_err(|e| format!("Task failed: {}", e))??;
 
-    // Create a fullscreen transparent window for region selection
+    // Create a fullscreen window for region selection
     let selector_window = WebviewWindowBuilder::new(
         &app,
         "region-selector",
@@ -146,7 +160,6 @@ pub async fn open_region_selector(app: AppHandle) -> Result<(), String> {
     .inner_size(width as f64, height as f64)
     .position(0.0, 0.0)
     .decorations(false)
-    .transparent(true)
     .always_on_top(true)
     .skip_taskbar(true)
     .resizable(false)
@@ -156,6 +169,13 @@ pub async fn open_region_selector(app: AppHandle) -> Result<(), String> {
 
     // Focus the selector window
     selector_window.set_focus().map_err(|e| format!("Failed to focus window: {}", e))?;
+
+    // Send the screenshot to the region selector window
+    // Small delay to ensure window is ready
+    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+    selector_window
+        .emit("screenshot-ready", screenshot)
+        .map_err(|e| format!("Failed to emit screenshot: {}", e))?;
 
     Ok(())
 }
@@ -171,6 +191,27 @@ pub async fn close_region_selector(app: AppHandle) -> Result<(), String> {
     if let Some(main_window) = app.get_webview_window("main") {
         main_window.show().map_err(|e| format!("Failed to show main window: {}", e))?;
         main_window.set_focus().map_err(|e| format!("Failed to focus main window: {}", e))?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn close_region_selector_with_result(app: AppHandle, image: String) -> Result<(), String> {
+    // Close the region selector window
+    if let Some(selector_window) = app.get_webview_window("region-selector") {
+        selector_window.close().map_err(|e| format!("Failed to close selector: {}", e))?;
+    }
+
+    // Show the main window and emit the result
+    if let Some(main_window) = app.get_webview_window("main") {
+        main_window.show().map_err(|e| format!("Failed to show main window: {}", e))?;
+        main_window.set_focus().map_err(|e| format!("Failed to focus main window: {}", e))?;
+
+        // Emit the captured region to the main window
+        main_window
+            .emit("region-captured", image)
+            .map_err(|e| format!("Failed to emit result: {}", e))?;
     }
 
     Ok(())

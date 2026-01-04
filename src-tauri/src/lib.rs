@@ -121,6 +121,7 @@ pub fn run() {
             commands::capture_region,
             commands::open_region_selector,
             commands::close_region_selector,
+            commands::close_region_selector_with_result,
             commands::region_selected,
             commands::get_screen_context,
             // Database commands
