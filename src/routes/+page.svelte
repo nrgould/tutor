@@ -583,7 +583,6 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    gap: 6px;
     cursor: grab;
   }
 
@@ -596,14 +595,14 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 10px;
+    padding: 8px 12px;
     height: 52px;
     min-height: 52px;
-    background: rgba(9, 9, 11, 0.88);
+    background: rgba(9, 9, 11, 0.95);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
   }
 
   /* Record button */
