@@ -99,9 +99,6 @@
     watchDuration = 0;
     screenshotBuffer = [];
 
-    // Hide our window briefly for cleaner screenshots
-    const window = getCurrentWindow();
-
     // Duration timer
     durationInterval = setInterval(() => {
       watchDuration++;
@@ -110,7 +107,6 @@
     // Screenshot every second
     watchInterval = setInterval(async () => {
       try {
-        // Minimize window impact during capture
         const screenshot = await invoke<string>('capture_screen');
         screenshotBuffer = [...screenshotBuffer, screenshot];
 
@@ -134,7 +130,6 @@
       clearInterval(durationInterval);
       durationInterval = null;
     }
-    // Process any remaining screenshots
     if (screenshotBuffer.length > 0 && !isProcessingBatch) {
       processBatch();
     }
@@ -148,12 +143,10 @@
     screenshotBuffer = [];
 
     try {
-      // Send batch to VLM for context understanding
       const context = await analyzeScreenshots(batch);
       if (context) {
         lastVLMContext = context;
 
-        // Check for proactive suggestions
         if (context.includes('[SUGGESTION]')) {
           const suggestion = context.split('[SUGGESTION]')[1]?.trim();
           if (suggestion) {
@@ -172,8 +165,6 @@
   async function analyzeScreenshots(screenshots: string[]): Promise<string> {
     if (!settings.anthropic_api_key) return '';
 
-    // Use the most recent screenshot for analysis (to save tokens)
-    // In production, could send multiple for temporal context
     const recentScreenshot = screenshots[screenshots.length - 1];
 
     try {
@@ -216,11 +207,14 @@
     inputValue = '';
     isExpanded = true;
 
+    // Resize window for chat
+    const window = getCurrentWindow();
+    await window.setSize(new (await import('@tauri-apps/api/dpi')).LogicalSize(600, 500));
+
     if (!chat.currentConversation) {
       await startNewConversation();
     }
 
-    // Include current screen context if watching
     let screenContext: ScreenContext | undefined;
     if (isWatching) {
       try {
@@ -274,8 +268,15 @@
       handleSend();
     }
     if (e.key === 'Escape') {
-      isExpanded = false;
+      collapseChat();
     }
+  }
+
+  async function collapseChat() {
+    isExpanded = false;
+    // Resize window back to bar only
+    const window = getCurrentWindow();
+    await window.setSize(new (await import('@tauri-apps/api/dpi')).LogicalSize(600, 60));
   }
 
   function scrollToBottom() {
@@ -309,154 +310,129 @@
       scrollToBottom();
     }
   });
+
+  // Set initial window size on mount
+  onMount(async () => {
+    const window = getCurrentWindow();
+    await window.setSize(new (await import('@tauri-apps/api/dpi')).LogicalSize(600, 60));
+  });
 </script>
 
-<!-- Minimal Floating Bar -->
-<div class="h-screen w-screen flex flex-col" data-tauri-drag-region>
-  <!-- Main floating bar -->
-  <div class="floating-bar mx-auto mt-3 flex items-center gap-2 px-3 py-2 rounded-2xl bg-[var(--gray-2)]/90 backdrop-blur-xl border border-[var(--gray-4)] shadow-2xl">
+<!-- Floating Bar - the entire visible UI -->
+<div class="floating-container">
+  <!-- Main floating bar - draggable -->
+  <div class="floating-bar" data-tauri-drag-region>
     <!-- Watch toggle -->
     <button
-      class="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all {isWatching ? 'bg-[var(--error)]/10 text-[var(--error)]' : 'bg-[var(--gray-3)] text-[var(--gray-10)] hover:text-[var(--gray-12)]'}"
+      class="watch-btn {isWatching ? 'active' : ''}"
       onclick={() => isWatching ? stopWatching() : startWatching()}
       title={isWatching ? 'Stop session' : 'Start session'}
     >
       {#if isWatching}
-        <span class="relative flex h-2 w-2">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--error)] opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2 bg-[var(--error)]"></span>
+        <span class="pulse-dot">
+          <span class="pulse-ring"></span>
+          <span class="pulse-core"></span>
         </span>
-        <span class="text-sm font-medium">{formatDuration(watchDuration)}</span>
+        <span class="watch-time">{formatDuration(watchDuration)}</span>
       {:else}
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" />
           <circle cx="12" cy="12" r="3" fill="currentColor" />
         </svg>
-        <span class="text-sm">Start</span>
+        <span>Start</span>
       {/if}
     </button>
 
     <!-- Divider -->
-    <div class="w-px h-6 bg-[var(--gray-4)]"></div>
+    <div class="divider"></div>
 
     <!-- Input -->
-    <div class="flex-1 min-w-[300px]">
-      <input
-        type="text"
-        bind:value={inputValue}
-        placeholder="Ask anything..."
-        class="w-full px-3 py-1.5 text-sm bg-transparent text-[var(--gray-12)] placeholder:text-[var(--gray-8)] focus:outline-none"
-        onkeydown={handleKeydown}
-        onfocus={() => isExpanded = true}
-      />
-    </div>
+    <input
+      type="text"
+      bind:value={inputValue}
+      placeholder="Ask anything..."
+      class="chat-input"
+      onkeydown={handleKeydown}
+    />
 
     <!-- Send button -->
     <button
-      class="p-2 rounded-xl bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] disabled:opacity-30 transition-colors"
+      class="icon-btn accent"
       onclick={handleSend}
       disabled={!inputValue.trim() || chat.isLoading}
+      title="Send"
     >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
       </svg>
     </button>
 
     <!-- Expand/collapse -->
-    <button
-      class="p-2 rounded-xl text-[var(--gray-9)] hover:text-[var(--gray-12)] hover:bg-[var(--gray-3)] transition-colors"
-      onclick={() => isExpanded = !isExpanded}
-      title={isExpanded ? 'Collapse' : 'Expand'}
-    >
-      <svg class="w-4 h-4 transition-transform {isExpanded ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-      </svg>
-    </button>
+    {#if chat.messages.length > 0}
+      <button
+        class="icon-btn"
+        onclick={() => isExpanded ? collapseChat() : (isExpanded = true)}
+        title={isExpanded ? 'Collapse' : 'Expand'}
+      >
+        <svg class="icon {isExpanded ? 'rotate' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+    {/if}
 
     <!-- Settings -->
-    <a
-      href="/settings"
-      class="p-2 rounded-xl text-[var(--gray-9)] hover:text-[var(--gray-12)] hover:bg-[var(--gray-3)] transition-colors"
-      title="Settings"
-    >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <a href="/settings" class="icon-btn" title="Settings">
+      <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     </a>
 
     <!-- History -->
-    <a
-      href="/history"
-      class="p-2 rounded-xl text-[var(--gray-9)] hover:text-[var(--gray-12)] hover:bg-[var(--gray-3)] transition-colors"
-      title="Session history"
-    >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <a href="/history" class="icon-btn" title="History">
+      <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     </a>
   </div>
 
-  <!-- Live context indicator -->
-  {#if isWatching && lastVLMContext && !lastVLMContext.includes('[SUGGESTION]')}
-    <div class="mx-auto mt-2 px-4 py-2 rounded-xl bg-[var(--gray-2)]/80 backdrop-blur-xl border border-[var(--gray-4)] max-w-xl">
-      <p class="text-xs text-[var(--gray-10)]">{lastVLMContext}</p>
-    </div>
-  {/if}
-
   <!-- Expanded chat panel -->
   {#if isExpanded && chat.messages.length > 0}
-    <div class="mx-auto mt-2 w-full max-w-2xl flex-1 flex flex-col bg-[var(--gray-2)]/90 backdrop-blur-xl border border-[var(--gray-4)] rounded-2xl shadow-2xl overflow-hidden max-h-[60vh]">
-      <div bind:this={messagesContainer} class="flex-1 overflow-y-auto p-4 space-y-4">
+    <div class="chat-panel">
+      <div bind:this={messagesContainer} class="messages">
         {#each chat.messages as message (message.id)}
           <ChatMessage {message} />
         {/each}
 
         {#if chat.isLoading}
-          <div class="flex items-center gap-2 pl-10">
-            <div class="flex gap-1">
-              <span class="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce"></span>
-              <span class="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce" style="animation-delay: 0.15s"></span>
-              <span class="w-1.5 h-1.5 bg-[var(--accent)] rounded-full animate-bounce" style="animation-delay: 0.3s"></span>
-            </div>
+          <div class="loading-dots">
+            <span></span>
+            <span></span>
+            <span></span>
           </div>
         {/if}
       </div>
     </div>
   {/if}
+</div>
 
-  <!-- Proactive toast notification -->
-  {#if showProactiveToast && proactiveMessage}
-    <div class="fixed bottom-6 right-6 max-w-sm animate-slide-up">
-      <div class="bg-[var(--gray-2)] border border-[var(--accent)]/30 rounded-2xl shadow-2xl p-4">
-        <div class="flex items-start gap-3">
-          <div class="w-8 h-8 rounded-full bg-[var(--accent)]/10 flex items-center justify-center flex-shrink-0">
-            <svg class="w-4 h-4 text-[var(--accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-          </div>
-          <div class="flex-1">
-            <p class="text-sm text-[var(--gray-12)]">{proactiveMessage}</p>
-            <div class="mt-3 flex gap-2">
-              <button
-                class="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] transition-colors"
-                onclick={handleProactiveClick}
-              >
-                Ask about this
-              </button>
-              <button
-                class="px-3 py-1.5 text-xs font-medium rounded-lg bg-[var(--gray-3)] text-[var(--gray-11)] hover:bg-[var(--gray-4)] transition-colors"
-                onclick={dismissProactive}
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>
+<!-- Proactive toast notification -->
+{#if showProactiveToast && proactiveMessage}
+  <div class="toast">
+    <div class="toast-icon">
+      <svg class="icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+      </svg>
+    </div>
+    <div class="toast-content">
+      <p>{proactiveMessage}</p>
+      <div class="toast-actions">
+        <button class="toast-btn primary" onclick={handleProactiveClick}>Ask about this</button>
+        <button class="toast-btn" onclick={dismissProactive}>Dismiss</button>
       </div>
     </div>
-  {/if}
-</div>
+  </div>
+{/if}
 
 <!-- Onboarding -->
 {#if showOnboarding && !checkingOnboarding}
@@ -464,22 +440,261 @@
 {/if}
 
 <style>
+  .floating-container {
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    height: 100%;
+  }
+
   .floating-bar {
-    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(25, 25, 27, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    cursor: grab;
   }
 
-  @keyframes slide-up {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  .floating-bar:active {
+    cursor: grabbing;
   }
 
-  .animate-slide-up {
-    animation: slide-up 0.3s ease-out;
+  .watch-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .watch-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .watch-btn.active {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+  }
+
+  .pulse-dot {
+    position: relative;
+    width: 8px;
+    height: 8px;
+  }
+
+  .pulse-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: #ef4444;
+    animation: pulse 1.5s ease-out infinite;
+  }
+
+  .pulse-core {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: #ef4444;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 0.8; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+
+  .watch-time {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .divider {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .chat-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 6px 12px;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 13px;
+    outline: none;
+  }
+
+  .chat-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+
+  .icon-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+  }
+
+  .icon-btn.accent {
+    background: #3b82f6;
+    color: white;
+  }
+
+  .icon-btn.accent:hover {
+    background: #2563eb;
+  }
+
+  .icon-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .icon {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.2s;
+  }
+
+  .icon.rotate {
+    transform: rotate(180deg);
+  }
+
+  .chat-panel {
+    flex: 1;
+    margin-top: 8px;
+    background: rgba(25, 25, 27, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .messages {
+    height: 100%;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .loading-dots {
+    display: flex;
+    gap: 4px;
+    padding-left: 40px;
+  }
+
+  .loading-dots span {
+    width: 6px;
+    height: 6px;
+    background: #3b82f6;
+    border-radius: 50%;
+    animation: bounce 1s infinite;
+  }
+
+  .loading-dots span:nth-child(2) { animation-delay: 0.15s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+  }
+
+  .toast {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(25, 25, 27, 0.98);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    max-width: 320px;
+    animation: slideUp 0.3s ease-out;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .toast-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(59, 130, 246, 0.15);
+    border-radius: 50%;
+    color: #3b82f6;
+    flex-shrink: 0;
+  }
+
+  .toast-content p {
+    margin: 0 0 12px 0;
+    color: white;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .toast-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .toast-btn {
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .toast-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+  }
+
+  .toast-btn.primary {
+    background: #3b82f6;
+    color: white;
+  }
+
+  .toast-btn.primary:hover {
+    background: #2563eb;
   }
 </style>
