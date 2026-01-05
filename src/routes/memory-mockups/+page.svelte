@@ -2,6 +2,12 @@
   import { onMount } from 'svelte';
 
   let activeTab = $state<'constellation' | 'profile'>('constellation');
+  let mounted = $state(false);
+
+  onMount(() => {
+    // Ensure proper render on first load
+    mounted = true;
+  });
 
   // Sample topic data - current learning
   const currentTopics = [
@@ -22,19 +28,19 @@
 
   const allTopics = [...currentTopics, ...recommendedTopics];
 
-  // Calculated positions for constellation (circular layout with center cluster)
+  // Calculated positions for constellation - spread out more
   const positions: Record<number, { x: number; y: number }> = {
-    // Current topics - inner circle
-    1: { x: 50, y: 35 },      // Hegel - top center
-    2: { x: 28, y: 50 },      // Phenomenology - left
-    3: { x: 72, y: 50 },      // Kant - right
-    4: { x: 28, y: 72 },      // Existentialism - bottom left
-    5: { x: 50, y: 58 },      // Logic - center
-    6: { x: 72, y: 72 },      // Ethics - bottom right
-    // Recommended - outer ring (dimmer)
-    101: { x: 85, y: 35 },    // Metaphysics
-    102: { x: 15, y: 35 },    // Philosophy of Mind
-    103: { x: 50, y: 88 },    // Nietzsche
+    // Current topics - spread out
+    1: { x: 50, y: 25 },      // Hegel - top center
+    2: { x: 22, y: 45 },      // Phenomenology - left
+    3: { x: 78, y: 45 },      // Kant - right
+    4: { x: 22, y: 75 },      // Existentialism - bottom left
+    5: { x: 50, y: 55 },      // Logic - center
+    6: { x: 78, y: 75 },      // Ethics - bottom right
+    // Recommended - outer edges
+    101: { x: 90, y: 25 },    // Metaphysics
+    102: { x: 10, y: 25 },    // Philosophy of Mind
+    103: { x: 50, y: 90 },    // Nietzsche
   };
 
   // Learning profile data (learning styles)
@@ -55,9 +61,10 @@
     { key: 'Sessions', value: '47' },
   ];
 
+  // Much smaller node sizes
   function getNodeSize(mastery: number, isRecommended: boolean): number {
-    if (isRecommended) return 8;
-    return 12 + mastery * 16;
+    if (isRecommended) return 3;
+    return 2.5 + mastery * 3;
   }
 </script>
 
@@ -135,16 +142,16 @@
                     <circle
                       cx={pos.x}
                       cy={pos.y}
-                      r={size + 4}
+                      r={size * 2}
                       class="node-glow"
-                      style="opacity: {0.15 + topic.mastery * 0.2}"
+                      style="opacity: {0.1 + topic.mastery * 0.15}"
                     />
                   {/if}
                   <!-- Main node -->
                   <circle
                     cx={pos.x}
                     cy={pos.y}
-                    r={size / 2}
+                    r={size}
                     class="node"
                     class:mastered={topic.status === 'mastered'}
                     class:reviewing={topic.status === 'reviewing'}
@@ -155,7 +162,7 @@
                     <circle
                       cx={pos.x}
                       cy={pos.y}
-                      r={size / 6}
+                      r={size * 0.35}
                       class="node-inner"
                     />
                   {/if}
@@ -265,6 +272,7 @@
           <h3>Learning Style Profile</h3>
           <p class="radar-subtitle">Your cognitive strengths based on {userFacts[3].value} sessions</p>
 
+          {#if mounted}
           <div class="radar-container">
             <svg viewBox="0 0 200 200" class="radar-svg">
               <!-- Background rings -->
@@ -328,6 +336,7 @@
               </div>
             {/each}
           </div>
+          {/if}
         </div>
 
         <!-- Learning style breakdown -->
