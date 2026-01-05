@@ -14,17 +14,17 @@
       {
         "label": "main",
         "title": "Eigen",
-        "width": 600,
-        "height": 60,
-        "resizable": true,
+        "width": 240,
+        "height": 44,
+        "resizable": false,
         "alwaysOnTop": true,
         "decorations": false,
         "transparent": true,
         "visible": false,
         "focus": true,
-        "skipTaskbar": false,
-        "minWidth": 400,
-        "minHeight": 50
+        "skipTaskbar": true,
+        "minWidth": 200,
+        "minHeight": 40
       }
     ],
     "security": {
