@@ -274,27 +274,32 @@
                       class:mastered={topic.status === 'mastered'}
                       class:reviewing={topic.status === 'reviewing'}
                     />
-                    <!-- Label attached to node -->
-                    <foreignObject
-                      x={pos.x + size + 1}
-                      y={pos.y - 4}
-                      width="30"
-                      height="10"
-                      class="label-foreign"
-                    >
-                      <div class="svg-label" class:recommended={isRecommended} class:mastered={topic.status === 'mastered'}>
-                        <span class="svg-label-name">{topic.name}</span>
-                        {#if !isRecommended}
-                          <span class="svg-label-pct">{Math.round(topic.mastery * 100)}%</span>
-                        {:else}
-                          <span class="svg-label-rec">Suggested</span>
-                        {/if}
-                      </div>
-                    </foreignObject>
                   </g>
                 {/if}
               {/each}
             </svg>
+
+            <!-- Labels layer - positioned absolutely over SVG -->
+            {#each allTopics as topic}
+              {@const pos = positions[topic.id]}
+              {@const isRecommended = topic.status === 'recommended'}
+              {@const size = getNodeSize(topic.mastery, isRecommended)}
+              {#if pos}
+                <div
+                  class="node-label"
+                  class:recommended={isRecommended}
+                  class:mastered={topic.status === 'mastered'}
+                  style="left: {pos.x}%; top: {pos.y}%; --node-size: {size}%;"
+                >
+                  <span class="label-name">{topic.name}</span>
+                  {#if !isRecommended}
+                    <span class="label-pct">{Math.round(topic.mastery * 100)}%</span>
+                  {:else}
+                    <span class="label-rec">Suggested</span>
+                  {/if}
+                </div>
+              {/if}
+            {/each}
           </div>
           <div class="pan-hint">Drag to pan, scroll to zoom</div>
         </div>
@@ -529,7 +534,7 @@
           {/each}
         {/each}
 
-        <!-- Nodes with attached labels -->
+        <!-- Nodes -->
         {#each allTopics as topic}
           {@const pos = positions[topic.id]}
           {@const isRecommended = topic.status === 'recommended'}
@@ -553,27 +558,32 @@
                 class:mastered={topic.status === 'mastered'}
                 class:reviewing={topic.status === 'reviewing'}
               />
-              <!-- Label attached to node -->
-              <foreignObject
-                x={pos.x + size + 1}
-                y={pos.y - 4}
-                width="30"
-                height="10"
-                class="label-foreign"
-              >
-                <div class="svg-label" class:recommended={isRecommended} class:mastered={topic.status === 'mastered'}>
-                  <span class="svg-label-name">{topic.name}</span>
-                  {#if !isRecommended}
-                    <span class="svg-label-pct">{Math.round(topic.mastery * 100)}%</span>
-                  {:else}
-                    <span class="svg-label-rec">Suggested</span>
-                  {/if}
-                </div>
-              </foreignObject>
             </g>
           {/if}
         {/each}
       </svg>
+
+      <!-- Labels layer -->
+      {#each allTopics as topic}
+        {@const pos = positions[topic.id]}
+        {@const isRecommended = topic.status === 'recommended'}
+        {@const size = getNodeSize(topic.mastery, isRecommended)}
+        {#if pos}
+          <div
+            class="node-label"
+            class:recommended={isRecommended}
+            class:mastered={topic.status === 'mastered'}
+            style="left: {pos.x}%; top: {pos.y}%; --node-size: {size}%;"
+          >
+            <span class="label-name">{topic.name}</span>
+            {#if !isRecommended}
+              <span class="label-pct">{Math.round(topic.mastery * 100)}%</span>
+            {:else}
+              <span class="label-rec">Suggested</span>
+            {/if}
+          </div>
+        {/if}
+      {/each}
     </div>
   </div>
 {/if}
@@ -707,6 +717,7 @@
   }
 
   .constellation-inner {
+    position: relative;
     width: 100%;
     height: 100%;
     transform-origin: center center;
@@ -767,60 +778,60 @@
     stroke-dasharray: 1.5, 1.5;
   }
 
-  /* SVG Labels (foreignObject) */
-  .label-foreign {
-    overflow: visible;
-  }
-
-  .svg-label {
-    display: inline-flex;
+  /* Node Labels - positioned absolutely */
+  .node-label {
+    position: absolute;
+    display: flex;
     flex-direction: column;
     gap: 1px;
-    padding: 3px 6px;
+    padding: 4px 8px;
     background: rgba(9, 9, 11, 0.92);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 4px;
+    border-radius: 5px;
     white-space: nowrap;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    /* Offset from node center - small fixed offset to the right, centered vertically */
+    transform: translate(8px, -50%);
+    pointer-events: none;
   }
 
-  .svg-label.recommended {
+  .node-label.recommended {
     background: rgba(9, 9, 11, 0.7);
     border-style: dashed;
     border-color: rgba(255, 255, 255, 0.08);
   }
 
-  .svg-label.mastered {
+  .node-label.mastered {
     border-color: rgba(255, 255, 255, 0.2);
   }
 
-  .svg-label-name {
-    font-size: 8px;
+  .label-name {
+    font-size: 10px;
     font-weight: 600;
     color: #fafafa;
     letter-spacing: -0.2px;
     line-height: 1.2;
   }
 
-  .svg-label.recommended .svg-label-name {
+  .node-label.recommended .label-name {
     color: rgba(250, 250, 250, 0.5);
     font-weight: 500;
   }
 
-  .svg-label-pct {
-    font-size: 7px;
+  .label-pct {
+    font-size: 9px;
     color: rgba(250, 250, 250, 0.5);
     font-variant-numeric: tabular-nums;
     line-height: 1.2;
   }
 
-  .svg-label.mastered .svg-label-pct {
+  .node-label.mastered .label-pct {
     color: rgba(250, 250, 250, 0.7);
   }
 
-  .svg-label-rec {
-    font-size: 6px;
+  .label-rec {
+    font-size: 8px;
     color: rgba(250, 250, 250, 0.35);
     text-transform: uppercase;
     letter-spacing: 0.3px;
