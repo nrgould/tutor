@@ -133,6 +133,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // Capture commands
             commands::capture_screen,
+            commands::capture_screen_silent,
             commands::capture_region,
             commands::open_region_selector,
             commands::get_pending_screenshot,

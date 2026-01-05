@@ -75,6 +75,33 @@ pub async fn capture_screen(window: Window) -> Result<String, String> {
     result
 }
 
+/// Silent capture - doesn't hide/show window. Use for background recording.
+#[tauri::command]
+pub async fn capture_screen_silent() -> Result<String, String> {
+    // Run the capture in a blocking thread since xcap is sync
+    tokio::task::spawn_blocking(|| {
+        let monitors = Monitor::all().map_err(|e| format!("Failed to get monitors: {}", e))?;
+
+        let monitor = monitors
+            .into_iter()
+            .next()
+            .ok_or_else(|| "No monitors found".to_string())?;
+
+        let image = monitor
+            .capture_image()
+            .map_err(|e| format!("Failed to capture screen: {}", e))?;
+
+        let mut buffer = Cursor::new(Vec::new());
+        image
+            .write_to(&mut buffer, image::ImageFormat::Png)
+            .map_err(|e| format!("Failed to encode image: {}", e))?;
+
+        Ok::<String, String>(STANDARD.encode(buffer.into_inner()))
+    })
+    .await
+    .map_err(|e| format!("Task failed: {}", e))?
+}
+
 #[tauri::command]
 pub async fn capture_region(window: Window, bounds: RegionBounds) -> Result<String, String> {
     // Hide the window before capturing

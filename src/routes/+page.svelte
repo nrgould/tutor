@@ -93,7 +93,8 @@
 
     watchInterval = setInterval(async () => {
       try {
-        const screenshot = await invoke<string>('capture_screen');
+        // Use silent capture - doesn't hide/show window
+        const screenshot = await invoke<string>('capture_screen_silent');
         screenshotBuffer = [...screenshotBuffer, screenshot];
 
         if (screenshotBuffer.length >= 5 && !isProcessingBatch) {
