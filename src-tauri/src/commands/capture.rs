@@ -27,6 +27,12 @@ pub struct PendingScreenshot(pub Mutex<Option<String>>);
 
 pub type PendingScreenshotHandle = Arc<PendingScreenshot>;
 
+// State to hold the result from region selection
+#[derive(Default)]
+pub struct RegionCaptureResult(pub Mutex<Option<String>>);
+
+pub type RegionCaptureResultHandle = Arc<RegionCaptureResult>;
+
 #[tauri::command]
 pub async fn capture_screen(window: Window) -> Result<String, String> {
     // Hide the window before capturing
@@ -215,24 +221,42 @@ pub async fn close_region_selector(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn close_region_selector_with_result(app: AppHandle, image: String) -> Result<(), String> {
+pub async fn close_region_selector_with_result(
+    app: AppHandle,
+    image: String,
+    capture_result: State<'_, RegionCaptureResultHandle>,
+) -> Result<(), String> {
+    // Store the image in state for ChatInput to fetch
+    {
+        let mut result = capture_result.0.lock();
+        *result = Some(image);
+    }
+
     // Close the region selector window
     if let Some(selector_window) = app.get_webview_window("region-selector") {
         selector_window.close().map_err(|e| format!("Failed to close selector: {}", e))?;
     }
 
-    // Show the main window and emit the result
+    // Show the main window and emit a signal (no payload - payload was too large)
     if let Some(main_window) = app.get_webview_window("main") {
         main_window.show().map_err(|e| format!("Failed to show main window: {}", e))?;
         main_window.set_focus().map_err(|e| format!("Failed to focus main window: {}", e))?;
 
-        // Emit the captured region to the main window
+        // Emit just a signal that the capture is ready
         main_window
-            .emit("region-captured", image)
-            .map_err(|e| format!("Failed to emit result: {}", e))?;
+            .emit("region-capture-ready", ())
+            .map_err(|e| format!("Failed to emit signal: {}", e))?;
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_region_capture_result(
+    capture_result: State<'_, RegionCaptureResultHandle>,
+) -> Result<String, String> {
+    let mut result = capture_result.0.lock();
+    result.take().ok_or_else(|| "No capture result".to_string())
 }
 
 #[tauri::command]

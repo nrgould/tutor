@@ -16,12 +16,19 @@
   let showCaptureMenu = $state(false);
 
   onMount(() => {
-    // Listen for region capture results from the region selector window
+    // Listen for region capture ready signal from the region selector
     let unlisten: (() => void) | undefined;
 
-    listen<string>('region-captured', (event) => {
-      pendingScreenshot = event.payload;
-      isCapturing = false;
+    listen('region-capture-ready', async () => {
+      try {
+        // Fetch the captured region from backend state
+        const image = await invoke<string>('get_region_capture_result');
+        pendingScreenshot = image;
+      } catch (error) {
+        console.error('Failed to get capture result:', error);
+      } finally {
+        isCapturing = false;
+      }
     }).then((fn) => {
       unlisten = fn;
     });
