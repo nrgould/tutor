@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { listen } from '@tauri-apps/api/event';
   import { overlayModeStore } from '$lib/stores/overlayMode';
+  import Toast from '$lib/components/Toast.svelte';
 
   let { children } = $props();
 
@@ -28,6 +29,13 @@
   });
 </script>
 
+<svelte:head>
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
+</svelte:head>
+
 <div class="h-screen flex flex-col overflow-hidden {isOverlayMode ? 'overlay-mode' : 'bg-[var(--gray-1)]'}">
   {@render children()}
 </div>
+
+<Toast />

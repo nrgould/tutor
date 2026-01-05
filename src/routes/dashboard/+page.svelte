@@ -116,11 +116,6 @@
   );
 </script>
 
-<svelte:head>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-</svelte:head>
 
 <div class="app" onmousedown={startDrag} role="application" aria-label="Eigen Dashboard">
   <header class="header">
@@ -323,7 +318,7 @@
     margin: 0;
     padding: 0;
     background: #09090b;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     color: #fafafa;
     -webkit-font-smoothing: antialiased;
   }

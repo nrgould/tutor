@@ -3,9 +3,11 @@
   import { settingsStore } from '$lib/stores/settings';
   import { invoke } from '@tauri-apps/api/core';
   import { getCurrentWindow } from '@tauri-apps/api/window';
-  import { getSetting, setSetting } from '$lib/utils/db';
+  import { getSetting, setSetting, createConversation, saveMessage, invalidateConversationsCache } from '$lib/utils/db';
   import { streamChat, analyzeScreenBatch } from '$lib/utils/api';
   import { parseMarkdown } from '$lib/utils/markdown';
+  import { processConversationMemories } from '$lib/services/memoryService';
+  import { toast } from '$lib/stores/toast';
   import type { Message } from '$lib/types';
   import Onboarding from '$lib/components/Onboarding.svelte';
 
@@ -20,6 +22,7 @@
 
   // Chat state
   let showChat = $state(false);
+  let currentConversationId = $state<string | null>(null);
   let messages = $state<Array<{id: string, role: 'user' | 'assistant', content: string, hasScreen?: boolean}>>([]);
   let isLoading = $state(false);
   let streamingContent = $state('');
@@ -129,6 +132,7 @@
 
   function stopRecording() {
     isRecording = false;
+    const duration = recordingDuration;
     if (watchInterval) {
       clearInterval(watchInterval);
       watchInterval = null;
@@ -139,6 +143,10 @@
     }
     if (screenshotBuffer.length > 0 && !isProcessingBatch) {
       processBatch();
+    }
+    // Show toast notification
+    if (duration > 0) {
+      toast.success(`Session recorded: ${formatDuration(duration)}`);
     }
   }
 
@@ -204,6 +212,16 @@
 
     inputValue = '';
 
+    // Create conversation if needed
+    if (!currentConversationId) {
+      try {
+        const conversation = await createConversation(content.slice(0, 50));
+        currentConversationId = conversation.id;
+      } catch (e) {
+        console.error('Failed to create conversation:', e);
+      }
+    }
+
     const userMessage = {
       id: crypto.randomUUID(),
       role: 'user' as const,
@@ -211,6 +229,11 @@
       hasScreen: !!latestScreenshot
     };
     messages = [...messages, userMessage];
+
+    // Persist user message
+    if (currentConversationId) {
+      saveMessage(currentConversationId, 'user', content, latestScreenshot ? { screenshot: latestScreenshot } : undefined).catch(console.error);
+    }
 
     if (!showChat) {
       showChat = true;
@@ -226,7 +249,7 @@
     try {
       const apiMessages: Message[] = messages.map(m => ({
         id: m.id,
-        conversation_id: '',
+        conversation_id: currentConversationId || '',
         role: m.role,
         content: m.content,
         created_at: new Date().toISOString(),
@@ -242,19 +265,28 @@
         await scrollToBottom();
       }
 
-      messages = [...messages, {
+      const assistantMessage = {
         id: crypto.randomUUID(),
-        role: 'assistant',
+        role: 'assistant' as const,
         content: streamingContent
-      }];
+      };
+      messages = [...messages, assistantMessage];
+
+      // Persist assistant message
+      if (currentConversationId) {
+        saveMessage(currentConversationId, 'assistant', streamingContent).catch(console.error);
+      }
+
       streamingContent = '';
 
     } catch (error) {
+      const errorContent = `Error: ${error instanceof Error ? error.message : 'Failed to get response'}`;
       messages = [...messages, {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `Error: ${error instanceof Error ? error.message : 'Failed to get response'}`
+        content: errorContent
       }];
+      toast.error(error instanceof Error ? error.message : 'Failed to get response');
     } finally {
       isLoading = false;
       await scrollToBottom();
@@ -263,11 +295,39 @@
   }
 
   async function closeChat() {
+    // Process memories from the conversation before closing
+    if (currentConversationId && messages.length >= 4) {
+      const apiMessages: Message[] = messages.map(m => ({
+        id: m.id,
+        conversation_id: currentConversationId!,
+        role: m.role,
+        content: m.content,
+        created_at: new Date().toISOString()
+      }));
+      processConversationMemories(apiMessages, currentConversationId).catch(console.error);
+      invalidateConversationsCache();
+    }
+
     showChat = false;
     await resizeWindow(false);
   }
 
-  function startNewChat() {
+  async function startNewChat() {
+    // Process memories from previous conversation
+    if (currentConversationId && messages.length >= 4) {
+      const apiMessages: Message[] = messages.map(m => ({
+        id: m.id,
+        conversation_id: currentConversationId!,
+        role: m.role,
+        content: m.content,
+        created_at: new Date().toISOString()
+      }));
+      processConversationMemories(apiMessages, currentConversationId).catch(console.error);
+      invalidateConversationsCache();
+    }
+
+    // Reset for new conversation
+    currentConversationId = null;
     messages = [];
     streamingContent = '';
     focusInput();
@@ -322,11 +382,6 @@
   }
 </script>
 
-<svelte:head>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-</svelte:head>
 
 <div class="container" onmousedown={startDrag} role="application" aria-label="Eigen" tabindex="0">
   <!-- Main bar -->
@@ -474,7 +529,7 @@
     margin: 0;
     padding: 0;
     background: transparent;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
