@@ -124,19 +124,6 @@ pub fn run() {
 
             // Show the main window on startup
             if let Some(window) = app.get_webview_window("main") {
-                // On Windows, set the window to be transparent
-                #[cfg(target_os = "windows")]
-                {
-                    use tauri::window::Effect;
-                    // Try to apply blur effect for glass look
-                    let _ = window.set_effects(Some(tauri::window::EffectsConfig {
-                        effects: vec![Effect::Blur],
-                        state: None,
-                        radius: None,
-                        color: None,
-                    }));
-                }
-
                 let _ = window.show();
                 let _ = window.set_focus();
             }
