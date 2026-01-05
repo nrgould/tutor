@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getCurrentWindow, WebviewWindow } from '@tauri-apps/api/window';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
   import { emit } from '@tauri-apps/api/event';
   import { getConversations } from '$lib/utils/db';
   import { settingsStore } from '$lib/stores/settings';
