@@ -27,10 +27,13 @@
   // Recording state
   let screenshotBuffer = $state<string[]>([]);
   let latestScreenshot = $state<string | null>(null);
-  let screenContext = $state<string | null>(null); // What VLM sees on screen
+  let screenContextHistory = $state<Array<{time: number, context: string}>>([]); // Rolling history of what VLM sees
   let watchInterval: ReturnType<typeof setInterval> | null = null;
   let durationInterval: ReturnType<typeof setInterval> | null = null;
   let isProcessingBatch = $state(false);
+
+  const MAX_CONTEXT_HISTORY = 10; // Keep last 10 observations
+  const BATCH_SIZE = 3; // Analyze every 3 screenshots (more frequent)
 
   // Refs
   let messagesContainer: HTMLDivElement;
@@ -115,7 +118,7 @@
         latestScreenshot = screenshot;
         screenshotBuffer = [...screenshotBuffer, screenshot];
 
-        if (screenshotBuffer.length >= 5 && !isProcessingBatch) {
+        if (screenshotBuffer.length >= BATCH_SIZE && !isProcessingBatch) {
           processBatch();
         }
       } catch (error) {
@@ -150,7 +153,9 @@
       // Analyze the batch with VLM to understand what user is working on
       const analysis = await analyzeScreenBatch(batch);
       if (analysis) {
-        screenContext = analysis;
+        // Add to history with timestamp
+        const newEntry = { time: Date.now(), context: analysis };
+        screenContextHistory = [...screenContextHistory, newEntry].slice(-MAX_CONTEXT_HISTORY);
         console.log('[Screen context]', analysis);
       }
     } catch (error) {
@@ -158,6 +163,19 @@
     } finally {
       isProcessingBatch = false;
     }
+  }
+
+  // Build a summary of recent screen activity for the AI
+  function getScreenHistorySummary(): string | null {
+    if (screenContextHistory.length === 0) return null;
+
+    const now = Date.now();
+    const entries = screenContextHistory.map(entry => {
+      const secsAgo = Math.round((now - entry.time) / 1000);
+      return `${secsAgo}s ago: ${entry.context}`;
+    });
+
+    return entries.join('\n');
   }
 
   async function resizeWindow(expanded: boolean) {
@@ -222,7 +240,12 @@
         screen_context: m.id === userMessage.id && latestScreenshot ? { screenshot: latestScreenshot } : undefined
       }));
 
-      for await (const chunk of streamChat(apiMessages)) {
+      // Include screen history so AI knows what user was looking at recently
+      const context = {
+        screenHistory: getScreenHistorySummary() || undefined
+      };
+
+      for await (const chunk of streamChat(apiMessages, context)) {
         streamingContent += chunk;
         await scrollToBottom();
       }

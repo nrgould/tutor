@@ -29,6 +29,11 @@ Your approach:
     }
   }
 
+  // Include recent screen activity history so AI knows what user was looking at
+  if (context?.screenHistory) {
+    prompt += `\n\nRecent screen activity (what you observed while recording):\n${context.screenHistory}`;
+  }
+
   return prompt;
 }
 

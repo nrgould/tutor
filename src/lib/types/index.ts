@@ -99,6 +99,7 @@ export interface TutorContext {
   memories?: string[];
   currentTopic?: string;
   masteryLevel?: number;
+  screenHistory?: string; // Recent screen observations with timestamps
 }
 
 // Chat state
