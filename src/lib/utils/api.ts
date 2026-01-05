@@ -250,3 +250,66 @@ Your summaries should:
   const data = await response.json();
   return data.content?.[0]?.text || 'Unable to generate summary.';
 }
+
+/**
+ * Analyze a batch of screenshots to build context about what the user is working on.
+ * Returns a brief summary of the activity observed.
+ */
+export async function analyzeScreenBatch(screenshots: string[]): Promise<string | null> {
+  const settings = get(settingsStore);
+
+  if (!settings.anthropic_api_key || screenshots.length === 0) {
+    return null;
+  }
+
+  // Use the most recent screenshot for analysis (to save tokens)
+  const latestScreenshot = screenshots[screenshots.length - 1];
+
+  try {
+    const response = await fetch(CLAUDE_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': settings.anthropic_api_key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 200,
+        system: `You are observing a user's screen to understand what they're working on.
+Provide a very brief (1-2 sentence) factual description of what you see.
+Focus on: the application/website, the type of content, and what task they appear to be doing.
+Be concise and factual. No greetings or offers to help.`,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: 'image/png',
+                  data: latestScreenshot,
+                },
+              },
+              {
+                type: 'text',
+                text: 'What is on this screen?',
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    return data.content?.[0]?.text || null;
+  } catch {
+    return null;
+  }
+}
