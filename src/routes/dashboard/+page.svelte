@@ -3,35 +3,31 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { getConversations } from '$lib/utils/db';
   import { settingsStore } from '$lib/stores/settings';
-  import { getSetting, setSetting } from '$lib/utils/db';
   import type { Conversation } from '$lib/types';
 
   const settings = $derived($settingsStore);
 
-  // Data
   let sessions = $state<Conversation[]>([]);
   let isLoading = $state(true);
   let totalStudyTime = $state(0);
   let sessionsThisWeek = $state(0);
-  let currentStreak = $state(0);
 
-  // Settings
   let anthropicKeyInput = $state('');
   let showApiKey = $state(false);
   let saveSuccess = $state(false);
 
-  // Active section
   let activeSection = $state<'overview' | 'sessions' | 'settings'>('overview');
+  let searchQuery = $state('');
 
   onMount(async () => {
     await settingsStore.load();
     await loadSessions();
-    await loadStats();
   });
 
   async function loadSessions() {
     try {
-      sessions = await getConversations(20);
+      sessions = await getConversations(50);
+      calculateStats();
     } catch (error) {
       console.error('Failed to load sessions:', error);
     } finally {
@@ -39,28 +35,20 @@
     }
   }
 
-  async function loadStats() {
-    // Calculate stats from sessions
+  function calculateStats() {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-
     sessionsThisWeek = sessions.filter(s => new Date(s.created_at + 'Z') > weekAgo).length;
-
-    // Mock streak calculation (would need proper date tracking)
-    currentStreak = Math.min(sessionsThisWeek, 7);
-
-    // Total study time (mock - would need actual duration tracking)
-    totalStudyTime = sessions.length * 15; // Assume 15 min avg per session
+    totalStudyTime = sessions.length * 15;
   }
 
   async function saveApiKey() {
+    if (!anthropicKeyInput.trim()) return;
     try {
-      if (anthropicKeyInput.trim()) {
-        await settingsStore.setApiKey('anthropic_api_key', anthropicKeyInput.trim());
-        anthropicKeyInput = '';
-        saveSuccess = true;
-        setTimeout(() => (saveSuccess = false), 3000);
-      }
+      await settingsStore.setApiKey('anthropic_api_key', anthropicKeyInput.trim());
+      anthropicKeyInput = '';
+      saveSuccess = true;
+      setTimeout(() => (saveSuccess = false), 2000);
     } catch (e) {
       console.error('Failed to save API key:', e);
     }
@@ -69,309 +57,267 @@
   async function startDrag(e: MouseEvent) {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('input') || target.closest('a') || target.closest('.content-area')) return;
-
+    if (target.closest('button, input, a, .content')) return;
     try {
-      const window = getCurrentWindow();
-      await window.startDragging();
-    } catch (error) {
-      console.error('Failed to start dragging:', error);
-    }
+      await getCurrentWindow().startDragging();
+    } catch {}
   }
 
   async function closeWindow() {
-    const window = getCurrentWindow();
-    await window.close();
+    await getCurrentWindow().close();
   }
 
   async function minimizeWindow() {
-    const window = getCurrentWindow();
-    await window.minimize();
+    await getCurrentWindow().minimize();
+  }
+
+  async function startSession() {
+    await getCurrentWindow().close();
   }
 
   function formatDate(dateStr: string): string {
     const date = new Date(dateStr + 'Z');
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+    const diff = now.getTime() - date.getTime();
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
-  function formatTime(date: Date): string {
-    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  function getTitle(s: Conversation): string {
+    return s.title || s.summary || 'Untitled session';
   }
 
-  function getSessionTitle(session: Conversation): string {
-    return session.title || session.summary || 'Untitled session';
-  }
+  const filteredSessions = $derived(
+    searchQuery
+      ? sessions.filter(s => getTitle(s).toLowerCase().includes(searchQuery.toLowerCase()))
+      : sessions
+  );
 </script>
 
-<div class="dashboard" onmousedown={startDrag}>
-  <!-- Header -->
+<svelte:head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</svelte:head>
+
+<div class="app" onmousedown={startDrag}>
   <header class="header">
     <div class="header-left">
-      <div class="window-controls">
-        <button class="window-btn close" onclick={closeWindow}></button>
-        <button class="window-btn minimize" onclick={minimizeWindow}></button>
-        <button class="window-btn maximize" disabled></button>
+      <div class="traffic-lights">
+        <button class="light close" onclick={closeWindow}></button>
+        <button class="light minimize" onclick={minimizeWindow}></button>
+        <button class="light maximize" disabled></button>
       </div>
-      <div class="logo">
-        <span class="logo-icon">E</span>
-        <span class="logo-text">Eigen</span>
+      <div class="brand">
+        <span class="brand-mark">E</span>
+        <span class="brand-name">Eigen</span>
       </div>
     </div>
 
-    <div class="header-center">
-      <div class="search-bar">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8" />
-          <path d="M21 21l-4.35-4.35" />
-        </svg>
-        <input type="text" placeholder="Search or ask anything..." />
-      </div>
-    </div>
+    <nav class="nav">
+      <button
+        class="nav-item"
+        class:active={activeSection === 'overview'}
+        onclick={() => activeSection = 'overview'}
+      >Overview</button>
+      <button
+        class="nav-item"
+        class:active={activeSection === 'sessions'}
+        onclick={() => activeSection = 'sessions'}
+      >Sessions</button>
+      <button
+        class="nav-item"
+        class:active={activeSection === 'settings'}
+        onclick={() => activeSection = 'settings'}
+      >Settings</button>
+    </nav>
 
     <div class="header-right">
-      <div class="nav-tabs">
-        <button
-          class="nav-tab {activeSection === 'overview' ? 'active' : ''}"
-          onclick={() => activeSection = 'overview'}
-        >Overview</button>
-        <button
-          class="nav-tab {activeSection === 'sessions' ? 'active' : ''}"
-          onclick={() => activeSection = 'sessions'}
-        >Sessions</button>
-        <button
-          class="nav-tab {activeSection === 'settings' ? 'active' : ''}"
-          onclick={() => activeSection = 'settings'}
-        >Settings</button>
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.35-4.35"/>
+        </svg>
+        <input
+          type="text"
+          placeholder="Search..."
+          bind:value={searchQuery}
+        />
       </div>
     </div>
   </header>
 
-  <!-- Content -->
-  <div class="content-area">
+  <main class="content">
     {#if activeSection === 'overview'}
-      <!-- Hero Section -->
-      <section class="hero">
-        <div class="hero-content">
-          <h1>Welcome back</h1>
-          <p>Continue your learning journey</p>
-        </div>
-        <button class="start-btn">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
-            <circle cx="12" cy="12" r="4" />
-          </svg>
-          Start Session
-        </button>
-      </section>
+      <div class="overview">
+        <section class="hero">
+          <div>
+            <h1>Welcome back</h1>
+            <p class="subtitle">Continue where you left off</p>
+          </div>
+          <button class="btn-primary" onclick={startSession}>
+            Start Session
+          </button>
+        </section>
 
-      <!-- Stats Grid -->
-      <section class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon study-time">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
+        <section class="metrics">
+          <div class="metric">
+            <span class="metric-value">{totalStudyTime}m</span>
+            <span class="metric-label">Total time</span>
           </div>
-          <div class="stat-info">
-            <span class="stat-value">{totalStudyTime}m</span>
-            <span class="stat-label">Total study time</span>
+          <div class="divider"></div>
+          <div class="metric">
+            <span class="metric-value">{sessionsThisWeek}</span>
+            <span class="metric-label">This week</span>
           </div>
-        </div>
+          <div class="divider"></div>
+          <div class="metric">
+            <span class="metric-value">{sessions.length}</span>
+            <span class="metric-label">Total sessions</span>
+          </div>
+        </section>
 
-        <div class="stat-card">
-          <div class="stat-icon sessions">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
+        <section class="recent">
+          <div class="section-header">
+            <h2>Recent</h2>
+            {#if sessions.length > 0}
+              <button class="link" onclick={() => activeSection = 'sessions'}>View all</button>
+            {/if}
           </div>
-          <div class="stat-info">
-            <span class="stat-value">{sessionsThisWeek}</span>
-            <span class="stat-label">Sessions this week</span>
-          </div>
-        </div>
 
-        <div class="stat-card">
-          <div class="stat-icon streak">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-            </svg>
-          </div>
-          <div class="stat-info">
-            <span class="stat-value">{currentStreak} days</span>
-            <span class="stat-label">Current streak</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Feature Cards -->
-      <section class="feature-cards">
-        <div class="feature-card gradient-blue">
-          <h3>Screen Recording</h3>
-          <p>Record your screen while studying and get AI assistance in real-time</p>
-          <button class="feature-btn">Learn more</button>
-        </div>
-        <div class="feature-card gradient-purple">
-          <h3>Smart Context</h3>
-          <p>AI understands what you're working on and provides relevant help</p>
-          <button class="feature-btn">Explore</button>
-        </div>
-      </section>
-
-      <!-- Recent Sessions -->
-      <section class="recent-sessions">
-        <div class="section-header">
-          <h2>Recent Sessions</h2>
-          <button class="see-all" onclick={() => activeSection = 'sessions'}>See all</button>
-        </div>
-        <div class="sessions-list">
           {#if sessions.length === 0}
-            <div class="empty-sessions">
-              <p>No sessions yet. Start your first session!</p>
+            <div class="empty">
+              <p>No sessions yet</p>
+              <span>Start a session to begin tracking your learning</span>
             </div>
           {:else}
-            {#each sessions.slice(0, 5) as session}
-              <div class="session-item">
-                <div class="session-info">
-                  <span class="session-title">{getSessionTitle(session)}</span>
-                  <span class="session-meta">{formatDate(session.created_at)}</span>
-                </div>
-                <div class="session-duration">
-                  <span class="duration-time">{formatTime(new Date(session.created_at + 'Z'))}</span>
-                </div>
-              </div>
-            {/each}
+            <div class="session-list">
+              {#each sessions.slice(0, 6) as session}
+                <button class="session-row">
+                  <span class="session-title">{getTitle(session)}</span>
+                  <span class="session-time">{formatDate(session.created_at)}</span>
+                </button>
+              {/each}
+            </div>
           {/if}
-        </div>
-      </section>
+        </section>
+      </div>
 
     {:else if activeSection === 'sessions'}
-      <!-- All Sessions View -->
-      <section class="all-sessions">
+      <div class="sessions-view">
         <div class="section-header">
-          <h2>All Sessions</h2>
-          <span class="session-count">{sessions.length} total</span>
+          <h2>Sessions</h2>
+          <span class="count">{filteredSessions.length}</span>
         </div>
 
-        <div class="sessions-list full">
-          {#if isLoading}
-            <div class="loading">Loading sessions...</div>
-          {:else if sessions.length === 0}
-            <div class="empty-sessions">
-              <p>No sessions yet. Start recording to create your first session!</p>
-            </div>
-          {:else}
-            {#each sessions as session}
-              <div class="session-item">
-                <div class="session-info">
-                  <span class="session-title">{getSessionTitle(session)}</span>
-                  <span class="session-meta">{formatDate(session.created_at)}</span>
-                </div>
-                <div class="session-duration">
-                  <span class="duration-time">{formatTime(new Date(session.created_at + 'Z'))}</span>
-                </div>
-              </div>
+        {#if isLoading}
+          <div class="empty">
+            <p>Loading...</p>
+          </div>
+        {:else if filteredSessions.length === 0}
+          <div class="empty">
+            <p>{searchQuery ? 'No results' : 'No sessions yet'}</p>
+            <span>{searchQuery ? 'Try a different search' : 'Start a session to begin'}</span>
+          </div>
+        {:else}
+          <div class="session-list full">
+            {#each filteredSessions as session}
+              <button class="session-row">
+                <span class="session-title">{getTitle(session)}</span>
+                <span class="session-time">{formatDate(session.created_at)}</span>
+              </button>
             {/each}
-          {/if}
-        </div>
-      </section>
+          </div>
+        {/if}
+      </div>
 
     {:else if activeSection === 'settings'}
-      <!-- Settings View -->
-      <section class="settings-section">
+      <div class="settings-view">
         <div class="section-header">
           <h2>Settings</h2>
         </div>
 
         <div class="settings-group">
-          <h3>API Configuration</h3>
-          <div class="setting-item">
-            <div class="setting-label">
-              <span class="label-text">Anthropic API Key</span>
-              <span class="label-hint">Required for AI features</span>
-            </div>
-            <div class="setting-input">
-              <input
-                type={showApiKey ? 'text' : 'password'}
-                bind:value={anthropicKeyInput}
-                placeholder={settings.anthropic_api_key ? 'Key saved' : 'Enter your API key'}
-              />
-              <button class="toggle-visibility" onclick={() => showApiKey = !showApiKey}>
-                {#if showApiKey}
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                    <line x1="1" y1="1" x2="23" y2="23" />
-                  </svg>
-                {:else}
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                {/if}
-              </button>
-              <button class="save-btn" onclick={saveApiKey} disabled={!anthropicKeyInput.trim()}>
-                {saveSuccess ? 'Saved!' : 'Save'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="settings-group">
-          <h3>Account</h3>
-          <div class="setting-item">
-            <div class="setting-label">
-              <span class="label-text">Status</span>
-            </div>
-            <div class="setting-value">
-              {#if settings.anthropic_api_key}
-                <span class="status-badge active">API Connected</span>
+          <label class="settings-label">API Key</label>
+          <div class="api-input-row">
+            <input
+              type={showApiKey ? 'text' : 'password'}
+              bind:value={anthropicKeyInput}
+              placeholder={settings.anthropic_api_key ? 'Key configured' : 'Enter Anthropic API key'}
+              class="input"
+            />
+            <button class="btn-icon" onclick={() => showApiKey = !showApiKey}>
+              {#if showApiKey}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
               {:else}
-                <span class="status-badge inactive">API Key Required</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
               {/if}
-            </div>
+            </button>
+            <button
+              class="btn-secondary"
+              onclick={saveApiKey}
+              disabled={!anthropicKeyInput.trim()}
+            >
+              {saveSuccess ? 'Saved' : 'Save'}
+            </button>
           </div>
         </div>
 
         <div class="settings-group">
-          <h3>About</h3>
-          <div class="setting-item">
-            <div class="setting-label">
-              <span class="label-text">Version</span>
-            </div>
-            <div class="setting-value">
-              <span>0.1.0</span>
-            </div>
+          <label class="settings-label">Status</label>
+          <div class="status-row">
+            {#if settings.anthropic_api_key}
+              <span class="status-dot active"></span>
+              <span>Connected</span>
+            {:else}
+              <span class="status-dot"></span>
+              <span>Not configured</span>
+            {/if}
           </div>
         </div>
-      </section>
+
+        <div class="settings-group">
+          <label class="settings-label">Version</label>
+          <span class="version">0.1.0</span>
+        </div>
+      </div>
     {/if}
-  </div>
+  </main>
 </div>
 
 <style>
+  :global(*) {
+    box-sizing: border-box;
+  }
+
   :global(body) {
     margin: 0;
     padding: 0;
-    background: #0a0a0b;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
-    color: white;
+    background: #09090b;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    color: #fafafa;
+    -webkit-font-smoothing: antialiased;
   }
 
-  .dashboard {
+  .app {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background: linear-gradient(180deg, #0f0f11 0%, #0a0a0b 100%);
+    background: #09090b;
   }
 
   /* Header */
@@ -379,9 +325,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    height: 52px;
+    padding: 0 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     cursor: grab;
+    flex-shrink: 0;
   }
 
   .header:active {
@@ -394,95 +342,87 @@
     gap: 16px;
   }
 
-  .window-controls {
+  .traffic-lights {
     display: flex;
     gap: 8px;
   }
 
-  .window-btn {
+  .light {
     width: 12px;
     height: 12px;
     border-radius: 50%;
     border: none;
     cursor: pointer;
-    transition: opacity 0.2s;
+    transition: opacity 0.15s;
   }
 
-  .window-btn:hover {
-    opacity: 0.8;
+  .light:hover {
+    opacity: 0.85;
   }
 
-  .window-btn.close {
+  .light.close {
     background: #ff5f57;
   }
 
-  .window-btn.minimize {
+  .light.minimize {
     background: #febc2e;
   }
 
-  .window-btn.maximize {
+  .light.maximize {
     background: #28c840;
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: default;
   }
 
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .logo-icon {
-    width: 28px;
-    height: 28px;
-    background: linear-gradient(135deg, #0a84ff 0%, #5e5ce6 100%);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 14px;
-  }
-
-  .logo-text {
-    font-size: 18px;
-    font-weight: 600;
-    letter-spacing: -0.5px;
-  }
-
-  .header-center {
-    flex: 1;
-    max-width: 400px;
-    margin: 0 24px;
-  }
-
-  .search-bar {
+  .brand {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 16px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
   }
 
-  .search-icon {
-    width: 16px;
-    height: 16px;
-    color: rgba(255, 255, 255, 0.4);
+  .brand-mark {
+    width: 24px;
+    height: 24px;
+    background: #fafafa;
+    color: #09090b;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 13px;
   }
 
-  .search-bar input {
-    flex: 1;
-    background: none;
+  .brand-name {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  .nav {
+    display: flex;
+    gap: 2px;
+  }
+
+  .nav-item {
+    padding: 6px 14px;
+    background: transparent;
     border: none;
-    color: white;
-    font-size: 14px;
-    outline: none;
+    border-radius: 6px;
+    color: rgba(250, 250, 250, 0.5);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
   }
 
-  .search-bar input::placeholder {
-    color: rgba(255, 255, 255, 0.4);
+  .nav-item:hover {
+    color: rgba(250, 250, 250, 0.8);
+  }
+
+  .nav-item.active {
+    color: #fafafa;
+    background: rgba(255, 255, 255, 0.08);
   }
 
   .header-right {
@@ -490,449 +430,328 @@
     align-items: center;
   }
 
-  .nav-tabs {
+  .search {
     display: flex;
-    gap: 4px;
-  }
-
-  .nav-tab {
-    padding: 8px 16px;
-    background: transparent;
-    border: none;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
+    color: rgba(250, 250, 250, 0.4);
   }
 
-  .nav-tab:hover {
-    color: rgba(255, 255, 255, 0.9);
-    background: rgba(255, 255, 255, 0.06);
+  .search input {
+    width: 140px;
+    background: none;
+    border: none;
+    color: #fafafa;
+    font-size: 13px;
+    outline: none;
   }
 
-  .nav-tab.active {
-    color: white;
-    background: rgba(255, 255, 255, 0.1);
+  .search input::placeholder {
+    color: rgba(250, 250, 250, 0.35);
   }
 
   /* Content */
-  .content-area {
+  .content {
     flex: 1;
     overflow-y: auto;
-    padding: 24px 32px;
-    cursor: default;
+    padding: 32px 40px;
   }
 
-  .content-area::-webkit-scrollbar {
-    width: 8px;
+  .content::-webkit-scrollbar {
+    width: 6px;
   }
 
-  .content-area::-webkit-scrollbar-track {
+  .content::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  .content-area::-webkit-scrollbar-thumb {
+  .content::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+    border-radius: 3px;
   }
 
-  /* Hero */
+  /* Overview */
+  .overview {
+    max-width: 720px;
+  }
+
   .hero {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 32px;
+    margin-bottom: 48px;
   }
 
-  .hero-content h1 {
+  .hero h1 {
+    margin: 0 0 6px;
     font-size: 28px;
     font-weight: 600;
-    margin: 0 0 4px;
     letter-spacing: -0.5px;
   }
 
-  .hero-content p {
+  .subtitle {
     margin: 0;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(250, 250, 250, 0.45);
     font-size: 15px;
   }
 
-  .start-btn {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 24px;
-    background: linear-gradient(135deg, #0a84ff 0%, #5e5ce6 100%);
+  .btn-primary {
+    padding: 10px 20px;
+    background: #fafafa;
     border: none;
-    border-radius: 12px;
-    color: white;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 4px 16px rgba(10, 132, 255, 0.3);
-  }
-
-  .start-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 24px rgba(10, 132, 255, 0.4);
-  }
-
-  .start-btn svg {
-    width: 20px;
-    height: 20px;
-  }
-
-  /* Stats Grid */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 32px;
-  }
-
-  .stat-card {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 20px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 16px;
-  }
-
-  .stat-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .stat-icon svg {
-    width: 24px;
-    height: 24px;
-  }
-
-  .stat-icon.study-time {
-    background: rgba(10, 132, 255, 0.15);
-    color: #0a84ff;
-  }
-
-  .stat-icon.sessions {
-    background: rgba(48, 209, 88, 0.15);
-    color: #30d158;
-  }
-
-  .stat-icon.streak {
-    background: rgba(255, 159, 10, 0.15);
-    color: #ff9f0a;
-  }
-
-  .stat-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .stat-value {
-    font-size: 24px;
-    font-weight: 600;
-    letter-spacing: -0.5px;
-  }
-
-  .stat-label {
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.5);
-  }
-
-  /* Feature Cards */
-  .feature-cards {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-    margin-bottom: 32px;
-  }
-
-  .feature-card {
-    padding: 24px;
-    border-radius: 16px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .feature-card.gradient-blue {
-    background: linear-gradient(135deg, rgba(10, 132, 255, 0.2) 0%, rgba(94, 92, 230, 0.2) 100%);
-    border: 1px solid rgba(10, 132, 255, 0.2);
-  }
-
-  .feature-card.gradient-purple {
-    background: linear-gradient(135deg, rgba(191, 90, 242, 0.2) 0%, rgba(94, 92, 230, 0.2) 100%);
-    border: 1px solid rgba(191, 90, 242, 0.2);
-  }
-
-  .feature-card h3 {
-    margin: 0 0 8px;
-    font-size: 17px;
-    font-weight: 600;
-  }
-
-  .feature-card p {
-    margin: 0 0 16px;
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
-    line-height: 1.5;
-  }
-
-  .feature-btn {
-    padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 8px;
-    color: white;
-    font-size: 13px;
+    color: #09090b;
+    font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: opacity 0.15s;
   }
 
-  .feature-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
+  .btn-primary:hover {
+    opacity: 0.9;
   }
 
-  /* Sessions */
+  /* Metrics */
+  .metrics {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    padding: 24px 0;
+    margin-bottom: 48px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .metric {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .metric-value {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -1px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .metric-label {
+    font-size: 13px;
+    color: rgba(250, 250, 250, 0.45);
+  }
+
+  .divider {
+    width: 1px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* Section Header */
   .section-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
   }
 
   .section-header h2 {
     margin: 0;
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(250, 250, 250, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
-  .see-all, .session-count {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.5);
+  .link {
     background: none;
     border: none;
-    cursor: pointer;
-  }
-
-  .see-all:hover {
-    color: #0a84ff;
-  }
-
-  .sessions-list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-
-  .sessions-list.full {
-    max-height: calc(100vh - 200px);
-    overflow-y: auto;
-  }
-
-  .session-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    background: rgba(255, 255, 255, 0.02);
-    cursor: pointer;
-    transition: background 0.2s;
-  }
-
-  .session-item:hover {
-    background: rgba(255, 255, 255, 0.05);
-  }
-
-  .session-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .session-title {
-    font-size: 15px;
-    font-weight: 500;
-  }
-
-  .session-meta {
+    color: rgba(250, 250, 250, 0.45);
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: color 0.15s;
   }
 
-  .session-duration {
-    text-align: right;
+  .link:hover {
+    color: #fafafa;
   }
 
-  .duration-time {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.5);
+  .count {
+    font-size: 13px;
+    color: rgba(250, 250, 250, 0.35);
     font-variant-numeric: tabular-nums;
   }
 
-  .empty-sessions {
-    padding: 40px;
-    text-align: center;
+  /* Session List */
+  .session-list {
+    display: flex;
+    flex-direction: column;
   }
 
-  .empty-sessions p {
-    margin: 0;
-    color: rgba(255, 255, 255, 0.4);
+  .session-list.full {
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+  }
+
+  .session-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 14px 0;
+    background: none;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+    transition: opacity 0.15s;
+    text-align: left;
+  }
+
+  .session-row:hover {
+    opacity: 0.7;
+  }
+
+  .session-row:last-child {
+    border-bottom: none;
+  }
+
+  .session-title {
     font-size: 14px;
+    font-weight: 450;
+    color: #fafafa;
   }
 
-  .loading {
-    padding: 40px;
+  .session-time {
+    font-size: 13px;
+    color: rgba(250, 250, 250, 0.35);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Empty State */
+  .empty {
+    padding: 48px 0;
     text-align: center;
-    color: rgba(255, 255, 255, 0.4);
   }
 
-  /* Settings */
-  .settings-section {
-    max-width: 600px;
+  .empty p {
+    margin: 0 0 6px;
+    font-size: 14px;
+    color: rgba(250, 250, 250, 0.6);
+  }
+
+  .empty span {
+    font-size: 13px;
+    color: rgba(250, 250, 250, 0.35);
+  }
+
+  /* Sessions View */
+  .sessions-view {
+    max-width: 720px;
+  }
+
+  /* Settings View */
+  .settings-view {
+    max-width: 480px;
   }
 
   .settings-group {
     margin-bottom: 32px;
   }
 
-  .settings-group h3 {
-    margin: 0 0 16px;
-    font-size: 14px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, 0.5);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .setting-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 12px;
-    margin-bottom: 8px;
-  }
-
-  .setting-label {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .label-text {
-    font-size: 15px;
-    font-weight: 500;
-  }
-
-  .label-hint {
+  .settings-label {
+    display: block;
+    margin-bottom: 10px;
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.4);
+    font-weight: 500;
+    color: rgba(250, 250, 250, 0.6);
   }
 
-  .setting-input {
+  .api-input-row {
     display: flex;
-    align-items: center;
     gap: 8px;
   }
 
-  .setting-input input {
-    width: 200px;
+  .input {
+    flex: 1;
     padding: 10px 14px;
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
-    color: white;
+    color: #fafafa;
     font-size: 14px;
     outline: none;
+    transition: border-color 0.15s;
   }
 
-  .setting-input input::placeholder {
-    color: rgba(255, 255, 255, 0.3);
+  .input::placeholder {
+    color: rgba(250, 250, 250, 0.3);
   }
 
-  .setting-input input:focus {
-    border-color: rgba(10, 132, 255, 0.5);
+  .input:focus {
+    border-color: rgba(255, 255, 255, 0.25);
   }
 
-  .toggle-visibility {
-    padding: 8px;
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.5);
-    cursor: pointer;
-  }
-
-  .toggle-visibility svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  .toggle-visibility:hover {
-    color: rgba(255, 255, 255, 0.8);
-  }
-
-  .save-btn {
-    padding: 10px 20px;
-    background: #0a84ff;
-    border: none;
+  .btn-icon {
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
-    color: white;
+    color: rgba(250, 250, 250, 0.5);
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .btn-icon:hover {
+    color: #fafafa;
+  }
+
+  .btn-secondary {
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #fafafa;
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: opacity 0.15s;
   }
 
-  .save-btn:hover:not(:disabled) {
-    background: #0077ed;
+  .btn-secondary:hover:not(:disabled) {
+    opacity: 0.8;
   }
 
-  .save-btn:disabled {
-    opacity: 0.5;
+  .btn-secondary:disabled {
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
-  .setting-value {
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(250, 250, 250, 0.7);
   }
 
-  .status-badge {
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(250, 250, 250, 0.25);
   }
 
-  .status-badge.active {
-    background: rgba(48, 209, 88, 0.15);
-    color: #30d158;
+  .status-dot.active {
+    background: #22c55e;
   }
 
-  .status-badge.inactive {
-    background: rgba(255, 69, 58, 0.15);
-    color: #ff453a;
-  }
-
-  /* All Sessions */
-  .all-sessions {
-    height: 100%;
+  .version {
+    font-size: 14px;
+    color: rgba(250, 250, 250, 0.45);
+    font-variant-numeric: tabular-nums;
   }
 </style>
