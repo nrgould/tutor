@@ -5,6 +5,7 @@
   import { emit } from '@tauri-apps/api/event';
   import { getConversations } from '$lib/utils/db';
   import { settingsStore } from '$lib/stores/settings';
+  import { getTopics } from '$lib/services/memoryService';
   import type { Conversation } from '$lib/types';
 
   const settings = $derived($settingsStore);
@@ -21,48 +22,144 @@
   let activeSection = $state<'overview' | 'sessions' | 'mind' | 'settings'>('overview');
   let mindTab = $state<'constellation' | 'profile'>('constellation');
 
-  // Sample topic data for Knowledge Map
-  const currentTopics = [
-    { id: 1, name: 'Hegel\'s Dialectics', mastery: 0.72, status: 'learning', connections: [2, 3, 5] },
-    { id: 2, name: 'Phenomenology', mastery: 0.45, status: 'learning', connections: [1, 4] },
-    { id: 3, name: 'Kant\'s Critique', mastery: 0.88, status: 'reviewing', connections: [1, 5, 6] },
-    { id: 4, name: 'Existentialism', mastery: 0.95, status: 'mastered', connections: [2, 6] },
-    { id: 5, name: 'Logic & Reasoning', mastery: 0.60, status: 'learning', connections: [1, 3] },
-    { id: 6, name: 'Ethics', mastery: 0.33, status: 'learning', connections: [3, 4] },
-  ];
+  // Topic data from database
+  interface TopicNode {
+    id: string;
+    name: string;
+    mastery: number;
+    status: string;
+    parentId?: string;
+  }
 
-  const recommendedTopics = [
-    { id: 101, name: 'Metaphysics', mastery: 0, status: 'recommended', connections: [3, 5] },
-    { id: 102, name: 'Philosophy of Mind', mastery: 0, status: 'recommended', connections: [2, 4] },
-    { id: 103, name: 'Nietzsche', mastery: 0, status: 'recommended', connections: [4, 6] },
-  ];
+  let topics = $state<TopicNode[]>([]);
+  let topicsLoading = $state(true);
 
-  const allTopics = [...currentTopics, ...recommendedTopics];
+  // Computed positions using force-directed layout
+  let positions = $state<Record<string, { x: number; y: number }>>({});
 
-  const positions: Record<number, { x: number; y: number }> = {
-    1: { x: 50, y: 25 },
-    2: { x: 28, y: 42 },
-    3: { x: 72, y: 35 },
-    4: { x: 32, y: 68 },
-    5: { x: 50, y: 50 },
-    6: { x: 68, y: 62 },
-    101: { x: 78, y: 20 },
-    102: { x: 18, y: 28 },
-    103: { x: 50, y: 82 },
-  };
+  // Compute connections from parent relationships
+  const connections = $derived(() => {
+    const conns: { from: string; to: string }[] = [];
+    for (const topic of topics) {
+      if (topic.parentId) {
+        conns.push({ from: topic.id, to: topic.parentId });
+      }
+    }
+    return conns;
+  });
 
-  // Learning profile data
+  // Force-directed layout algorithm
+  function computeLayout(nodes: TopicNode[]): Record<string, { x: number; y: number }> {
+    if (nodes.length === 0) return {};
+
+    // Initialize positions in a circle
+    const pos: Record<string, { x: number; y: number }> = {};
+    const centerX = 50;
+    const centerY = 50;
+    const radius = 30;
+
+    nodes.forEach((node, i) => {
+      const angle = (i / nodes.length) * 2 * Math.PI - Math.PI / 2;
+      pos[node.id] = {
+        x: centerX + radius * Math.cos(angle),
+        y: centerY + radius * Math.sin(angle),
+      };
+    });
+
+    // Simple force simulation (few iterations for quick layout)
+    const iterations = 50;
+    const repulsion = 800;
+    const attraction = 0.05;
+    const damping = 0.9;
+
+    const velocities: Record<string, { vx: number; vy: number }> = {};
+    nodes.forEach((n) => (velocities[n.id] = { vx: 0, vy: 0 }));
+
+    for (let iter = 0; iter < iterations; iter++) {
+      // Repulsion between all pairs
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i];
+          const b = nodes[j];
+          const dx = pos[a.id].x - pos[b.id].x;
+          const dy = pos[a.id].y - pos[b.id].y;
+          const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+          const force = repulsion / (dist * dist);
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
+          velocities[a.id].vx += fx;
+          velocities[a.id].vy += fy;
+          velocities[b.id].vx -= fx;
+          velocities[b.id].vy -= fy;
+        }
+      }
+
+      // Attraction along edges (parent connections)
+      for (const node of nodes) {
+        if (node.parentId && pos[node.parentId]) {
+          const dx = pos[node.parentId].x - pos[node.id].x;
+          const dy = pos[node.parentId].y - pos[node.id].y;
+          velocities[node.id].vx += dx * attraction;
+          velocities[node.id].vy += dy * attraction;
+          velocities[node.parentId].vx -= dx * attraction;
+          velocities[node.parentId].vy -= dy * attraction;
+        }
+      }
+
+      // Center gravity
+      for (const node of nodes) {
+        const dx = centerX - pos[node.id].x;
+        const dy = centerY - pos[node.id].y;
+        velocities[node.id].vx += dx * 0.01;
+        velocities[node.id].vy += dy * 0.01;
+      }
+
+      // Apply velocities
+      for (const node of nodes) {
+        velocities[node.id].vx *= damping;
+        velocities[node.id].vy *= damping;
+        pos[node.id].x += velocities[node.id].vx;
+        pos[node.id].y += velocities[node.id].vy;
+        // Clamp to bounds with padding
+        pos[node.id].x = Math.max(12, Math.min(88, pos[node.id].x));
+        pos[node.id].y = Math.max(12, Math.min(88, pos[node.id].y));
+      }
+    }
+
+    return pos;
+  }
+
+  async function loadTopics() {
+    topicsLoading = true;
+    try {
+      const storedTopics = await getTopics();
+      topics = storedTopics.map((t) => ({
+        id: t.id,
+        name: t.name,
+        mastery: t.mastery_level,
+        status: t.status,
+        parentId: t.parent_id,
+      }));
+      positions = computeLayout(topics);
+    } catch (e) {
+      console.error('Failed to load topics:', e);
+      topics = [];
+    } finally {
+      topicsLoading = false;
+    }
+  }
+
+  // Learning profile data (will be computed from conversation patterns in future)
   const learningProfile = [
-    { name: 'Visual', value: 0.85, description: 'Diagrams, charts, videos' },
-    { name: 'Reading', value: 0.70, description: 'Texts, articles, books' },
-    { name: 'Auditory', value: 0.45, description: 'Lectures, discussions' },
-    { name: 'Kinesthetic', value: 0.55, description: 'Practice, hands-on' },
-    { name: 'Social', value: 0.60, description: 'Group learning, debate' },
-    { name: 'Solitary', value: 0.80, description: 'Self-study, reflection' },
+    { name: 'Visual', value: 0.5, description: 'Diagrams, charts, videos' },
+    { name: 'Reading', value: 0.5, description: 'Texts, articles, books' },
+    { name: 'Auditory', value: 0.5, description: 'Lectures, discussions' },
+    { name: 'Kinesthetic', value: 0.5, description: 'Practice, hands-on' },
+    { name: 'Social', value: 0.5, description: 'Group learning, debate' },
+    { name: 'Solitary', value: 0.5, description: 'Self-study, reflection' },
   ];
 
-  function getNodeSize(mastery: number, isRecommended: boolean): number {
-    if (isRecommended) return 1.8;
+  function getNodeSize(mastery: number): number {
     return 2 + mastery * 2;
   }
 
@@ -103,7 +200,7 @@
 
   onMount(async () => {
     await settingsStore.load();
-    await loadSessions();
+    await Promise.all([loadSessions(), loadTopics()]);
   });
 
   async function loadSessions() {
@@ -376,68 +473,82 @@
 
         {#if mindTab === 'constellation'}
           <!-- Knowledge Map -->
-          <div class="constellation-wrapper">
-            <div class="constellation-controls">
-              <span class="zoom-level">{Math.round(scale * 100)}%</span>
-              <button class="ctrl-btn" onclick={() => { scale = Math.max(0.5, scale - 0.2); }} onmousedown={(e) => e.stopPropagation()} title="Zoom out">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-              </button>
-              <button class="ctrl-btn" onclick={() => { scale = Math.min(3, scale + 0.2); }} onmousedown={(e) => e.stopPropagation()} title="Zoom in">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="12" y1="5" x2="12" y2="19"/>
-                  <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-              </button>
-              <button class="ctrl-btn" onclick={resetView} onmousedown={(e) => e.stopPropagation()} title="Reset view">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                  <path d="M3 3v5h5"/>
-                </svg>
-              </button>
+          {#if topicsLoading}
+            <div class="empty-mind">
+              <p>Loading knowledge map...</p>
             </div>
+          {:else if topics.length === 0}
+            <div class="empty-mind">
+              <div class="empty-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                  <circle cx="12" cy="12" r="3"/>
+                  <circle cx="4" cy="6" r="2"/>
+                  <circle cx="20" cy="6" r="2"/>
+                  <circle cx="4" cy="18" r="2"/>
+                  <circle cx="20" cy="18" r="2"/>
+                  <path d="M12 9V6M12 15v3M9 12H6M15 12h3" opacity="0.5"/>
+                </svg>
+              </div>
+              <p>No topics yet</p>
+              <span>Start a learning session to build your knowledge map</span>
+            </div>
+          {:else}
+            <div class="constellation-wrapper">
+              <div class="constellation-controls">
+                <span class="zoom-level">{Math.round(scale * 100)}%</span>
+                <button class="ctrl-btn" onclick={() => { scale = Math.max(0.5, scale - 0.2); }} onmousedown={(e) => e.stopPropagation()} title="Zoom out">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </button>
+                <button class="ctrl-btn" onclick={() => { scale = Math.min(3, scale + 0.2); }} onmousedown={(e) => e.stopPropagation()} title="Zoom in">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </button>
+                <button class="ctrl-btn" onclick={resetView} onmousedown={(e) => e.stopPropagation()} title="Reset view">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                    <path d="M3 3v5h5"/>
+                  </svg>
+                </button>
+              </div>
 
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div
-              class="constellation-canvas"
-              onmousedown={startDragConstellation}
-              onmousemove={onDragConstellation}
-              onmouseup={endDragConstellation}
-              onmouseleave={endDragConstellation}
-              onwheel={handleWheel}
-              style="cursor: {dragging ? 'grabbing' : 'grab'};"
-            >
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div
-                class="constellation-inner"
-                style="transform: translate({panX}px, {panY}px) scale({scale});"
+                class="constellation-canvas"
+                onmousedown={startDragConstellation}
+                onmousemove={onDragConstellation}
+                onmouseup={endDragConstellation}
+                onmouseleave={endDragConstellation}
+                onwheel={handleWheel}
+                style="cursor: {dragging ? 'grabbing' : 'grab'};"
               >
-                <svg viewBox="0 0 100 100" class="constellation-svg" preserveAspectRatio="xMidYMid meet">
-                  <!-- Connection lines -->
-                  {#each allTopics as topic}
-                    {#each topic.connections as connId}
-                      {@const other = allTopics.find(t => t.id === connId)}
-                      {#if other && positions[topic.id] && positions[connId]}
+                <div
+                  class="constellation-inner"
+                  style="transform: translate({panX}px, {panY}px) scale({scale});"
+                >
+                  <svg viewBox="0 0 100 100" class="constellation-svg" preserveAspectRatio="xMidYMid meet">
+                    <!-- Connection lines (parent relationships) -->
+                    {#each topics as topic}
+                      {#if topic.parentId && positions[topic.id] && positions[topic.parentId]}
                         <line
                           x1={positions[topic.id].x}
                           y1={positions[topic.id].y}
-                          x2={positions[connId].x}
-                          y2={positions[connId].y}
+                          x2={positions[topic.parentId].x}
+                          y2={positions[topic.parentId].y}
                           class="conn-line"
-                          class:recommended={topic.status === 'recommended' || other.status === 'recommended'}
                         />
                       {/if}
                     {/each}
-                  {/each}
 
-                  <!-- Nodes -->
-                  {#each allTopics as topic}
-                    {@const pos = positions[topic.id]}
-                    {@const isRecommended = topic.status === 'recommended'}
-                    {@const size = getNodeSize(topic.mastery, isRecommended)}
-                    {#if pos}
-                      <g class="topic-node" class:recommended={isRecommended}>
-                        {#if !isRecommended}
+                    <!-- Nodes -->
+                    {#each topics as topic}
+                      {@const pos = positions[topic.id]}
+                      {@const size = getNodeSize(topic.mastery)}
+                      {#if pos}
+                        <g class="topic-node">
                           <circle
                             cx={pos.x}
                             cy={pos.y}
@@ -445,44 +556,41 @@
                             class="node-glow"
                             style="opacity: {0.08 + topic.mastery * 0.12}"
                           />
-                        {/if}
-                        <circle
-                          cx={pos.x}
-                          cy={pos.y}
-                          r={size}
-                          class="node-circle"
-                          class:mastered={topic.status === 'mastered'}
-                          class:reviewing={topic.status === 'reviewing'}
-                        />
-                      </g>
+                          <circle
+                            cx={pos.x}
+                            cy={pos.y}
+                            r={size}
+                            class="node-circle"
+                            class:mastered={topic.status === 'mastered'}
+                            class:proficient={topic.status === 'proficient'}
+                            class:learning={topic.status === 'learning'}
+                            class:struggling={topic.status === 'struggling'}
+                          />
+                        </g>
+                      {/if}
+                    {/each}
+                  </svg>
+
+                  <!-- Labels -->
+                  {#each topics as topic}
+                    {@const pos = positions[topic.id]}
+                    {#if pos}
+                      <div
+                        class="topic-label"
+                        class:mastered={topic.status === 'mastered'}
+                        class:proficient={topic.status === 'proficient'}
+                        style="left: {pos.x}%; top: {pos.y}%;"
+                      >
+                        <span class="topic-name">{topic.name}</span>
+                        <span class="topic-pct">{Math.round(topic.mastery * 100)}%</span>
+                      </div>
                     {/if}
                   {/each}
-                </svg>
-
-                <!-- Labels -->
-                {#each allTopics as topic}
-                  {@const pos = positions[topic.id]}
-                  {@const isRecommended = topic.status === 'recommended'}
-                  {#if pos}
-                    <div
-                      class="topic-label"
-                      class:recommended={isRecommended}
-                      class:mastered={topic.status === 'mastered'}
-                      style="left: {pos.x}%; top: {pos.y}%;"
-                    >
-                      <span class="topic-name">{topic.name}</span>
-                      {#if !isRecommended}
-                        <span class="topic-pct">{Math.round(topic.mastery * 100)}%</span>
-                      {:else}
-                        <span class="topic-rec">Suggested</span>
-                      {/if}
-                    </div>
-                  {/if}
-                {/each}
+                </div>
+                <div class="pan-hint">Drag to pan, scroll to zoom</div>
               </div>
-              <div class="pan-hint">Drag to pan, scroll to zoom</div>
             </div>
-          </div>
+          {/if}
 
         {:else}
           <!-- Learning Profile (Radar) -->
@@ -1042,6 +1150,32 @@
     max-width: 700px;
   }
 
+  .empty-mind {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+  }
+
+  .empty-mind .empty-icon {
+    color: rgba(250, 250, 250, 0.2);
+    margin-bottom: 16px;
+  }
+
+  .empty-mind p {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 500;
+    color: rgba(250, 250, 250, 0.6);
+  }
+
+  .empty-mind span {
+    font-size: 13px;
+    color: rgba(250, 250, 250, 0.35);
+  }
+
   .mind-tabs {
     display: flex;
     gap: 4px;
@@ -1163,15 +1297,16 @@
     fill: #fafafa;
   }
 
-  .node-circle.reviewing {
+  .node-circle.proficient {
     fill: rgba(250, 250, 250, 0.85);
   }
 
-  .topic-node.recommended .node-circle {
-    fill: none;
-    stroke: rgba(255, 255, 255, 0.25);
-    stroke-width: 0.5;
-    stroke-dasharray: 1.5, 1.5;
+  .node-circle.learning {
+    fill: rgba(250, 250, 250, 0.6);
+  }
+
+  .node-circle.struggling {
+    fill: rgba(250, 250, 250, 0.4);
   }
 
   .topic-label {
@@ -1190,14 +1325,12 @@
     pointer-events: none;
   }
 
-  .topic-label.recommended {
-    background: rgba(9, 9, 11, 0.7);
-    border-style: dashed;
-    border-color: rgba(255, 255, 255, 0.08);
-  }
-
   .topic-label.mastered {
     border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .topic-label.proficient {
+    border-color: rgba(255, 255, 255, 0.15);
   }
 
   .topic-name {
@@ -1206,11 +1339,6 @@
     color: #fafafa;
     letter-spacing: -0.2px;
     line-height: 1.2;
-  }
-
-  .topic-label.recommended .topic-name {
-    color: rgba(250, 250, 250, 0.5);
-    font-weight: 500;
   }
 
   .topic-pct {
@@ -1222,14 +1350,6 @@
 
   .topic-label.mastered .topic-pct {
     color: rgba(250, 250, 250, 0.7);
-  }
-
-  .topic-rec {
-    font-size: 8px;
-    color: rgba(250, 250, 250, 0.35);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    line-height: 1.2;
   }
 
   .pan-hint {
