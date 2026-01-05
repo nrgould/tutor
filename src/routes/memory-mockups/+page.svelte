@@ -28,19 +28,19 @@
 
   const allTopics = [...currentTopics, ...recommendedTopics];
 
-  // Calculated positions for constellation - spread out more
-  const positions: Record<number, { x: number; y: number }> = {
-    // Current topics - spread out
-    1: { x: 50, y: 25 },      // Hegel - top center
-    2: { x: 22, y: 45 },      // Phenomenology - left
-    3: { x: 78, y: 45 },      // Kant - right
-    4: { x: 22, y: 75 },      // Existentialism - bottom left
-    5: { x: 50, y: 55 },      // Logic - center
-    6: { x: 78, y: 75 },      // Ethics - bottom right
-    // Recommended - outer edges
-    101: { x: 90, y: 25 },    // Metaphysics
-    102: { x: 10, y: 25 },    // Philosophy of Mind
-    103: { x: 50, y: 90 },    // Nietzsche
+  // Organic, web-like positions - asymmetric and natural feeling
+  const positions: Record<number, { x: number; y: number; labelPos: 'top' | 'bottom' | 'left' | 'right' }> = {
+    // Current topics - organic spread
+    1: { x: 45, y: 22, labelPos: 'top' },       // Hegel - upper area
+    2: { x: 18, y: 42, labelPos: 'left' },      // Phenomenology - left side
+    3: { x: 75, y: 35, labelPos: 'right' },     // Kant - right upper
+    4: { x: 28, y: 72, labelPos: 'left' },      // Existentialism - lower left
+    5: { x: 52, y: 52, labelPos: 'bottom' },    // Logic - center-ish
+    6: { x: 70, y: 68, labelPos: 'right' },     // Ethics - lower right
+    // Recommended - outer organic positions
+    101: { x: 88, y: 20, labelPos: 'right' },   // Metaphysics - far right top
+    102: { x: 8, y: 28, labelPos: 'left' },     // Philosophy of Mind - far left
+    103: { x: 48, y: 88, labelPos: 'bottom' },  // Nietzsche - bottom
   };
 
   // Learning profile data (learning styles)
@@ -61,10 +61,10 @@
     { key: 'Sessions', value: '47' },
   ];
 
-  // Much smaller node sizes
+  // Node sizes
   function getNodeSize(mastery: number, isRecommended: boolean): number {
-    if (isRecommended) return 3;
-    return 2.5 + mastery * 3;
+    if (isRecommended) return 2;
+    return 2 + mastery * 2.5;
   }
 </script>
 
@@ -137,17 +137,17 @@
               {@const size = getNodeSize(topic.mastery, isRecommended)}
               {#if pos}
                 <g class="node-group" class:recommended={isRecommended}>
-                  <!-- Glow effect -->
+                  <!-- Glow effect for non-recommended -->
                   {#if !isRecommended}
                     <circle
                       cx={pos.x}
                       cy={pos.y}
-                      r={size * 2}
+                      r={size * 2.5}
                       class="node-glow"
-                      style="opacity: {0.1 + topic.mastery * 0.15}"
+                      style="opacity: {0.08 + topic.mastery * 0.12}"
                     />
                   {/if}
-                  <!-- Main node -->
+                  <!-- Main node - solid fill, no inner cutout -->
                   <circle
                     cx={pos.x}
                     cy={pos.y}
@@ -155,31 +155,22 @@
                     class="node"
                     class:mastered={topic.status === 'mastered'}
                     class:reviewing={topic.status === 'reviewing'}
-                    style="opacity: {isRecommended ? 0.4 : 0.6 + topic.mastery * 0.4}"
                   />
-                  <!-- Inner dot for mastered -->
-                  {#if topic.status === 'mastered'}
-                    <circle
-                      cx={pos.x}
-                      cy={pos.y}
-                      r={size * 0.35}
-                      class="node-inner"
-                    />
-                  {/if}
                 </g>
               {/if}
             {/each}
           </svg>
 
-          <!-- Labels overlay -->
+          <!-- Labels overlay with pill style -->
           <div class="labels-overlay">
             {#each allTopics as topic}
               {@const pos = positions[topic.id]}
               {@const isRecommended = topic.status === 'recommended'}
               {#if pos}
                 <div
-                  class="node-label"
+                  class="node-label {pos.labelPos}"
                   class:recommended={isRecommended}
+                  class:mastered={topic.status === 'mastered'}
                   style="left: {pos.x}%; top: {pos.y}%;"
                 >
                   <span class="label-name">{topic.name}</span>
@@ -465,30 +456,30 @@
   }
 
   .node-glow {
-    fill: rgba(255, 255, 255, 0.15);
-    filter: blur(3px);
+    fill: rgba(255, 255, 255, 0.2);
+    filter: blur(4px);
   }
 
   .node {
-    fill: #fafafa;
+    fill: rgba(250, 250, 250, 0.7);
   }
 
   .node.mastered {
     fill: #fafafa;
   }
 
-  .node-inner {
-    fill: #09090b;
+  .node.reviewing {
+    fill: rgba(250, 250, 250, 0.85);
   }
 
   .node-group.recommended .node {
     fill: none;
-    stroke: rgba(255, 255, 255, 0.3);
-    stroke-width: 1;
-    stroke-dasharray: 2, 2;
+    stroke: rgba(255, 255, 255, 0.25);
+    stroke-width: 0.5;
+    stroke-dasharray: 1.5, 1.5;
   }
 
-  /* Labels */
+  /* Labels - Pill Style */
   .labels-overlay {
     position: absolute;
     inset: 0;
@@ -497,32 +488,72 @@
 
   .node-label {
     position: absolute;
-    transform: translate(16px, -50%);
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 6px 10px;
+    background: rgba(9, 9, 11, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* Position-based label offsets */
+  .node-label.top {
+    transform: translate(-50%, calc(-100% - 12px));
+  }
+
+  .node-label.bottom {
+    transform: translate(-50%, 12px);
+  }
+
+  .node-label.left {
+    transform: translate(calc(-100% - 12px), -50%);
+    align-items: flex-end;
+  }
+
+  .node-label.right {
+    transform: translate(12px, -50%);
   }
 
   .label-name {
-    font-size: 12px;
-    font-weight: 500;
-    color: rgba(250, 250, 250, 0.9);
+    font-size: 11px;
+    font-weight: 600;
+    color: #fafafa;
     white-space: nowrap;
+    letter-spacing: -0.2px;
   }
 
   .label-mastery {
-    font-size: 11px;
+    font-size: 10px;
     color: rgba(250, 250, 250, 0.5);
     font-variant-numeric: tabular-nums;
   }
 
+  .node-label.mastered {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .node-label.mastered .label-mastery {
+    color: rgba(250, 250, 250, 0.7);
+  }
+
+  .node-label.recommended {
+    background: rgba(9, 9, 11, 0.6);
+    border-style: dashed;
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
   .node-label.recommended .label-name {
-    color: rgba(250, 250, 250, 0.4);
+    color: rgba(250, 250, 250, 0.5);
+    font-weight: 500;
   }
 
   .label-suggested {
-    font-size: 10px;
-    color: rgba(250, 250, 250, 0.3);
+    font-size: 9px;
+    color: rgba(250, 250, 250, 0.35);
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
