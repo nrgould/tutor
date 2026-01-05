@@ -38,7 +38,10 @@
   function calculateStats() {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    sessionsThisWeek = sessions.filter(s => new Date(s.created_at + 'Z') > weekAgo).length;
+    sessionsThisWeek = sessions.filter(s => {
+      const date = parseDate(s.created_at);
+      return date && date > weekAgo;
+    }).length;
     totalStudyTime = sessions.length * 15;
   }
 
@@ -67,16 +70,28 @@
     await getCurrentWindow().close();
   }
 
-  async function minimizeWindow() {
-    await getCurrentWindow().minimize();
-  }
-
   async function startSession() {
     await getCurrentWindow().close();
   }
 
+  function parseDate(dateStr: string): Date | null {
+    if (!dateStr) return null;
+    // Handle ISO strings with or without timezone
+    let date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      // Try adding Z for UTC
+      date = new Date(dateStr + 'Z');
+    }
+    if (isNaN(date.getTime())) {
+      return null;
+    }
+    return date;
+  }
+
   function formatDate(dateStr: string): string {
-    const date = new Date(dateStr + 'Z');
+    const date = parseDate(dateStr);
+    if (!date) return '';
+
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const mins = Math.floor(diff / 60000);
@@ -107,14 +122,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </svelte:head>
 
-<div class="app" onmousedown={startDrag}>
+<div class="app" onmousedown={startDrag} role="application" aria-label="Eigen Dashboard">
   <header class="header">
     <div class="header-left">
-      <div class="traffic-lights">
-        <button class="light close" onclick={closeWindow}></button>
-        <button class="light minimize" onclick={minimizeWindow}></button>
-        <button class="light maximize" disabled></button>
-      </div>
       <div class="brand">
         <span class="brand-mark">E</span>
         <span class="brand-name">Eigen</span>
@@ -151,12 +161,17 @@
           bind:value={searchQuery}
         />
       </div>
+      <button class="close-btn" onclick={closeWindow} aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
     </div>
   </header>
 
   <main class="content">
     {#if activeSection === 'overview'}
-      <div class="overview">
+      <div class="view">
         <section class="hero">
           <div>
             <h1>Welcome back</h1>
@@ -211,7 +226,7 @@
       </div>
 
     {:else if activeSection === 'sessions'}
-      <div class="sessions-view">
+      <div class="view">
         <div class="section-header">
           <h2>Sessions</h2>
           <span class="count">{filteredSessions.length}</span>
@@ -239,7 +254,7 @@
       </div>
 
     {:else if activeSection === 'settings'}
-      <div class="settings-view">
+      <div class="view settings-view">
         <div class="section-header">
           <h2>Settings</h2>
         </div>
@@ -253,7 +268,7 @@
               placeholder={settings.anthropic_api_key ? 'Key configured' : 'Enter Anthropic API key'}
               class="input"
             />
-            <button class="btn-icon" onclick={() => showApiKey = !showApiKey}>
+            <button class="btn-icon" onclick={() => showApiKey = !showApiKey} aria-label="Toggle visibility">
               {#if showApiKey}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
@@ -326,7 +341,7 @@
     align-items: center;
     justify-content: space-between;
     height: 52px;
-    padding: 0 16px;
+    padding: 0 20px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     cursor: grab;
     flex-shrink: 0;
@@ -339,39 +354,6 @@
   .header-left {
     display: flex;
     align-items: center;
-    gap: 16px;
-  }
-
-  .traffic-lights {
-    display: flex;
-    gap: 8px;
-  }
-
-  .light {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    border: none;
-    cursor: pointer;
-    transition: opacity 0.15s;
-  }
-
-  .light:hover {
-    opacity: 0.85;
-  }
-
-  .light.close {
-    background: #ff5f57;
-  }
-
-  .light.minimize {
-    background: #febc2e;
-  }
-
-  .light.maximize {
-    background: #28c840;
-    opacity: 0.4;
-    cursor: default;
   }
 
   .brand {
@@ -428,6 +410,7 @@
   .header-right {
     display: flex;
     align-items: center;
+    gap: 12px;
   }
 
   .search {
@@ -454,11 +437,33 @@
     color: rgba(250, 250, 250, 0.35);
   }
 
+  .close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: rgba(250, 250, 250, 0.4);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .close-btn:hover {
+    color: #fafafa;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
   /* Content */
   .content {
     flex: 1;
     overflow-y: auto;
-    padding: 32px 40px;
+    padding: 40px;
+    display: flex;
+    justify-content: center;
   }
 
   .content::-webkit-scrollbar {
@@ -474,11 +479,17 @@
     border-radius: 3px;
   }
 
-  /* Overview */
-  .overview {
-    max-width: 720px;
+  /* View container */
+  .view {
+    width: 100%;
+    max-width: 640px;
   }
 
+  .settings-view {
+    max-width: 480px;
+  }
+
+  /* Hero */
   .hero {
     display: flex;
     align-items: flex-start;
@@ -560,9 +571,9 @@
 
   .section-header h2 {
     margin: 0;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
-    color: rgba(250, 250, 250, 0.6);
+    color: rgba(250, 250, 250, 0.5);
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
@@ -648,16 +659,7 @@
     color: rgba(250, 250, 250, 0.35);
   }
 
-  /* Sessions View */
-  .sessions-view {
-    max-width: 720px;
-  }
-
-  /* Settings View */
-  .settings-view {
-    max-width: 480px;
-  }
-
+  /* Settings */
   .settings-group {
     margin-bottom: 32px;
   }
@@ -667,7 +669,7 @@
     margin-bottom: 10px;
     font-size: 13px;
     font-weight: 500;
-    color: rgba(250, 250, 250, 0.6);
+    color: rgba(250, 250, 250, 0.5);
   }
 
   .api-input-row {

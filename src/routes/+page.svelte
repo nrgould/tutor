@@ -27,20 +27,20 @@
   // Recording state
   let screenshotBuffer = $state<string[]>([]);
   let latestScreenshot = $state<string | null>(null);
-  let screenContextHistory = $state<Array<{time: number, context: string}>>([]); // Rolling history of what VLM sees
+  let screenContextHistory = $state<Array<{time: number, context: string}>>([]);
   let watchInterval: ReturnType<typeof setInterval> | null = null;
   let durationInterval: ReturnType<typeof setInterval> | null = null;
   let isProcessingBatch = $state(false);
 
-  const MAX_CONTEXT_HISTORY = 10; // Keep last 10 observations
-  const BATCH_SIZE = 3; // Analyze every 3 screenshots (more frequent)
+  const MAX_CONTEXT_HISTORY = 10;
+  const BATCH_SIZE = 3;
 
   // Refs
   let messagesContainer: HTMLDivElement;
   let inputRef: HTMLInputElement;
 
-  const BAR_HEIGHT = 54;
-  const CHAT_HEIGHT = 380;
+  const BAR_HEIGHT = 52;
+  const CHAT_HEIGHT = 400;
 
   onMount(() => {
     const init = async () => {
@@ -150,10 +150,8 @@
     screenshotBuffer = [];
 
     try {
-      // Analyze the batch with VLM to understand what user is working on
       const analysis = await analyzeScreenBatch(batch);
       if (analysis) {
-        // Add to history with timestamp
         const newEntry = { time: Date.now(), context: analysis };
         screenContextHistory = [...screenContextHistory, newEntry].slice(-MAX_CONTEXT_HISTORY);
         console.log('[Screen context]', analysis);
@@ -165,7 +163,6 @@
     }
   }
 
-  // Build a summary of recent screen activity for the AI
   function getScreenHistorySummary(): string | null {
     if (screenContextHistory.length === 0) return null;
 
@@ -207,7 +204,6 @@
 
     inputValue = '';
 
-    // Add user message
     const userMessage = {
       id: crypto.randomUUID(),
       role: 'user' as const,
@@ -216,7 +212,6 @@
     };
     messages = [...messages, userMessage];
 
-    // Show chat panel if not visible
     if (!showChat) {
       showChat = true;
       await resizeWindow(true);
@@ -225,12 +220,10 @@
     await scrollToBottom();
     await focusInput();
 
-    // Start streaming response
     isLoading = true;
     streamingContent = '';
 
     try {
-      // Convert to API format with full conversation history
       const apiMessages: Message[] = messages.map(m => ({
         id: m.id,
         conversation_id: '',
@@ -240,7 +233,6 @@
         screen_context: m.id === userMessage.id && latestScreenshot ? { screenshot: latestScreenshot } : undefined
       }));
 
-      // Include screen history so AI knows what user was looking at recently
       const context = {
         screenHistory: getScreenHistorySummary() || undefined
       };
@@ -330,12 +322,18 @@
   }
 </script>
 
+<svelte:head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</svelte:head>
+
 <div class="container" onmousedown={startDrag} role="application" aria-label="Eigen" tabindex="0">
   <!-- Main bar -->
   <div class="bar">
-    <!-- Recording toggle -->
     <button
-      class="record-btn {isRecording ? 'recording' : ''}"
+      class="record-btn"
+      class:recording={isRecording}
       onclick={toggleRecording}
       title={isRecording ? 'Stop recording' : 'Start recording'}
       aria-label={isRecording ? 'Stop recording' : 'Start recording'}
@@ -346,56 +344,50 @@
           <span class="rec-time">{formatDuration(recordingDuration)}</span>
         </span>
       {:else}
-        <svg viewBox="0 0 24 24" fill="currentColor">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <circle cx="12" cy="12" r="8" />
         </svg>
       {/if}
     </button>
 
     {#if !showChat}
-      <!-- Input in bar when chat is closed -->
       <div class="input-wrapper">
         <input
           type="text"
           bind:value={inputValue}
           bind:this={inputRef}
-          placeholder="Ask AI"
+          placeholder="Ask anything..."
           onkeydown={handleKeydown}
         />
-        <span class="shortcut">⌘ ↵</span>
+        <span class="shortcut">Return</span>
       </div>
 
       <button class="icon-btn" onclick={openDashboard} title="Dashboard" aria-label="Dashboard">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
-          <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
         </svg>
       </button>
     {:else}
-      <!-- Show chat info in bar when open -->
       <div class="bar-info">
         {#if latestScreenshot}
-          <span class="screen-badge">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12">
-              <path d="M12 9a3.75 3.75 0 100 7.5A3.75 3.75 0 0012 9z" />
-              <path fill-rule="evenodd" d="M9.344 3.071a49.52 49.52 0 015.312 0c.967.052 1.83.585 2.332 1.39l.821 1.317c.24.383.645.643 1.11.71.386.054.77.113 1.152.177 1.432.239 2.429 1.493 2.429 2.909V18a3 3 0 01-3 3H4.5a3 3 0 01-3-3V9.574c0-1.416.997-2.67 2.429-2.909.382-.064.766-.123 1.151-.178a1.56 1.56 0 001.11-.71l.822-1.315a2.942 2.942 0 012.332-1.39zM12 17.25a5.25 5.25 0 100-10.5 5.25 5.25 0 000 10.5z" />
-            </svg>
-            Screen active
-          </span>
+          <span class="screen-badge">Screen active</span>
         {/if}
       </div>
 
       <div class="bar-actions">
         {#if messages.length > 0}
-          <button class="icon-btn small" onclick={startNewChat} title="New chat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 4.5v15m7.5-7.5h-15" />
+          <button class="icon-btn" onclick={startNewChat} title="New chat" aria-label="New chat">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14m-7-7h14"/>
             </svg>
           </button>
         {/if}
-        <button class="icon-btn small" onclick={closeChat} title="Close chat">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M6 18L18 6M6 6l12 12" />
+        <button class="icon-btn" onclick={closeChat} title="Close" aria-label="Close chat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
         </button>
       </div>
@@ -405,7 +397,6 @@
   <!-- Chat panel -->
   {#if showChat}
     <div class="chat-panel">
-      <!-- Messages -->
       <div class="messages" bind:this={messagesContainer}>
         {#if messages.length === 0 && !isLoading}
           <div class="empty-state">
@@ -413,17 +404,9 @@
           </div>
         {:else}
           {#each messages as message (message.id)}
-            <div class="bubble-row {message.role}">
-              <div class="bubble {message.role}">
+            <div class="message-row {message.role}">
+              <div class="message {message.role}">
                 {#if message.role === 'user'}
-                  {#if message.hasScreen}
-                    <span class="screen-indicator">
-                      <svg viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 9a3.75 3.75 0 100 7.5A3.75 3.75 0 0012 9z" />
-                        <path fill-rule="evenodd" d="M9.344 3.071a49.52 49.52 0 015.312 0c.967.052 1.83.585 2.332 1.39l.821 1.317c.24.383.645.643 1.11.71.386.054.77.113 1.152.177 1.432.239 2.429 1.493 2.429 2.909V18a3 3 0 01-3 3H4.5a3 3 0 01-3-3V9.574c0-1.416.997-2.67 2.429-2.909.382-.064.766-.123 1.151-.178a1.56 1.56 0 001.11-.71l.822-1.315a2.942 2.942 0 012.332-1.39zM12 17.25a5.25 5.25 0 100-10.5 5.25 5.25 0 000 10.5z" />
-                      </svg>
-                    </span>
-                  {/if}
                   {message.content}
                 {:else}
                   <div class="markdown-content">
@@ -435,27 +418,26 @@
           {/each}
 
           {#if isLoading && streamingContent}
-            <div class="bubble-row assistant">
-              <div class="bubble assistant">
+            <div class="message-row assistant">
+              <div class="message assistant">
                 <div class="markdown-content">
                   {@html parseMarkdown(streamingContent)}
                 </div>
               </div>
             </div>
           {:else if isLoading}
-            <div class="bubble-row assistant">
-              <div class="bubble assistant typing">
-                <span class="typing-dot"></span>
-                <span class="typing-dot"></span>
-                <span class="typing-dot"></span>
+            <div class="message-row assistant">
+              <div class="message assistant typing">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
               </div>
             </div>
           {/if}
         {/if}
       </div>
 
-      <!-- Input at bottom of chat -->
-      <div class="chat-input-area">
+      <div class="chat-input">
         <input
           type="text"
           bind:value={inputValue}
@@ -470,8 +452,8 @@
           disabled={!inputValue.trim() || isLoading}
           aria-label="Send"
         >
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
           </svg>
         </button>
       </div>
@@ -479,23 +461,28 @@
   {/if}
 </div>
 
-<!-- Onboarding -->
 {#if showOnboarding && !checkingOnboarding}
   <Onboarding oncomplete={handleOnboardingComplete} />
 {/if}
 
 <style>
+  :global(*) {
+    box-sizing: border-box;
+  }
+
   :global(body) {
     margin: 0;
     padding: 0;
     background: transparent;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
 
   .container {
     display: flex;
     flex-direction: column;
     height: 100%;
+    gap: 6px;
     cursor: grab;
   }
 
@@ -503,24 +490,19 @@
     cursor: grabbing;
   }
 
-  /* Main bar */
+  /* Bar */
   .bar {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
-    height: 54px;
-    min-height: 54px;
-    box-sizing: border-box;
-
-    background: rgba(30, 30, 32, 0.85);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
+    padding: 8px 10px;
+    height: 52px;
+    min-height: 52px;
+    background: rgba(9, 9, 11, 0.88);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    border-radius: 14px;
   }
 
   /* Record button */
@@ -528,21 +510,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 8px;
     padding: 8px;
     min-width: 36px;
+    height: 36px;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    color: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    color: #ef4444;
     cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .record-btn svg {
-    width: 16px;
-    height: 16px;
-    color: #ff453a;
+    transition: background 0.15s, border-color 0.15s;
   }
 
   .record-btn:hover {
@@ -550,8 +527,8 @@
   }
 
   .record-btn.recording {
-    background: rgba(255, 69, 58, 0.15);
-    border-color: rgba(255, 69, 58, 0.3);
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.25);
     padding: 8px 12px;
   }
 
@@ -564,9 +541,9 @@
   .rec-dot {
     width: 8px;
     height: 8px;
-    background: #ff453a;
+    background: #ef4444;
     border-radius: 50%;
-    animation: pulse 1s ease-in-out infinite;
+    animation: pulse 1.2s ease-in-out infinite;
   }
 
   @keyframes pulse {
@@ -575,46 +552,45 @@
   }
 
   .rec-time {
-    font-variant-numeric: tabular-nums;
     font-size: 13px;
     font-weight: 500;
-    color: #ff453a;
+    font-variant-numeric: tabular-nums;
+    color: #ef4444;
   }
 
-  /* Input in bar */
+  /* Input */
   .input-wrapper {
     flex: 1;
-    display: flex;
-    align-items: center;
     position: relative;
   }
 
   .input-wrapper input {
     width: 100%;
-    padding: 10px 60px 10px 14px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    color: white;
+    padding: 9px 70px 9px 14px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    color: #fafafa;
     font-size: 14px;
     outline: none;
-    transition: all 0.2s ease;
+    transition: border-color 0.15s;
   }
 
   .input-wrapper input::placeholder {
-    color: rgba(255, 255, 255, 0.4);
+    color: rgba(250, 250, 250, 0.4);
   }
 
   .input-wrapper input:focus {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(10, 132, 255, 0.5);
+    border-color: rgba(255, 255, 255, 0.2);
   }
 
   .shortcut {
     position: absolute;
     right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
     font-size: 11px;
-    color: rgba(255, 255, 255, 0.3);
+    color: rgba(250, 250, 250, 0.3);
     pointer-events: none;
   }
 
@@ -623,24 +599,15 @@
     flex: 1;
     display: flex;
     align-items: center;
-    gap: 8px;
   }
 
   .screen-badge {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    background: rgba(48, 209, 88, 0.15);
-    border-radius: 8px;
+    padding: 5px 10px;
+    background: rgba(34, 197, 94, 0.12);
+    border-radius: 6px;
     font-size: 12px;
     font-weight: 500;
-    color: #30d158;
-  }
-
-  .screen-badge svg {
-    width: 14px;
-    height: 14px;
+    color: #22c55e;
   }
 
   .bar-actions {
@@ -659,45 +626,28 @@
     padding: 0;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
-    color: rgba(255, 255, 255, 0.6);
+    border-radius: 8px;
+    color: rgba(250, 250, 250, 0.5);
     cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .icon-btn svg {
-    width: 18px;
-    height: 18px;
+    transition: color 0.15s, background 0.15s;
   }
 
   .icon-btn:hover {
+    color: #fafafa;
     background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.9);
   }
 
-  .icon-btn.small {
-    width: 32px;
-    height: 32px;
-  }
-
-  .icon-btn.small svg {
-    width: 16px;
-    height: 16px;
-  }
-
-  /* Chat panel - transparent! */
+  /* Chat panel */
   .chat-panel {
-    margin-top: 8px;
     display: flex;
     flex-direction: column;
     flex: 1;
-    background: rgba(20, 20, 22, 0.75);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
+    background: rgba(9, 9, 11, 0.92);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 16px;
+    border-radius: 14px;
     overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   }
 
   /* Messages */
@@ -707,11 +657,11 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
   }
 
   .messages::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
   }
 
   .messages::-webkit-scrollbar-track {
@@ -731,114 +681,99 @@
   }
 
   .empty-state p {
-    color: rgba(255, 255, 255, 0.3);
-    font-size: 14px;
+    color: rgba(250, 250, 250, 0.35);
+    font-size: 13px;
     margin: 0;
   }
 
-  /* Message bubbles */
-  .bubble-row {
+  /* Messages */
+  .message-row {
     display: flex;
   }
 
-  .bubble-row.user {
+  .message-row.user {
     justify-content: flex-end;
   }
 
-  .bubble-row.assistant {
+  .message-row.assistant {
     justify-content: flex-start;
   }
 
-  .bubble {
+  .message {
     max-width: 85%;
     padding: 10px 14px;
-    border-radius: 18px;
+    border-radius: 14px;
     font-size: 13px;
     line-height: 1.5;
-    word-wrap: break-word;
   }
 
-  .bubble.user {
-    background: linear-gradient(135deg, #0a84ff 0%, #0066cc 100%);
-    color: white;
+  .message.user {
+    background: #fafafa;
+    color: #09090b;
     border-bottom-right-radius: 4px;
   }
 
-  .bubble.assistant {
+  .message.assistant {
     background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.95);
+    color: rgba(250, 250, 250, 0.95);
     border-bottom-left-radius: 4px;
   }
 
-  .screen-indicator {
-    display: inline-flex;
-    align-items: center;
-    margin-right: 6px;
-    opacity: 0.8;
-  }
-
-  .screen-indicator svg {
-    width: 12px;
-    height: 12px;
-  }
-
-  /* Typing indicator */
-  .bubble.typing {
+  /* Typing */
+  .message.typing {
     display: flex;
     align-items: center;
     gap: 4px;
     padding: 14px 18px;
   }
 
-  .typing-dot {
-    width: 8px;
-    height: 8px;
-    background: rgba(255, 255, 255, 0.4);
+  .dot {
+    width: 6px;
+    height: 6px;
+    background: rgba(250, 250, 250, 0.4);
     border-radius: 50%;
-    animation: typing 1.4s ease-in-out infinite;
+    animation: bounce 1.4s ease-in-out infinite;
   }
 
-  .typing-dot:nth-child(1) { animation-delay: 0s; }
-  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
-  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  .dot:nth-child(1) { animation-delay: 0s; }
+  .dot:nth-child(2) { animation-delay: 0.15s; }
+  .dot:nth-child(3) { animation-delay: 0.3s; }
 
-  @keyframes typing {
-    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-    30% { transform: translateY(-4px); opacity: 1; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-3px); }
   }
 
-  /* Input area at bottom */
-  .chat-input-area {
+  /* Chat input */
+  .chat-input {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 12px;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
-    background: rgba(0, 0, 0, 0.2);
   }
 
-  .chat-input-area input {
+  .chat-input input {
     flex: 1;
     padding: 10px 14px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    color: white;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    color: #fafafa;
     font-size: 14px;
     outline: none;
-    transition: all 0.2s ease;
+    transition: border-color 0.15s;
   }
 
-  .chat-input-area input::placeholder {
-    color: rgba(255, 255, 255, 0.4);
+  .chat-input input::placeholder {
+    color: rgba(250, 250, 250, 0.4);
   }
 
-  .chat-input-area input:focus {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(10, 132, 255, 0.5);
+  .chat-input input:focus {
+    border-color: rgba(255, 255, 255, 0.2);
   }
 
-  .chat-input-area input:disabled {
+  .chat-input input:disabled {
     opacity: 0.5;
   }
 
@@ -849,33 +784,26 @@
     width: 36px;
     height: 36px;
     padding: 0;
-    background: #0a84ff;
+    background: #fafafa;
     border: none;
-    border-radius: 50%;
-    color: white;
+    border-radius: 8px;
+    color: #09090b;
     cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .send-btn svg {
-    width: 16px;
-    height: 16px;
-    margin-left: 2px;
+    transition: opacity 0.15s;
   }
 
   .send-btn:hover:not(:disabled) {
-    background: #0077ed;
-    transform: scale(1.05);
+    opacity: 0.9;
   }
 
   .send-btn:disabled {
-    opacity: 0.4;
+    opacity: 0.3;
     cursor: not-allowed;
   }
 
   /* Markdown */
   .markdown-content {
-    color: rgba(255, 255, 255, 0.95);
+    color: rgba(250, 250, 250, 0.95);
   }
 
   .markdown-content :global(p) {
@@ -892,7 +820,7 @@
 
   .markdown-content :global(code) {
     padding: 2px 5px;
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(0, 0, 0, 0.3);
     border-radius: 4px;
     font-family: 'SF Mono', Monaco, monospace;
     font-size: 12px;
@@ -921,7 +849,7 @@
   }
 
   .markdown-content :global(a) {
-    color: #58a6ff;
+    color: #60a5fa;
     text-decoration: none;
   }
 </style>
