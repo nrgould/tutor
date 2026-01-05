@@ -431,11 +431,12 @@
               {/each}
             </svg>
 
-            <!-- Labels -->
+            <!-- Labels with tooltips -->
             {#each learningProfile as item, i}
               {@const angle = (i * 2 * Math.PI / learningProfile.length) - Math.PI / 2}
               <div
                 class="radar-label"
+                title={item.description}
                 style="
                   left: {50 + 42 * Math.cos(angle)}%;
                   top: {50 + 42 * Math.sin(angle)}%;
@@ -447,25 +448,6 @@
             {/each}
           </div>
           {/if}
-        </div>
-
-        <!-- Learning style breakdown -->
-        <div class="styles-breakdown">
-          <h3>Style Breakdown</h3>
-          <div class="styles-list">
-            {#each learningProfile.sort((a, b) => b.value - a.value) as style}
-              <div class="style-item">
-                <div class="style-header">
-                  <span class="style-name">{style.name}</span>
-                  <span class="style-value">{Math.round(style.value * 100)}%</span>
-                </div>
-                <div class="style-bar">
-                  <div class="style-fill" style="width: {style.value * 100}%"></div>
-                </div>
-                <span class="style-desc">{style.description}</span>
-              </div>
-            {/each}
-          </div>
         </div>
       </div>
     {/if}
@@ -1056,7 +1038,14 @@
     position: absolute;
     transform: translate(-50%, -50%);
     text-align: center;
-    pointer-events: none;
+    cursor: help;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+  }
+
+  .radar-label:hover {
+    background: rgba(255, 255, 255, 0.08);
   }
 
   .radar-label-name {
@@ -1069,68 +1058,6 @@
   .radar-label-value {
     font-size: 11px;
     color: rgba(250, 250, 250, 0.45);
-  }
-
-  /* Styles Breakdown */
-  .styles-breakdown {
-    padding: 24px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 16px;
-  }
-
-  .styles-breakdown h3 {
-    font-size: 14px;
-    font-weight: 600;
-    margin: 0 0 20px;
-  }
-
-  .styles-list {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-  }
-
-  .style-item {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .style-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-  }
-
-  .style-name {
-    font-size: 13px;
-    font-weight: 500;
-  }
-
-  .style-value {
-    font-size: 13px;
-    color: rgba(250, 250, 250, 0.6);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .style-bar {
-    height: 4px;
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .style-fill {
-    height: 100%;
-    background: #fafafa;
-    border-radius: 2px;
-    transition: width 0.5s ease;
-  }
-
-  .style-desc {
-    font-size: 11px;
-    color: rgba(250, 250, 250, 0.35);
   }
 
   /* ========================== */
