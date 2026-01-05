@@ -11,6 +11,12 @@
 
   function toggleFullscreen() {
     isFullscreen = !isFullscreen;
+    // Reset fullscreen pan/zoom when opening
+    if (!isFullscreen) {
+      fsPanX = 0;
+      fsPanY = 0;
+      fsScale = 1;
+    }
   }
 
   // Sample topic data - current learning
@@ -32,19 +38,19 @@
 
   const allTopics = [...currentTopics, ...recommendedTopics];
 
-  // Organic, web-like positions - tighter cluster in center
+  // Positions moved more toward center to avoid clipping
   const positions: Record<number, { x: number; y: number }> = {
-    // Current topics - closer together, organic
-    1: { x: 48, y: 28 },      // Hegel - upper
-    2: { x: 25, y: 45 },      // Phenomenology - left
-    3: { x: 72, y: 38 },      // Kant - right upper
-    4: { x: 30, y: 70 },      // Existentialism - lower left
-    5: { x: 50, y: 52 },      // Logic - center
-    6: { x: 68, y: 65 },      // Ethics - lower right
-    // Recommended - outer positions
-    101: { x: 85, y: 25 },    // Metaphysics
-    102: { x: 12, y: 32 },    // Philosophy of Mind
-    103: { x: 50, y: 85 },    // Nietzsche
+    // Current topics - clustered in center
+    1: { x: 50, y: 25 },      // Hegel - top center
+    2: { x: 28, y: 42 },      // Phenomenology - left
+    3: { x: 72, y: 35 },      // Kant - right upper
+    4: { x: 32, y: 68 },      // Existentialism - lower left
+    5: { x: 50, y: 50 },      // Logic - center
+    6: { x: 68, y: 62 },      // Ethics - lower right
+    // Recommended - moved inward from edges
+    101: { x: 78, y: 20 },    // Metaphysics - top right
+    102: { x: 18, y: 28 },    // Philosophy of Mind - top left
+    103: { x: 50, y: 82 },    // Nietzsche - bottom center
   };
 
   // Learning profile data (learning styles)
@@ -65,61 +71,78 @@
     { key: 'Sessions', value: '47' },
   ];
 
-  // Node sizes
+  // Node sizes (in SVG units)
   function getNodeSize(mastery: number, isRecommended: boolean): number {
     if (isRecommended) return 1.8;
     return 2 + mastery * 2;
   }
 
-  // Fullscreen pan state
-  let panX = $state(0);
-  let panY = $state(0);
-  let isDragging = $state(false);
-  let dragStart = { x: 0, y: 0 };
-  let scale = $state(1.5);
+  // Preview pan/zoom state
+  let previewPanX = $state(0);
+  let previewPanY = $state(0);
+  let previewScale = $state(1);
+  let previewDragging = $state(false);
+  let previewDragStart = { x: 0, y: 0 };
 
-  function startDrag(e: MouseEvent) {
-    isDragging = true;
-    dragStart = { x: e.clientX - panX, y: e.clientY - panY };
+  function startPreviewDrag(e: MouseEvent) {
+    previewDragging = true;
+    previewDragStart = { x: e.clientX - previewPanX, y: e.clientY - previewPanY };
   }
 
-  function onDrag(e: MouseEvent) {
-    if (!isDragging) return;
-    panX = e.clientX - dragStart.x;
-    panY = e.clientY - dragStart.y;
+  function onPreviewDrag(e: MouseEvent) {
+    if (!previewDragging) return;
+    previewPanX = e.clientX - previewDragStart.x;
+    previewPanY = e.clientY - previewDragStart.y;
   }
 
-  function endDrag() {
-    isDragging = false;
+  function endPreviewDrag() {
+    previewDragging = false;
   }
 
-  function handleWheel(e: WheelEvent) {
+  function handlePreviewWheel(e: WheelEvent) {
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    scale = Math.max(0.8, Math.min(3, scale + delta));
+    previewScale = Math.max(0.5, Math.min(3, previewScale + delta));
   }
 
-  // Calculate label position based on node position (keeps labels outside center)
-  function getLabelStyle(pos: { x: number; y: number }): string {
-    const centerX = 50;
-    const centerY = 50;
+  function resetPreview() {
+    previewPanX = 0;
+    previewPanY = 0;
+    previewScale = 1;
+  }
 
-    // Direction from center to node
-    const dx = pos.x - centerX;
-    const dy = pos.y - centerY;
+  // Fullscreen pan/zoom state (separate)
+  let fsPanX = $state(0);
+  let fsPanY = $state(0);
+  let fsScale = $state(1);
+  let fsDragging = $state(false);
+  let fsDragStart = { x: 0, y: 0 };
 
-    // Small offset in that direction (3% = very close)
-    const offsetX = dx > 0 ? 4 : dx < 0 ? -4 : 0;
-    const offsetY = dy > 0 ? 4 : dy < 0 ? -4 : 0;
+  function startFsDrag(e: MouseEvent) {
+    fsDragging = true;
+    fsDragStart = { x: e.clientX - fsPanX, y: e.clientY - fsPanY };
+  }
 
-    // Transform based on quadrant
-    let transform = 'translate(-50%, -50%)';
-    if (dx > 5) transform = 'translate(0, -50%)';
-    else if (dx < -5) transform = 'translate(-100%, -50%)';
-    else if (dy > 5) transform = 'translate(-50%, 0)';
-    else if (dy < -5) transform = 'translate(-50%, -100%)';
+  function onFsDrag(e: MouseEvent) {
+    if (!fsDragging) return;
+    fsPanX = e.clientX - fsDragStart.x;
+    fsPanY = e.clientY - fsDragStart.y;
+  }
 
-    return `left: calc(${pos.x}% + ${offsetX}px); top: calc(${pos.y}% + ${offsetY}px); transform: ${transform};`;
+  function endFsDrag() {
+    fsDragging = false;
+  }
+
+  function handleFsWheel(e: WheelEvent) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    fsScale = Math.max(0.3, Math.min(4, fsScale + delta));
+  }
+
+  function resetFs() {
+    fsPanX = 0;
+    fsPanY = 0;
+    fsScale = 1;
   }
 </script>
 
@@ -166,85 +189,114 @@
     {#if activeTab === 'constellation'}
       <!-- Constellation View -->
       <div class="constellation-container">
-        <div class="constellation">
-          <!-- Fullscreen toggle -->
-          <button class="fullscreen-btn" onclick={toggleFullscreen} title="Toggle fullscreen">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <!-- Preview Controls -->
+        <div class="preview-controls">
+          <span class="zoom-indicator">{Math.round(previewScale * 100)}%</span>
+          <button class="preview-ctrl-btn" onclick={() => previewScale = Math.max(0.5, previewScale - 0.2)} title="Zoom out">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+          <button class="preview-ctrl-btn" onclick={() => previewScale = Math.min(3, previewScale + 0.2)} title="Zoom in">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+          <button class="preview-ctrl-btn" onclick={resetPreview} title="Reset view">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+            </svg>
+          </button>
+          <button class="preview-ctrl-btn fullscreen" onclick={toggleFullscreen} title="Fullscreen">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
             </svg>
           </button>
+        </div>
 
-          <svg viewBox="0 0 100 100" class="constellation-svg" preserveAspectRatio="xMidYMid meet">
-            <!-- Connection lines -->
-            {#each allTopics as topic}
-              {#each topic.connections as connId}
-                {@const other = allTopics.find(t => t.id === connId)}
-                {#if other && positions[topic.id] && positions[connId]}
-                  <line
-                    x1={positions[topic.id].x}
-                    y1={positions[topic.id].y}
-                    x2={positions[connId].x}
-                    y2={positions[connId].y}
-                    class="connection-line"
-                    class:recommended={topic.status === 'recommended' || other.status === 'recommended'}
-                  />
-                {/if}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="constellation"
+          onmousedown={startPreviewDrag}
+          onmousemove={onPreviewDrag}
+          onmouseup={endPreviewDrag}
+          onmouseleave={endPreviewDrag}
+          onwheel={handlePreviewWheel}
+          style="cursor: {previewDragging ? 'grabbing' : 'grab'};"
+        >
+          <div
+            class="constellation-inner"
+            style="transform: translate({previewPanX}px, {previewPanY}px) scale({previewScale});"
+          >
+            <svg viewBox="0 0 100 100" class="constellation-svg" preserveAspectRatio="xMidYMid meet">
+              <!-- Connection lines -->
+              {#each allTopics as topic}
+                {#each topic.connections as connId}
+                  {@const other = allTopics.find(t => t.id === connId)}
+                  {#if other && positions[topic.id] && positions[connId]}
+                    <line
+                      x1={positions[topic.id].x}
+                      y1={positions[topic.id].y}
+                      x2={positions[connId].x}
+                      y2={positions[connId].y}
+                      class="connection-line"
+                      class:recommended={topic.status === 'recommended' || other.status === 'recommended'}
+                    />
+                  {/if}
+                {/each}
               {/each}
-            {/each}
 
-            <!-- Nodes -->
-            {#each allTopics as topic}
-              {@const pos = positions[topic.id]}
-              {@const isRecommended = topic.status === 'recommended'}
-              {@const size = getNodeSize(topic.mastery, isRecommended)}
-              {#if pos}
-                <g class="node-group" class:recommended={isRecommended}>
-                  <!-- Glow effect for non-recommended -->
-                  {#if !isRecommended}
+              <!-- Nodes with attached labels -->
+              {#each allTopics as topic}
+                {@const pos = positions[topic.id]}
+                {@const isRecommended = topic.status === 'recommended'}
+                {@const size = getNodeSize(topic.mastery, isRecommended)}
+                {#if pos}
+                  <g class="node-group" class:recommended={isRecommended}>
+                    <!-- Glow effect for non-recommended -->
+                    {#if !isRecommended}
+                      <circle
+                        cx={pos.x}
+                        cy={pos.y}
+                        r={size * 2.5}
+                        class="node-glow"
+                        style="opacity: {0.08 + topic.mastery * 0.12}"
+                      />
+                    {/if}
+                    <!-- Main node -->
                     <circle
                       cx={pos.x}
                       cy={pos.y}
-                      r={size * 2.5}
-                      class="node-glow"
-                      style="opacity: {0.08 + topic.mastery * 0.12}"
+                      r={size}
+                      class="node"
+                      class:mastered={topic.status === 'mastered'}
+                      class:reviewing={topic.status === 'reviewing'}
                     />
-                  {/if}
-                  <!-- Main node - solid fill, no inner cutout -->
-                  <circle
-                    cx={pos.x}
-                    cy={pos.y}
-                    r={size}
-                    class="node"
-                    class:mastered={topic.status === 'mastered'}
-                    class:reviewing={topic.status === 'reviewing'}
-                  />
-                </g>
-              {/if}
-            {/each}
-          </svg>
-
-          <!-- Labels overlay with pill style - positioned very close to nodes -->
-          <div class="labels-overlay">
-            {#each allTopics as topic}
-              {@const pos = positions[topic.id]}
-              {@const isRecommended = topic.status === 'recommended'}
-              {#if pos}
-                <div
-                  class="node-label"
-                  class:recommended={isRecommended}
-                  class:mastered={topic.status === 'mastered'}
-                  style={getLabelStyle(pos)}
-                >
-                  <span class="label-name">{topic.name}</span>
-                  {#if !isRecommended}
-                    <span class="label-mastery">{Math.round(topic.mastery * 100)}%</span>
-                  {:else}
-                    <span class="label-suggested">Suggested</span>
-                  {/if}
-                </div>
-              {/if}
-            {/each}
+                    <!-- Label attached to node -->
+                    <foreignObject
+                      x={pos.x + size + 1}
+                      y={pos.y - 4}
+                      width="30"
+                      height="10"
+                      class="label-foreign"
+                    >
+                      <div class="svg-label" class:recommended={isRecommended} class:mastered={topic.status === 'mastered'}>
+                        <span class="svg-label-name">{topic.name}</span>
+                        {#if !isRecommended}
+                          <span class="svg-label-pct">{Math.round(topic.mastery * 100)}%</span>
+                        {:else}
+                          <span class="svg-label-rec">Suggested</span>
+                        {/if}
+                      </div>
+                    </foreignObject>
+                  </g>
+                {/if}
+              {/each}
+            </svg>
           </div>
+          <div class="pan-hint">Drag to pan, scroll to zoom</div>
         </div>
 
         <!-- Legend -->
@@ -420,28 +472,28 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="fullscreen-overlay"
-    onmousedown={startDrag}
-    onmousemove={onDrag}
-    onmouseup={endDrag}
-    onmouseleave={endDrag}
-    onwheel={handleWheel}
+    onmousedown={startFsDrag}
+    onmousemove={onFsDrag}
+    onmouseup={endFsDrag}
+    onmouseleave={endFsDrag}
+    onwheel={handleFsWheel}
   >
     <div class="fullscreen-header">
       <h2>Knowledge Map</h2>
       <div class="fullscreen-controls">
-        <span class="zoom-label">{Math.round(scale * 100)}%</span>
-        <button class="control-btn" onclick={() => scale = Math.max(0.8, scale - 0.2)}>
+        <span class="zoom-label">{Math.round(fsScale * 100)}%</span>
+        <button class="control-btn" onclick={() => fsScale = Math.max(0.3, fsScale - 0.2)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
         </button>
-        <button class="control-btn" onclick={() => scale = Math.min(3, scale + 0.2)}>
+        <button class="control-btn" onclick={() => fsScale = Math.min(4, fsScale + 0.2)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
         </button>
-        <button class="control-btn" onclick={() => { panX = 0; panY = 0; scale = 1.5; }}>
+        <button class="control-btn" onclick={resetFs}>
           Reset
         </button>
         <button class="close-btn" onclick={toggleFullscreen}>
@@ -453,11 +505,11 @@
       </div>
     </div>
 
-    <div class="fullscreen-hint">Drag to pan, scroll to zoom</div>
+    <div class="fullscreen-hint">Drag to pan, scroll to zoom (30% - 400%)</div>
 
     <div
       class="fullscreen-canvas"
-      style="transform: translate({panX}px, {panY}px) scale({scale}); cursor: {isDragging ? 'grabbing' : 'grab'};"
+      style="transform: translate({fsPanX}px, {fsPanY}px) scale({fsScale}); cursor: {fsDragging ? 'grabbing' : 'grab'};"
     >
       <svg viewBox="0 0 100 100" class="fullscreen-svg" preserveAspectRatio="xMidYMid meet">
         <!-- Connection lines -->
@@ -477,7 +529,7 @@
           {/each}
         {/each}
 
-        <!-- Nodes -->
+        <!-- Nodes with attached labels -->
         {#each allTopics as topic}
           {@const pos = positions[topic.id]}
           {@const isRecommended = topic.status === 'recommended'}
@@ -501,33 +553,27 @@
                 class:mastered={topic.status === 'mastered'}
                 class:reviewing={topic.status === 'reviewing'}
               />
+              <!-- Label attached to node -->
+              <foreignObject
+                x={pos.x + size + 1}
+                y={pos.y - 4}
+                width="30"
+                height="10"
+                class="label-foreign"
+              >
+                <div class="svg-label" class:recommended={isRecommended} class:mastered={topic.status === 'mastered'}>
+                  <span class="svg-label-name">{topic.name}</span>
+                  {#if !isRecommended}
+                    <span class="svg-label-pct">{Math.round(topic.mastery * 100)}%</span>
+                  {:else}
+                    <span class="svg-label-rec">Suggested</span>
+                  {/if}
+                </div>
+              </foreignObject>
             </g>
           {/if}
         {/each}
       </svg>
-
-      <!-- Labels -->
-      <div class="fullscreen-labels">
-        {#each allTopics as topic}
-          {@const pos = positions[topic.id]}
-          {@const isRecommended = topic.status === 'recommended'}
-          {#if pos}
-            <div
-              class="node-label"
-              class:recommended={isRecommended}
-              class:mastered={topic.status === 'mastered'}
-              style={getLabelStyle(pos)}
-            >
-              <span class="label-name">{topic.name}</span>
-              {#if !isRecommended}
-                <span class="label-mastery">{Math.round(topic.mastery * 100)}%</span>
-              {:else}
-                <span class="label-suggested">Suggested</span>
-              {/if}
-            </div>
-          {/if}
-        {/each}
-      </div>
     </div>
   </div>
 {/if}
@@ -607,7 +653,47 @@
   .constellation-container {
     display: flex;
     flex-direction: column;
-    gap: 32px;
+    gap: 24px;
+  }
+
+  /* Preview Controls */
+  .preview-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .zoom-indicator {
+    font-size: 11px;
+    color: rgba(250, 250, 250, 0.4);
+    font-variant-numeric: tabular-nums;
+    min-width: 36px;
+    text-align: right;
+    margin-right: 4px;
+  }
+
+  .preview-ctrl-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: rgba(250, 250, 250, 0.5);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .preview-ctrl-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fafafa;
+  }
+
+  .preview-ctrl-btn.fullscreen {
+    margin-left: 8px;
   }
 
   .constellation {
@@ -617,21 +703,44 @@
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 16px;
     overflow: hidden;
+    user-select: none;
+  }
+
+  .constellation-inner {
+    width: 100%;
+    height: 100%;
+    transform-origin: center center;
+    transition: transform 0.05s ease-out;
   }
 
   .constellation-svg {
     width: 100%;
     height: 100%;
+    overflow: visible;
+  }
+
+  .pan-hint {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 12px;
+    background: rgba(9, 9, 11, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    font-size: 10px;
+    color: rgba(250, 250, 250, 0.35);
+    pointer-events: none;
   }
 
   .connection-line {
-    stroke: rgba(255, 255, 255, 0.12);
-    stroke-width: 0.5;
+    stroke: rgba(255, 255, 255, 0.15);
+    stroke-width: 0.4;
   }
 
   .connection-line.recommended {
-    stroke: rgba(255, 255, 255, 0.06);
-    stroke-dasharray: 2, 2;
+    stroke: rgba(255, 255, 255, 0.08);
+    stroke-dasharray: 1.5, 1.5;
   }
 
   .node-glow {
@@ -658,93 +767,64 @@
     stroke-dasharray: 1.5, 1.5;
   }
 
-  /* Fullscreen button */
-  .fullscreen-btn {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    z-index: 10;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(9, 9, 11, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    color: rgba(255, 255, 255, 0.6);
-    cursor: pointer;
-    transition: all 0.15s ease;
-    backdrop-filter: blur(8px);
+  /* SVG Labels (foreignObject) */
+  .label-foreign {
+    overflow: visible;
   }
 
-  .fullscreen-btn:hover {
-    background: rgba(9, 9, 11, 0.9);
-    color: #fafafa;
-    border-color: rgba(255, 255, 255, 0.2);
-  }
-
-  /* Labels - Pill Style */
-  .labels-overlay,
-  .fullscreen-labels {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-
-  .node-label {
-    position: absolute;
-    display: flex;
+  .svg-label {
+    display: inline-flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    padding: 5px 8px;
-    background: rgba(9, 9, 11, 0.9);
+    gap: 1px;
+    padding: 3px 6px;
+    background: rgba(9, 9, 11, 0.92);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 6px;
+    border-radius: 4px;
+    white-space: nowrap;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    white-space: nowrap;
   }
 
-  .label-name {
-    font-size: 11px;
-    font-weight: 600;
-    color: #fafafa;
-    white-space: nowrap;
-    letter-spacing: -0.2px;
-  }
-
-  .label-mastery {
-    font-size: 10px;
-    color: rgba(250, 250, 250, 0.5);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .node-label.mastered {
-    border-color: rgba(255, 255, 255, 0.2);
-  }
-
-  .node-label.mastered .label-mastery {
-    color: rgba(250, 250, 250, 0.7);
-  }
-
-  .node-label.recommended {
-    background: rgba(9, 9, 11, 0.6);
+  .svg-label.recommended {
+    background: rgba(9, 9, 11, 0.7);
     border-style: dashed;
     border-color: rgba(255, 255, 255, 0.08);
   }
 
-  .node-label.recommended .label-name {
+  .svg-label.mastered {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .svg-label-name {
+    font-size: 8px;
+    font-weight: 600;
+    color: #fafafa;
+    letter-spacing: -0.2px;
+    line-height: 1.2;
+  }
+
+  .svg-label.recommended .svg-label-name {
     color: rgba(250, 250, 250, 0.5);
     font-weight: 500;
   }
 
-  .label-suggested {
-    font-size: 9px;
+  .svg-label-pct {
+    font-size: 7px;
+    color: rgba(250, 250, 250, 0.5);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+
+  .svg-label.mastered .svg-label-pct {
+    color: rgba(250, 250, 250, 0.7);
+  }
+
+  .svg-label-rec {
+    font-size: 6px;
     color: rgba(250, 250, 250, 0.35);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
+    line-height: 1.2;
   }
 
   /* Legend */
@@ -1154,11 +1234,6 @@
     height: 100%;
     max-width: none;
     max-height: none;
-  }
-
-  .fullscreen-labels {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
+    overflow: visible;
   }
 </style>
