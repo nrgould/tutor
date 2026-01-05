@@ -18,7 +18,88 @@
   let showApiKey = $state(false);
   let saveSuccess = $state(false);
 
-  let activeSection = $state<'overview' | 'sessions' | 'settings'>('overview');
+  let activeSection = $state<'overview' | 'sessions' | 'mind' | 'settings'>('overview');
+  let mindTab = $state<'constellation' | 'profile'>('constellation');
+
+  // Sample topic data for Knowledge Map
+  const currentTopics = [
+    { id: 1, name: 'Hegel\'s Dialectics', mastery: 0.72, status: 'learning', connections: [2, 3, 5] },
+    { id: 2, name: 'Phenomenology', mastery: 0.45, status: 'learning', connections: [1, 4] },
+    { id: 3, name: 'Kant\'s Critique', mastery: 0.88, status: 'reviewing', connections: [1, 5, 6] },
+    { id: 4, name: 'Existentialism', mastery: 0.95, status: 'mastered', connections: [2, 6] },
+    { id: 5, name: 'Logic & Reasoning', mastery: 0.60, status: 'learning', connections: [1, 3] },
+    { id: 6, name: 'Ethics', mastery: 0.33, status: 'learning', connections: [3, 4] },
+  ];
+
+  const recommendedTopics = [
+    { id: 101, name: 'Metaphysics', mastery: 0, status: 'recommended', connections: [3, 5] },
+    { id: 102, name: 'Philosophy of Mind', mastery: 0, status: 'recommended', connections: [2, 4] },
+    { id: 103, name: 'Nietzsche', mastery: 0, status: 'recommended', connections: [4, 6] },
+  ];
+
+  const allTopics = [...currentTopics, ...recommendedTopics];
+
+  const positions: Record<number, { x: number; y: number }> = {
+    1: { x: 50, y: 25 },
+    2: { x: 28, y: 42 },
+    3: { x: 72, y: 35 },
+    4: { x: 32, y: 68 },
+    5: { x: 50, y: 50 },
+    6: { x: 68, y: 62 },
+    101: { x: 78, y: 20 },
+    102: { x: 18, y: 28 },
+    103: { x: 50, y: 82 },
+  };
+
+  // Learning profile data
+  const learningProfile = [
+    { name: 'Visual', value: 0.85, description: 'Diagrams, charts, videos' },
+    { name: 'Reading', value: 0.70, description: 'Texts, articles, books' },
+    { name: 'Auditory', value: 0.45, description: 'Lectures, discussions' },
+    { name: 'Kinesthetic', value: 0.55, description: 'Practice, hands-on' },
+    { name: 'Social', value: 0.60, description: 'Group learning, debate' },
+    { name: 'Solitary', value: 0.80, description: 'Self-study, reflection' },
+  ];
+
+  function getNodeSize(mastery: number, isRecommended: boolean): number {
+    if (isRecommended) return 1.8;
+    return 2 + mastery * 2;
+  }
+
+  // Pan/zoom state for constellation
+  let panX = $state(0);
+  let panY = $state(0);
+  let scale = $state(1);
+  let dragging = $state(false);
+  let dragStart = { x: 0, y: 0 };
+
+  function startDragConstellation(e: MouseEvent) {
+    e.stopPropagation();
+    dragging = true;
+    dragStart = { x: e.clientX - panX, y: e.clientY - panY };
+  }
+
+  function onDragConstellation(e: MouseEvent) {
+    if (!dragging) return;
+    panX = e.clientX - dragStart.x;
+    panY = e.clientY - dragStart.y;
+  }
+
+  function endDragConstellation() {
+    dragging = false;
+  }
+
+  function handleWheel(e: WheelEvent) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    scale = Math.max(0.5, Math.min(3, scale + delta));
+  }
+
+  function resetView() {
+    panX = 0;
+    panY = 0;
+    scale = 1;
+  }
 
   onMount(async () => {
     await settingsStore.load();
@@ -151,6 +232,12 @@
       >Sessions</button>
       <button
         class="nav-item"
+        class:active={activeSection === 'mind'}
+        onclick={() => activeSection = 'mind'}
+        onmousedown={(e) => e.stopPropagation()}
+      >Mind</button>
+      <button
+        class="nav-item"
         class:active={activeSection === 'settings'}
         onclick={() => activeSection = 'settings'}
         onmousedown={(e) => e.stopPropagation()}
@@ -251,6 +338,216 @@
                 <span class="session-time">{formatDate(session.started_at)}</span>
               </button>
             {/each}
+          </div>
+        {/if}
+      </div>
+
+    {:else if activeSection === 'mind'}
+      <div class="view mind-view">
+        <!-- Sub-tabs -->
+        <div class="mind-tabs">
+          <button
+            class="mind-tab"
+            class:active={mindTab === 'constellation'}
+            onclick={() => mindTab = 'constellation'}
+            onmousedown={(e) => e.stopPropagation()}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="3"/>
+              <circle cx="4" cy="6" r="2"/>
+              <circle cx="20" cy="6" r="2"/>
+              <circle cx="4" cy="18" r="2"/>
+              <circle cx="20" cy="18" r="2"/>
+            </svg>
+            Knowledge Map
+          </button>
+          <button
+            class="mind-tab"
+            class:active={mindTab === 'profile'}
+            onclick={() => mindTab = 'profile'}
+            onmousedown={(e) => e.stopPropagation()}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+            </svg>
+            Learning Profile
+          </button>
+        </div>
+
+        {#if mindTab === 'constellation'}
+          <!-- Knowledge Map -->
+          <div class="constellation-wrapper">
+            <div class="constellation-controls">
+              <span class="zoom-level">{Math.round(scale * 100)}%</span>
+              <button class="ctrl-btn" onclick={() => { scale = Math.max(0.5, scale - 0.2); }} onmousedown={(e) => e.stopPropagation()} title="Zoom out">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+              <button class="ctrl-btn" onclick={() => { scale = Math.min(3, scale + 0.2); }} onmousedown={(e) => e.stopPropagation()} title="Zoom in">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+              <button class="ctrl-btn" onclick={resetView} onmousedown={(e) => e.stopPropagation()} title="Reset view">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class="constellation-canvas"
+              onmousedown={startDragConstellation}
+              onmousemove={onDragConstellation}
+              onmouseup={endDragConstellation}
+              onmouseleave={endDragConstellation}
+              onwheel={handleWheel}
+              style="cursor: {dragging ? 'grabbing' : 'grab'};"
+            >
+              <div
+                class="constellation-inner"
+                style="transform: translate({panX}px, {panY}px) scale({scale});"
+              >
+                <svg viewBox="0 0 100 100" class="constellation-svg" preserveAspectRatio="xMidYMid meet">
+                  <!-- Connection lines -->
+                  {#each allTopics as topic}
+                    {#each topic.connections as connId}
+                      {@const other = allTopics.find(t => t.id === connId)}
+                      {#if other && positions[topic.id] && positions[connId]}
+                        <line
+                          x1={positions[topic.id].x}
+                          y1={positions[topic.id].y}
+                          x2={positions[connId].x}
+                          y2={positions[connId].y}
+                          class="conn-line"
+                          class:recommended={topic.status === 'recommended' || other.status === 'recommended'}
+                        />
+                      {/if}
+                    {/each}
+                  {/each}
+
+                  <!-- Nodes -->
+                  {#each allTopics as topic}
+                    {@const pos = positions[topic.id]}
+                    {@const isRecommended = topic.status === 'recommended'}
+                    {@const size = getNodeSize(topic.mastery, isRecommended)}
+                    {#if pos}
+                      <g class="topic-node" class:recommended={isRecommended}>
+                        {#if !isRecommended}
+                          <circle
+                            cx={pos.x}
+                            cy={pos.y}
+                            r={size * 2.5}
+                            class="node-glow"
+                            style="opacity: {0.08 + topic.mastery * 0.12}"
+                          />
+                        {/if}
+                        <circle
+                          cx={pos.x}
+                          cy={pos.y}
+                          r={size}
+                          class="node-circle"
+                          class:mastered={topic.status === 'mastered'}
+                          class:reviewing={topic.status === 'reviewing'}
+                        />
+                      </g>
+                    {/if}
+                  {/each}
+                </svg>
+
+                <!-- Labels -->
+                {#each allTopics as topic}
+                  {@const pos = positions[topic.id]}
+                  {@const isRecommended = topic.status === 'recommended'}
+                  {#if pos}
+                    <div
+                      class="topic-label"
+                      class:recommended={isRecommended}
+                      class:mastered={topic.status === 'mastered'}
+                      style="left: {pos.x}%; top: {pos.y}%;"
+                    >
+                      <span class="topic-name">{topic.name}</span>
+                      {#if !isRecommended}
+                        <span class="topic-pct">{Math.round(topic.mastery * 100)}%</span>
+                      {:else}
+                        <span class="topic-rec">Suggested</span>
+                      {/if}
+                    </div>
+                  {/if}
+                {/each}
+              </div>
+              <div class="pan-hint">Drag to pan, scroll to zoom</div>
+            </div>
+          </div>
+
+        {:else}
+          <!-- Learning Profile (Radar) -->
+          <div class="profile-wrapper">
+            <div class="radar-container">
+              <svg viewBox="0 0 200 200" class="radar-svg">
+                <!-- Background rings -->
+                {#each [0.25, 0.5, 0.75, 1] as ring}
+                  <polygon
+                    class="radar-ring"
+                    points={learningProfile.map((_, i) => {
+                      const angle = (i * 2 * Math.PI / learningProfile.length) - Math.PI / 2;
+                      const r = 70 * ring;
+                      return `${100 + r * Math.cos(angle)},${100 + r * Math.sin(angle)}`;
+                    }).join(' ')}
+                  />
+                {/each}
+
+                <!-- Axes -->
+                {#each learningProfile as _, i}
+                  <line
+                    class="radar-axis"
+                    x1="100"
+                    y1="100"
+                    x2={100 + 70 * Math.cos((i * 2 * Math.PI / learningProfile.length) - Math.PI / 2)}
+                    y2={100 + 70 * Math.sin((i * 2 * Math.PI / learningProfile.length) - Math.PI / 2)}
+                  />
+                {/each}
+
+                <!-- Data polygon -->
+                <polygon
+                  class="radar-data"
+                  points={learningProfile.map((item, i) => {
+                    const angle = (i * 2 * Math.PI / learningProfile.length) - Math.PI / 2;
+                    const r = 70 * item.value;
+                    return `${100 + r * Math.cos(angle)},${100 + r * Math.sin(angle)}`;
+                  }).join(' ')}
+                />
+
+                <!-- Data points -->
+                {#each learningProfile as item, i}
+                  {@const angle = (i * 2 * Math.PI / learningProfile.length) - Math.PI / 2}
+                  {@const r = 70 * item.value}
+                  <circle
+                    class="radar-point"
+                    cx={100 + r * Math.cos(angle)}
+                    cy={100 + r * Math.sin(angle)}
+                    r="4"
+                  />
+                {/each}
+              </svg>
+
+              <!-- Labels -->
+              {#each learningProfile as item, i}
+                {@const angle = (i * 2 * Math.PI / learningProfile.length) - Math.PI / 2}
+                <div
+                  class="radar-label"
+                  title={item.description}
+                  style="left: {50 + 42 * Math.cos(angle)}%; top: {50 + 42 * Math.sin(angle)}%;"
+                >
+                  <span class="radar-name">{item.name}</span>
+                  <span class="radar-value">{Math.round(item.value * 100)}%</span>
+                </div>
+              {/each}
+            </div>
           </div>
         {/if}
       </div>
@@ -738,5 +1035,279 @@
     font-size: 14px;
     color: rgba(250, 250, 250, 0.45);
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Mind Section */
+  .mind-view {
+    max-width: 700px;
+  }
+
+  .mind-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+  }
+
+  .mind-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: rgba(250, 250, 250, 0.5);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .mind-tab:hover {
+    color: rgba(250, 250, 250, 0.8);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .mind-tab.active {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #fafafa;
+  }
+
+  /* Constellation */
+  .constellation-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .constellation-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .zoom-level {
+    font-size: 11px;
+    color: rgba(250, 250, 250, 0.4);
+    font-variant-numeric: tabular-nums;
+    min-width: 32px;
+    text-align: right;
+    margin-right: 4px;
+  }
+
+  .ctrl-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 5px;
+    color: rgba(250, 250, 250, 0.5);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .ctrl-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fafafa;
+  }
+
+  .constellation-canvas {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .constellation-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-origin: center center;
+    transition: transform 0.05s ease-out;
+  }
+
+  .constellation-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .conn-line {
+    stroke: rgba(255, 255, 255, 0.15);
+    stroke-width: 0.4;
+  }
+
+  .conn-line.recommended {
+    stroke: rgba(255, 255, 255, 0.08);
+    stroke-dasharray: 1.5, 1.5;
+  }
+
+  .node-glow {
+    fill: rgba(255, 255, 255, 0.2);
+    filter: blur(4px);
+  }
+
+  .node-circle {
+    fill: rgba(250, 250, 250, 0.7);
+  }
+
+  .node-circle.mastered {
+    fill: #fafafa;
+  }
+
+  .node-circle.reviewing {
+    fill: rgba(250, 250, 250, 0.85);
+  }
+
+  .topic-node.recommended .node-circle {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.25);
+    stroke-width: 0.5;
+    stroke-dasharray: 1.5, 1.5;
+  }
+
+  .topic-label {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 4px 8px;
+    background: rgba(9, 9, 11, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 5px;
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transform: translate(8px, -50%);
+    pointer-events: none;
+  }
+
+  .topic-label.recommended {
+    background: rgba(9, 9, 11, 0.7);
+    border-style: dashed;
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .topic-label.mastered {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .topic-name {
+    font-size: 10px;
+    font-weight: 600;
+    color: #fafafa;
+    letter-spacing: -0.2px;
+    line-height: 1.2;
+  }
+
+  .topic-label.recommended .topic-name {
+    color: rgba(250, 250, 250, 0.5);
+    font-weight: 500;
+  }
+
+  .topic-pct {
+    font-size: 9px;
+    color: rgba(250, 250, 250, 0.5);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+  }
+
+  .topic-label.mastered .topic-pct {
+    color: rgba(250, 250, 250, 0.7);
+  }
+
+  .topic-rec {
+    font-size: 8px;
+    color: rgba(250, 250, 250, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    line-height: 1.2;
+  }
+
+  .pan-hint {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 5px 10px;
+    background: rgba(9, 9, 11, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 5px;
+    font-size: 9px;
+    color: rgba(250, 250, 250, 0.35);
+    pointer-events: none;
+  }
+
+  /* Radar Chart */
+  .profile-wrapper {
+    display: flex;
+    justify-content: center;
+  }
+
+  .radar-container {
+    position: relative;
+    width: 100%;
+    max-width: 360px;
+    aspect-ratio: 1;
+  }
+
+  .radar-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .radar-ring {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.06);
+    stroke-width: 1;
+  }
+
+  .radar-axis {
+    stroke: rgba(255, 255, 255, 0.08);
+    stroke-width: 1;
+  }
+
+  .radar-data {
+    fill: rgba(250, 250, 250, 0.08);
+    stroke: rgba(250, 250, 250, 0.8);
+    stroke-width: 2;
+  }
+
+  .radar-point {
+    fill: #fafafa;
+  }
+
+  .radar-label {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    cursor: help;
+    padding: 4px 8px;
+    border-radius: 5px;
+    transition: background 0.15s ease;
+  }
+
+  .radar-label:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .radar-name {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(250, 250, 250, 0.9);
+  }
+
+  .radar-value {
+    font-size: 10px;
+    color: rgba(250, 250, 250, 0.45);
   }
 </style>
