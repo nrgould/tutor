@@ -138,8 +138,8 @@ pub async fn open_region_selector(
         main_window.hide().map_err(|e| format!("Failed to hide main window: {}", e))?;
     }
 
-    // Small delay to ensure main window is hidden
-    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+    // Delay to ensure main window is fully hidden (especially on Windows)
+    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
 
     // Capture the screen and get dimensions
     let (width, height, screenshot) = tokio::task::spawn_blocking(|| {

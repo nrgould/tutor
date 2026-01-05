@@ -1,7 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { listen } from '@tauri-apps/api/event';
+  import { getCurrentWindow } from '@tauri-apps/api/window';
 
   interface Props {
     disabled?: boolean;
@@ -14,29 +13,6 @@
   let pendingScreenshot = $state<string | null>(null);
   let isCapturing = $state(false);
   let showCaptureMenu = $state(false);
-
-  onMount(() => {
-    // Listen for region capture ready signal from the region selector
-    let unlisten: (() => void) | undefined;
-
-    listen('region-capture-ready', async () => {
-      try {
-        // Fetch the captured region from backend state
-        const image = await invoke<string>('get_region_capture_result');
-        pendingScreenshot = image;
-      } catch (error) {
-        console.error('Failed to get capture result:', error);
-      } finally {
-        isCapturing = false;
-      }
-    }).then((fn) => {
-      unlisten = fn;
-    });
-
-    return () => {
-      unlisten?.();
-    };
-  });
 
   async function captureFullScreen() {
     if (isCapturing) return;
@@ -59,13 +35,50 @@
     isCapturing = true;
     showCaptureMenu = false;
     try {
-      // Open the region selector window (snipping tool style)
+      // Open the region selector window
       await invoke('open_region_selector');
-      // The result will come back via the 'region-captured' event
+
+      // Poll for the result - the region selector will store it when done
+      const result = await pollForCaptureResult();
+      if (result) {
+        pendingScreenshot = result;
+      }
     } catch (error) {
-      console.error('Failed to open region selector:', error);
+      console.error('Failed to capture region:', error);
+    } finally {
       isCapturing = false;
     }
+  }
+
+  async function pollForCaptureResult(): Promise<string | null> {
+    // Poll every 100ms for up to 30 seconds
+    const maxAttempts = 300;
+    const pollInterval = 100;
+
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+
+      try {
+        const result = await invoke<string>('get_region_capture_result');
+        // If we get a result, return it
+        return result;
+      } catch {
+        // No result yet, keep polling
+        // Check if the main window is visible (region selector closed/cancelled)
+        try {
+          const mainWindow = getCurrentWindow();
+          const isVisible = await mainWindow.isVisible();
+          if (isVisible && i > 5) {
+            // Main window is visible and we've waited a bit - user likely cancelled
+            return null;
+          }
+        } catch {
+          // Ignore visibility check errors
+        }
+      }
+    }
+
+    return null;
   }
 
   function clearScreenshot() {
