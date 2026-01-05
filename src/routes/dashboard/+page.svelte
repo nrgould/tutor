@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { getCurrentWindow, WebviewWindow } from '@tauri-apps/api/window';
+  import { emit } from '@tauri-apps/api/event';
   import { getConversations } from '$lib/utils/db';
   import { settingsStore } from '$lib/stores/settings';
   import type { Conversation } from '$lib/types';
@@ -70,6 +71,21 @@
   }
 
   async function startSession() {
+    await getCurrentWindow().close();
+  }
+
+  async function openSession(session: Conversation) {
+    // Emit event to main window to load this conversation
+    await emit('load-conversation', { conversationId: session.id });
+
+    // Show and focus the main window
+    const mainWindow = await WebviewWindow.getByLabel('main');
+    if (mainWindow) {
+      await mainWindow.show();
+      await mainWindow.setFocus();
+    }
+
+    // Close the dashboard
     await getCurrentWindow().close();
   }
 
@@ -200,7 +216,7 @@
           {:else}
             <div class="session-list">
               {#each sessions.slice(0, 6) as session}
-                <button class="session-row" onmousedown={(e) => e.stopPropagation()}>
+                <button class="session-row" onclick={() => openSession(session)} onmousedown={(e) => e.stopPropagation()}>
                   <span class="session-title">{getTitle(session)}</span>
                   <span class="session-time">{formatDate(session.started_at)}</span>
                 </button>
@@ -229,7 +245,7 @@
         {:else}
           <div class="session-list full">
             {#each sessions as session}
-              <button class="session-row" onmousedown={(e) => e.stopPropagation()}>
+              <button class="session-row" onclick={() => openSession(session)} onmousedown={(e) => e.stopPropagation()}>
                 <span class="session-title">{getTitle(session)}</span>
                 <span class="session-time">{formatDate(session.started_at)}</span>
               </button>

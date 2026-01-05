@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the Eigen AI tutor",
-  "windows": ["main", "settings", "history", "chat"],
+  "windows": ["main", "settings", "history", "chat", "dashboard"],
   "permissions": [
     "core:default",
     "core:window:default",

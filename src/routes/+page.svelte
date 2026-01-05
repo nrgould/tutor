@@ -3,7 +3,8 @@
   import { settingsStore } from '$lib/stores/settings';
   import { invoke } from '@tauri-apps/api/core';
   import { getCurrentWindow } from '@tauri-apps/api/window';
-  import { getSetting, setSetting, createConversation, saveMessage, updateConversation, invalidateConversationsCache } from '$lib/utils/db';
+  import { listen } from '@tauri-apps/api/event';
+  import { getSetting, setSetting, createConversation, saveMessage, updateConversation, invalidateConversationsCache, getMessages } from '$lib/utils/db';
   import { streamChat, analyzeScreenBatch, generateSessionTitle } from '$lib/utils/api';
   import { parseMarkdown } from '$lib/utils/markdown';
   import { processConversationMemories } from '$lib/services/memoryService';
@@ -69,9 +70,15 @@
       await setSetting('bar_position_y', String(event.payload.y));
     });
 
+    // Listen for load-conversation events from dashboard
+    const unlistenConversation = listen<{ conversationId: string }>('load-conversation', async (event) => {
+      await loadConversation(event.payload.conversationId);
+    });
+
     return () => {
       stopRecording();
       unlistenMove.then(fn => fn());
+      unlistenConversation.then(fn => fn());
     };
   });
 
@@ -341,6 +348,35 @@
     messages = [];
     streamingContent = '';
     focusInput();
+  }
+
+  async function loadConversation(conversationId: string) {
+    try {
+      // Load messages for this conversation
+      const savedMessages = await getMessages(conversationId);
+
+      // Convert to local message format
+      messages = savedMessages.map(m => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        hasScreen: !!m.screen_context?.screenshot
+      }));
+
+      currentConversationId = conversationId;
+
+      // Show chat and expand window
+      showChat = true;
+      const window = getCurrentWindow();
+      await window.setSize(new (await import('@tauri-apps/api/dpi')).LogicalSize(480, BAR_HEIGHT + CHAT_HEIGHT));
+
+      await tick();
+      scrollToBottom();
+      focusInput();
+    } catch (error) {
+      console.error('Failed to load conversation:', error);
+      toast.error('Failed to load conversation');
+    }
   }
 
   async function openDashboard() {
