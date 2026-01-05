@@ -342,12 +342,26 @@
       center: true,
     });
   }
+
+  async function startDrag(e: MouseEvent) {
+    // Only start drag on left mouse button and not on interactive elements
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('a')) return;
+
+    try {
+      const window = getCurrentWindow();
+      await window.startDragging();
+    } catch (error) {
+      console.error('Failed to start dragging:', error);
+    }
+  }
 </script>
 
 <!-- Floating Bar - the entire visible UI -->
 <div class="floating-container">
   <!-- Main floating bar - draggable -->
-  <div class="floating-bar" data-tauri-drag-region>
+  <div class="floating-bar" onmousedown={startDrag}>
     <!-- Watch toggle -->
     <button
       class="watch-btn {isWatching ? 'active' : ''}"
