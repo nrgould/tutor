@@ -17,7 +17,6 @@
   let saveSuccess = $state(false);
 
   let activeSection = $state<'overview' | 'sessions' | 'settings'>('overview');
-  let searchQuery = $state('');
 
   onMount(async () => {
     await settingsStore.load();
@@ -108,12 +107,6 @@
   function getTitle(s: Conversation): string {
     return s.title || s.summary || 'Untitled session';
   }
-
-  const filteredSessions = $derived(
-    searchQuery
-      ? sessions.filter(s => getTitle(s).toLowerCase().includes(searchQuery.toLowerCase()))
-      : sessions
-  );
 </script>
 
 
@@ -131,32 +124,29 @@
         class="nav-item"
         class:active={activeSection === 'overview'}
         onclick={() => activeSection = 'overview'}
+        onmousedown={(e) => e.stopPropagation()}
       >Overview</button>
       <button
         class="nav-item"
         class:active={activeSection === 'sessions'}
         onclick={() => activeSection = 'sessions'}
+        onmousedown={(e) => e.stopPropagation()}
       >Sessions</button>
       <button
         class="nav-item"
         class:active={activeSection === 'settings'}
         onclick={() => activeSection = 'settings'}
+        onmousedown={(e) => e.stopPropagation()}
       >Settings</button>
     </nav>
 
     <div class="header-right">
-      <div class="search">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/>
-          <path d="m21 21-4.35-4.35"/>
-        </svg>
-        <input
-          type="text"
-          placeholder="Search..."
-          bind:value={searchQuery}
-        />
-      </div>
-      <button class="close-btn" onclick={closeWindow} aria-label="Close">
+      <button
+        class="close-btn"
+        onclick={closeWindow}
+        onmousedown={(e) => e.stopPropagation()}
+        aria-label="Close"
+      >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 6L6 18M6 6l12 12"/>
         </svg>
@@ -172,7 +162,7 @@
             <h1>Welcome back</h1>
             <p class="subtitle">Continue where you left off</p>
           </div>
-          <button class="btn-primary" onclick={startSession}>
+          <button class="btn-primary" onclick={startSession} onmousedown={(e) => e.stopPropagation()}>
             Start Session
           </button>
         </section>
@@ -198,7 +188,7 @@
           <div class="section-header">
             <h2>Recent</h2>
             {#if sessions.length > 0}
-              <button class="link" onclick={() => activeSection = 'sessions'}>View all</button>
+              <button class="link" onclick={() => activeSection = 'sessions'} onmousedown={(e) => e.stopPropagation()}>View all</button>
             {/if}
           </div>
 
@@ -210,7 +200,7 @@
           {:else}
             <div class="session-list">
               {#each sessions.slice(0, 6) as session}
-                <button class="session-row">
+                <button class="session-row" onmousedown={(e) => e.stopPropagation()}>
                   <span class="session-title">{getTitle(session)}</span>
                   <span class="session-time">{formatDate(session.started_at)}</span>
                 </button>
@@ -224,22 +214,22 @@
       <div class="view">
         <div class="section-header">
           <h2>Sessions</h2>
-          <span class="count">{filteredSessions.length}</span>
+          <span class="count">{sessions.length}</span>
         </div>
 
         {#if isLoading}
           <div class="empty">
             <p>Loading...</p>
           </div>
-        {:else if filteredSessions.length === 0}
+        {:else if sessions.length === 0}
           <div class="empty">
-            <p>{searchQuery ? 'No results' : 'No sessions yet'}</p>
-            <span>{searchQuery ? 'Try a different search' : 'Start a session to begin'}</span>
+            <p>No sessions yet</p>
+            <span>Start a session to begin</span>
           </div>
         {:else}
           <div class="session-list full">
-            {#each filteredSessions as session}
-              <button class="session-row">
+            {#each sessions as session}
+              <button class="session-row" onmousedown={(e) => e.stopPropagation()}>
                 <span class="session-title">{getTitle(session)}</span>
                 <span class="session-time">{formatDate(session.started_at)}</span>
               </button>
@@ -262,8 +252,9 @@
               bind:value={anthropicKeyInput}
               placeholder={settings.anthropic_api_key ? 'Key configured' : 'Enter Anthropic API key'}
               class="input"
+              onmousedown={(e) => e.stopPropagation()}
             />
-            <button class="btn-icon" onclick={() => showApiKey = !showApiKey} aria-label="Toggle visibility">
+            <button class="btn-icon" onclick={() => showApiKey = !showApiKey} onmousedown={(e) => e.stopPropagation()} aria-label="Toggle visibility">
               {#if showApiKey}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
@@ -280,6 +271,7 @@
             <button
               class="btn-secondary"
               onclick={saveApiKey}
+              onmousedown={(e) => e.stopPropagation()}
               disabled={!anthropicKeyInput.trim()}
             >
               {saveSuccess ? 'Saved' : 'Save'}
@@ -407,31 +399,6 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 12px;
-  }
-
-  .search {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    color: rgba(250, 250, 250, 0.4);
-  }
-
-  .search input {
-    width: 140px;
-    background: none;
-    border: none;
-    color: #fafafa;
-    font-size: 13px;
-    outline: none;
-  }
-
-  .search input::placeholder {
-    color: rgba(250, 250, 250, 0.35);
   }
 
   .close-btn {
