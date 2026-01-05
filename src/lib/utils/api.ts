@@ -318,3 +318,47 @@ Be concise and factual. No greetings or offers to help.`,
     return null;
   }
 }
+
+/**
+ * Generate a concise session title based on the conversation content.
+ */
+export async function generateSessionTitle(userMessage: string, assistantResponse: string): Promise<string | null> {
+  const settings = get(settingsStore);
+
+  if (!settings.anthropic_api_key) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(CLAUDE_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': settings.anthropic_api_key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: 30,
+        system: `Generate a concise 2-5 word title for this tutoring session. No quotes, no punctuation, just the title. Focus on the main topic or concept being discussed.`,
+        messages: [
+          {
+            role: 'user',
+            content: `User asked: "${userMessage.slice(0, 200)}"\n\nTutor discussed: "${assistantResponse.slice(0, 300)}"`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    const title = data.content?.[0]?.text?.trim();
+    return title || null;
+  } catch {
+    return null;
+  }
+}

@@ -39,7 +39,7 @@
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     sessionsThisWeek = sessions.filter(s => {
-      const date = parseDate(s.created_at);
+      const date = parseDate(s.started_at);
       return date && date > weekAgo;
     }).length;
     totalStudyTime = sessions.length * 15;
@@ -212,7 +212,7 @@
               {#each sessions.slice(0, 6) as session}
                 <button class="session-row">
                   <span class="session-title">{getTitle(session)}</span>
-                  <span class="session-time">{formatDate(session.created_at)}</span>
+                  <span class="session-time">{formatDate(session.started_at)}</span>
                 </button>
               {/each}
             </div>
@@ -241,7 +241,7 @@
             {#each filteredSessions as session}
               <button class="session-row">
                 <span class="session-title">{getTitle(session)}</span>
-                <span class="session-time">{formatDate(session.created_at)}</span>
+                <span class="session-time">{formatDate(session.started_at)}</span>
               </button>
             {/each}
           </div>
@@ -332,9 +332,9 @@
 
   /* Header */
   .header {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
     height: 52px;
     padding: 0 20px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -349,6 +349,7 @@
   .header-left {
     display: flex;
     align-items: center;
+    justify-content: flex-start;
   }
 
   .brand {
@@ -405,6 +406,7 @@
   .header-right {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 12px;
   }
 
@@ -445,6 +447,8 @@
     color: rgba(250, 250, 250, 0.4);
     cursor: pointer;
     transition: color 0.15s, background 0.15s;
+    position: relative;
+    z-index: 10;
   }
 
   .close-btn:hover {

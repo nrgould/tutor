@@ -3,8 +3,8 @@
   import { settingsStore } from '$lib/stores/settings';
   import { invoke } from '@tauri-apps/api/core';
   import { getCurrentWindow } from '@tauri-apps/api/window';
-  import { getSetting, setSetting, createConversation, saveMessage, invalidateConversationsCache } from '$lib/utils/db';
-  import { streamChat, analyzeScreenBatch } from '$lib/utils/api';
+  import { getSetting, setSetting, createConversation, saveMessage, updateConversation, invalidateConversationsCache } from '$lib/utils/db';
+  import { streamChat, analyzeScreenBatch, generateSessionTitle } from '$lib/utils/api';
   import { parseMarkdown } from '$lib/utils/markdown';
   import { processConversationMemories } from '$lib/services/memoryService';
   import { toast } from '$lib/stores/toast';
@@ -275,6 +275,16 @@
       // Persist assistant message
       if (currentConversationId) {
         saveMessage(currentConversationId, 'assistant', streamingContent).catch(console.error);
+
+        // Generate title after first exchange (2 messages: user + assistant)
+        if (messages.length === 2) {
+          generateSessionTitle(content, streamingContent).then(title => {
+            if (title && currentConversationId) {
+              updateConversation(currentConversationId, { title }).catch(console.error);
+              invalidateConversationsCache();
+            }
+          }).catch(console.error);
+        }
       }
 
       streamingContent = '';
