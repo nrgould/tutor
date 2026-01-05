@@ -34,7 +34,7 @@
   <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap" rel="stylesheet">
 </svelte:head>
 
-<div class="h-screen flex flex-col overflow-hidden {isOverlayMode ? 'overlay-mode' : 'bg-[var(--gray-1)]'}">
+<div class="h-screen flex flex-col overflow-hidden {isOverlayMode ? 'overlay-mode' : ''}">
   {@render children()}
 </div>
 

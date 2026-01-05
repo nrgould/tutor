@@ -16,15 +16,13 @@
         "title": "Eigen",
         "width": 480,
         "height": 54,
-        "resizable": true,
+        "resizable": false,
         "alwaysOnTop": true,
         "decorations": false,
         "transparent": true,
         "visible": false,
         "focus": true,
-        "skipTaskbar": true,
-        "minWidth": 400,
-        "minHeight": 50
+        "skipTaskbar": true
       }
     ],
     "security": {
