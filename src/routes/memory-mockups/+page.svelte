@@ -3,11 +3,15 @@
 
   let activeTab = $state<'constellation' | 'profile'>('constellation');
   let mounted = $state(false);
+  let isFullscreen = $state(false);
 
   onMount(() => {
-    // Ensure proper render on first load
     mounted = true;
   });
+
+  function toggleFullscreen() {
+    isFullscreen = !isFullscreen;
+  }
 
   // Sample topic data - current learning
   const currentTopics = [
@@ -28,19 +32,19 @@
 
   const allTopics = [...currentTopics, ...recommendedTopics];
 
-  // Organic, web-like positions - asymmetric and natural feeling
-  const positions: Record<number, { x: number; y: number; labelPos: 'top' | 'bottom' | 'left' | 'right' }> = {
-    // Current topics - organic spread
-    1: { x: 45, y: 22, labelPos: 'top' },       // Hegel - upper area
-    2: { x: 18, y: 42, labelPos: 'left' },      // Phenomenology - left side
-    3: { x: 75, y: 35, labelPos: 'right' },     // Kant - right upper
-    4: { x: 28, y: 72, labelPos: 'left' },      // Existentialism - lower left
-    5: { x: 52, y: 52, labelPos: 'bottom' },    // Logic - center-ish
-    6: { x: 70, y: 68, labelPos: 'right' },     // Ethics - lower right
-    // Recommended - outer organic positions
-    101: { x: 88, y: 20, labelPos: 'right' },   // Metaphysics - far right top
-    102: { x: 8, y: 28, labelPos: 'left' },     // Philosophy of Mind - far left
-    103: { x: 48, y: 88, labelPos: 'bottom' },  // Nietzsche - bottom
+  // Organic, web-like positions - tighter cluster in center
+  const positions: Record<number, { x: number; y: number }> = {
+    // Current topics - closer together, organic
+    1: { x: 48, y: 28 },      // Hegel - upper
+    2: { x: 25, y: 45 },      // Phenomenology - left
+    3: { x: 72, y: 38 },      // Kant - right upper
+    4: { x: 30, y: 70 },      // Existentialism - lower left
+    5: { x: 50, y: 52 },      // Logic - center
+    6: { x: 68, y: 65 },      // Ethics - lower right
+    // Recommended - outer positions
+    101: { x: 85, y: 25 },    // Metaphysics
+    102: { x: 12, y: 32 },    // Philosophy of Mind
+    103: { x: 50, y: 85 },    // Nietzsche
   };
 
   // Learning profile data (learning styles)
@@ -63,8 +67,59 @@
 
   // Node sizes
   function getNodeSize(mastery: number, isRecommended: boolean): number {
-    if (isRecommended) return 2;
-    return 2 + mastery * 2.5;
+    if (isRecommended) return 1.8;
+    return 2 + mastery * 2;
+  }
+
+  // Fullscreen pan state
+  let panX = $state(0);
+  let panY = $state(0);
+  let isDragging = $state(false);
+  let dragStart = { x: 0, y: 0 };
+  let scale = $state(1.5);
+
+  function startDrag(e: MouseEvent) {
+    isDragging = true;
+    dragStart = { x: e.clientX - panX, y: e.clientY - panY };
+  }
+
+  function onDrag(e: MouseEvent) {
+    if (!isDragging) return;
+    panX = e.clientX - dragStart.x;
+    panY = e.clientY - dragStart.y;
+  }
+
+  function endDrag() {
+    isDragging = false;
+  }
+
+  function handleWheel(e: WheelEvent) {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    scale = Math.max(0.8, Math.min(3, scale + delta));
+  }
+
+  // Calculate label position based on node position (keeps labels outside center)
+  function getLabelStyle(pos: { x: number; y: number }): string {
+    const centerX = 50;
+    const centerY = 50;
+
+    // Direction from center to node
+    const dx = pos.x - centerX;
+    const dy = pos.y - centerY;
+
+    // Small offset in that direction (3% = very close)
+    const offsetX = dx > 0 ? 4 : dx < 0 ? -4 : 0;
+    const offsetY = dy > 0 ? 4 : dy < 0 ? -4 : 0;
+
+    // Transform based on quadrant
+    let transform = 'translate(-50%, -50%)';
+    if (dx > 5) transform = 'translate(0, -50%)';
+    else if (dx < -5) transform = 'translate(-100%, -50%)';
+    else if (dy > 5) transform = 'translate(-50%, 0)';
+    else if (dy < -5) transform = 'translate(-50%, -100%)';
+
+    return `left: calc(${pos.x}% + ${offsetX}px); top: calc(${pos.y}% + ${offsetY}px); transform: ${transform};`;
   }
 </script>
 
@@ -112,6 +167,13 @@
       <!-- Constellation View -->
       <div class="constellation-container">
         <div class="constellation">
+          <!-- Fullscreen toggle -->
+          <button class="fullscreen-btn" onclick={toggleFullscreen} title="Toggle fullscreen">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+            </svg>
+          </button>
+
           <svg viewBox="0 0 100 100" class="constellation-svg" preserveAspectRatio="xMidYMid meet">
             <!-- Connection lines -->
             {#each allTopics as topic}
@@ -161,17 +223,17 @@
             {/each}
           </svg>
 
-          <!-- Labels overlay with pill style -->
+          <!-- Labels overlay with pill style - positioned very close to nodes -->
           <div class="labels-overlay">
             {#each allTopics as topic}
               {@const pos = positions[topic.id]}
               {@const isRecommended = topic.status === 'recommended'}
               {#if pos}
                 <div
-                  class="node-label {pos.labelPos}"
+                  class="node-label"
                   class:recommended={isRecommended}
                   class:mastered={topic.status === 'mastered'}
-                  style="left: {pos.x}%; top: {pos.y}%;"
+                  style={getLabelStyle(pos)}
                 >
                   <span class="label-name">{topic.name}</span>
                   {#if !isRecommended}
@@ -353,6 +415,123 @@
   </main>
 </div>
 
+<!-- Fullscreen Constellation Modal -->
+{#if isFullscreen}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="fullscreen-overlay"
+    onmousedown={startDrag}
+    onmousemove={onDrag}
+    onmouseup={endDrag}
+    onmouseleave={endDrag}
+    onwheel={handleWheel}
+  >
+    <div class="fullscreen-header">
+      <h2>Knowledge Map</h2>
+      <div class="fullscreen-controls">
+        <span class="zoom-label">{Math.round(scale * 100)}%</span>
+        <button class="control-btn" onclick={() => scale = Math.max(0.8, scale - 0.2)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+        <button class="control-btn" onclick={() => scale = Math.min(3, scale + 0.2)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+        <button class="control-btn" onclick={() => { panX = 0; panY = 0; scale = 1.5; }}>
+          Reset
+        </button>
+        <button class="close-btn" onclick={toggleFullscreen}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="fullscreen-hint">Drag to pan, scroll to zoom</div>
+
+    <div
+      class="fullscreen-canvas"
+      style="transform: translate({panX}px, {panY}px) scale({scale}); cursor: {isDragging ? 'grabbing' : 'grab'};"
+    >
+      <svg viewBox="0 0 100 100" class="fullscreen-svg" preserveAspectRatio="xMidYMid meet">
+        <!-- Connection lines -->
+        {#each allTopics as topic}
+          {#each topic.connections as connId}
+            {@const other = allTopics.find(t => t.id === connId)}
+            {#if other && positions[topic.id] && positions[connId]}
+              <line
+                x1={positions[topic.id].x}
+                y1={positions[topic.id].y}
+                x2={positions[connId].x}
+                y2={positions[connId].y}
+                class="connection-line"
+                class:recommended={topic.status === 'recommended' || other.status === 'recommended'}
+              />
+            {/if}
+          {/each}
+        {/each}
+
+        <!-- Nodes -->
+        {#each allTopics as topic}
+          {@const pos = positions[topic.id]}
+          {@const isRecommended = topic.status === 'recommended'}
+          {@const size = getNodeSize(topic.mastery, isRecommended)}
+          {#if pos}
+            <g class="node-group" class:recommended={isRecommended}>
+              {#if !isRecommended}
+                <circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={size * 2.5}
+                  class="node-glow"
+                  style="opacity: {0.08 + topic.mastery * 0.12}"
+                />
+              {/if}
+              <circle
+                cx={pos.x}
+                cy={pos.y}
+                r={size}
+                class="node"
+                class:mastered={topic.status === 'mastered'}
+                class:reviewing={topic.status === 'reviewing'}
+              />
+            </g>
+          {/if}
+        {/each}
+      </svg>
+
+      <!-- Labels -->
+      <div class="fullscreen-labels">
+        {#each allTopics as topic}
+          {@const pos = positions[topic.id]}
+          {@const isRecommended = topic.status === 'recommended'}
+          {#if pos}
+            <div
+              class="node-label"
+              class:recommended={isRecommended}
+              class:mastered={topic.status === 'mastered'}
+              style={getLabelStyle(pos)}
+            >
+              <span class="label-name">{topic.name}</span>
+              {#if !isRecommended}
+                <span class="label-mastery">{Math.round(topic.mastery * 100)}%</span>
+              {:else}
+                <span class="label-suggested">Suggested</span>
+              {/if}
+            </div>
+          {/if}
+        {/each}
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .memory-view {
     min-height: 100vh;
@@ -479,8 +658,35 @@
     stroke-dasharray: 1.5, 1.5;
   }
 
+  /* Fullscreen button */
+  .fullscreen-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(9, 9, 11, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    backdrop-filter: blur(8px);
+  }
+
+  .fullscreen-btn:hover {
+    background: rgba(9, 9, 11, 0.9);
+    color: #fafafa;
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
   /* Labels - Pill Style */
-  .labels-overlay {
+  .labels-overlay,
+  .fullscreen-labels {
     position: absolute;
     inset: 0;
     pointer-events: none;
@@ -491,31 +697,14 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
-    padding: 6px 10px;
-    background: rgba(9, 9, 11, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    gap: 2px;
+    padding: 5px 8px;
+    background: rgba(9, 9, 11, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-  }
-
-  /* Position-based label offsets */
-  .node-label.top {
-    transform: translate(-50%, calc(-100% - 12px));
-  }
-
-  .node-label.bottom {
-    transform: translate(-50%, 12px);
-  }
-
-  .node-label.left {
-    transform: translate(calc(-100% - 12px), -50%);
-    align-items: flex-end;
-  }
-
-  .node-label.right {
-    transform: translate(12px, -50%);
+    white-space: nowrap;
   }
 
   .label-name {
@@ -851,5 +1040,125 @@
   .style-desc {
     font-size: 11px;
     color: rgba(250, 250, 250, 0.35);
+  }
+
+  /* ========================== */
+  /* Fullscreen Overlay         */
+  /* ========================== */
+  .fullscreen-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: #09090b;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  .fullscreen-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    background: rgba(9, 9, 11, 0.95);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    z-index: 10;
+  }
+
+  .fullscreen-header h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .fullscreen-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .zoom-label {
+    font-size: 12px;
+    color: rgba(250, 250, 250, 0.5);
+    font-variant-numeric: tabular-nums;
+    min-width: 48px;
+    text-align: right;
+    margin-right: 8px;
+  }
+
+  .control-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: rgba(250, 250, 250, 0.7);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .control-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fafafa;
+  }
+
+  .close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: rgba(250, 250, 250, 0.6);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin-left: 8px;
+  }
+
+  .close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fafafa;
+  }
+
+  .fullscreen-hint {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 16px;
+    background: rgba(9, 9, 11, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    font-size: 12px;
+    color: rgba(250, 250, 250, 0.5);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .fullscreen-canvas {
+    flex: 1;
+    position: relative;
+    transform-origin: center center;
+    transition: transform 0.05s ease-out;
+  }
+
+  .fullscreen-svg {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+  }
+
+  .fullscreen-labels {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
   }
 </style>
