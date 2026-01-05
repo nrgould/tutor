@@ -2,13 +2,13 @@
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { listen } from '@tauri-apps/api/event';
-  import { getCurrentWindow } from '@tauri-apps/api/window';
 
   let screenshot = $state<string | null>(null);
   let imageLoaded = $state(false);
   let img: HTMLImageElement;
 
   let isSelecting = $state(false);
+  let hasSelection = $state(false);
   let startX = $state(0);
   let startY = $state(0);
   let currentX = $state(0);
@@ -44,6 +44,7 @@
   function handleMouseDown(e: MouseEvent) {
     if (!imageLoaded) return;
     isSelecting = true;
+    hasSelection = true;
     startX = e.clientX;
     startY = e.clientY;
     currentX = e.clientX;
@@ -62,6 +63,7 @@
 
     // Minimum selection size
     if (selectionWidth < 10 || selectionHeight < 10) {
+      hasSelection = false;
       return;
     }
 
@@ -107,10 +109,6 @@
 
     // Send the cropped image back to main window
     try {
-      // Emit to main window and close this window
-      const appWindow = getCurrentWindow();
-      await appWindow.emit('region-captured-internal', base64);
-      // The backend will handle closing this window and showing main
       await invoke('close_region_selector_with_result', { image: base64 });
     } catch (error) {
       console.error('Failed to send cropped image:', error);
@@ -132,7 +130,7 @@
 <svelte:window on:keydown={handleKeyDown} />
 
 <div
-  class="fixed inset-0 cursor-crosshair select-none bg-black"
+  class="region-selector-container"
   role="application"
   aria-label="Region selector"
   tabindex="-1"
@@ -141,55 +139,54 @@
   onmouseup={handleMouseUp}
   onmouseleave={handleMouseUp}
 >
-  <!-- Screenshot background -->
   {#if screenshot && imageLoaded}
-    <img
-      src="data:image/png;base64,{screenshot}"
-      alt="Screenshot"
-      class="w-full h-full object-cover pointer-events-none"
-      draggable="false"
-    />
+    <!-- Screenshot as background image for better performance -->
+    <div
+      class="screenshot-bg"
+      style="background-image: url('data:image/png;base64,{screenshot}');"
+    ></div>
 
-    <!-- Dark overlay outside selection -->
-    <div class="absolute inset-0 bg-black/40 pointer-events-none"></div>
+    <!-- Dark overlay - only shown when NO selection is active -->
+    {#if !hasSelection}
+      <div class="dark-overlay"></div>
+    {/if}
 
-    <!-- Selection box (cut out from overlay) -->
-    {#if isSelecting || (selectionWidth > 0 && selectionHeight > 0)}
+    <!-- Selection box with cutout effect -->
+    {#if hasSelection && (selectionWidth > 0 || selectionHeight > 0)}
       <div
-        class="absolute border-2 border-white pointer-events-none"
+        class="selection-box"
         style="
           left: {selectionLeft}px;
           top: {selectionTop}px;
           width: {selectionWidth}px;
           height: {selectionHeight}px;
-          background: transparent;
-          box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
         "
       >
         <!-- Corner handles -->
-        <div class="absolute -top-1 -left-1 w-3 h-3 bg-white rounded-sm"></div>
-        <div class="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-sm"></div>
-        <div class="absolute -bottom-1 -left-1 w-3 h-3 bg-white rounded-sm"></div>
-        <div class="absolute -bottom-1 -right-1 w-3 h-3 bg-white rounded-sm"></div>
+        <div class="handle handle-tl"></div>
+        <div class="handle handle-tr"></div>
+        <div class="handle handle-bl"></div>
+        <div class="handle handle-br"></div>
 
         <!-- Dimensions label -->
-        {#if selectionWidth > 50 && selectionHeight > 30}
-          <div class="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-            {Math.round(selectionWidth)} x {Math.round(selectionHeight)}
+        {#if selectionWidth > 60 && selectionHeight > 40}
+          <div class="dimensions-label">
+            {Math.round(selectionWidth)} × {Math.round(selectionHeight)}
           </div>
         {/if}
       </div>
     {/if}
   {:else}
     <!-- Loading state -->
-    <div class="w-full h-full flex items-center justify-center">
-      <div class="text-white text-lg">Loading...</div>
+    <div class="loading-state">
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Preparing screen capture...</div>
     </div>
   {/if}
 
   <!-- Instructions -->
-  <div class="absolute top-4 left-1/2 -translate-x-1/2 bg-black/80 text-white px-4 py-2 rounded-lg text-sm pointer-events-none z-50">
-    Drag to select region | Press ESC to cancel
+  <div class="instructions">
+    Click and drag to select a region · Press ESC to cancel
   </div>
 </div>
 
@@ -197,7 +194,113 @@
   :global(html), :global(body) {
     margin: 0;
     padding: 0;
-    background: black !important;
+    background: #000 !important;
     overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  .region-selector-container {
+    position: fixed;
+    inset: 0;
+    cursor: crosshair;
+    user-select: none;
+    background: #000;
+  }
+
+  .screenshot-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+  }
+
+  .dark-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+  }
+
+  .selection-box {
+    position: absolute;
+    border: 2px solid #fff;
+    background: transparent;
+    pointer-events: none;
+    /* This creates the "cutout" effect - dark overlay everywhere EXCEPT inside the box */
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  }
+
+  .handle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border-radius: 2px;
+  }
+
+  .handle-tl { top: -4px; left: -4px; }
+  .handle-tr { top: -4px; right: -4px; }
+  .handle-bl { bottom: -4px; left: -4px; }
+  .handle-br { bottom: -4px; right: -4px; }
+
+  .dimensions-label {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    font-size: 12px;
+    font-family: system-ui, -apple-system, sans-serif;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .instructions {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    font-size: 13px;
+    font-family: system-ui, -apple-system, sans-serif;
+    padding: 10px 20px;
+    border-radius: 8px;
+    pointer-events: none;
+    z-index: 100;
+    white-space: nowrap;
+  }
+
+  .loading-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .loading-text {
+    color: #fff;
+    font-size: 14px;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 </style>
