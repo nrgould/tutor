@@ -304,7 +304,7 @@ Keep responses focused and conversational.`,
 
 <div class="chat-window">
   <!-- Custom titlebar -->
-  <div class="titlebar" onmousedown={startDrag}>
+  <div class="titlebar" onmousedown={startDrag} role="toolbar" aria-label="Window controls" tabindex="0">
     <div class="titlebar-left">
       <div class="window-controls">
         <button class="window-btn close" onclick={closeWindow} title="Close" aria-label="Close"></button>
