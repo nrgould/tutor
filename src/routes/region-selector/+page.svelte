@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { invoke } from '@tauri-apps/api/core';
-  import { listen } from '@tauri-apps/api/event';
 
   let screenshot = $state<string | null>(null);
   let imageLoaded = $state(false);
@@ -20,25 +19,22 @@
   let selectionWidth = $derived(Math.abs(currentX - startX));
   let selectionHeight = $derived(Math.abs(currentY - startY));
 
-  onMount(() => {
-    let unlisten: (() => void) | undefined;
-
-    // Listen for the screenshot from the backend
-    listen<string>('screenshot-ready', (event) => {
-      screenshot = event.payload;
+  onMount(async () => {
+    // Fetch the screenshot that was captured before this window opened
+    try {
+      const data = await invoke<string>('get_pending_screenshot');
+      screenshot = data;
       // Preload the image
       img = new Image();
       img.onload = () => {
         imageLoaded = true;
       };
-      img.src = `data:image/png;base64,${event.payload}`;
-    }).then((fn) => {
-      unlisten = fn;
-    });
-
-    return () => {
-      unlisten?.();
-    };
+      img.src = `data:image/png;base64,${data}`;
+    } catch (error) {
+      console.error('Failed to get screenshot:', error);
+      // Close the selector if we can't get the screenshot
+      await invoke('close_region_selector');
+    }
   });
 
   function handleMouseDown(e: MouseEvent) {

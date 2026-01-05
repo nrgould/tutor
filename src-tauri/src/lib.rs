@@ -12,6 +12,7 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
 
+use commands::capture::{PendingScreenshot, PendingScreenshotHandle};
 use commands::recording::{RecordingState, RecordingStateHandle};
 
 fn toggle_window(app: &tauri::AppHandle) {
@@ -39,6 +40,10 @@ pub fn run() {
             // Initialize recording state
             let recording_state: RecordingStateHandle = Arc::new(Mutex::new(RecordingState::default()));
             app.manage(recording_state);
+
+            // Initialize pending screenshot state for region selector
+            let pending_screenshot: PendingScreenshotHandle = Arc::new(PendingScreenshot::default());
+            app.manage(pending_screenshot);
 
             // Build tray menu
             let show_item = MenuItemBuilder::with_id("show", "Show Eigen").build(app)?;
@@ -120,6 +125,7 @@ pub fn run() {
             commands::capture_screen,
             commands::capture_region,
             commands::open_region_selector,
+            commands::get_pending_screenshot,
             commands::close_region_selector,
             commands::close_region_selector_with_result,
             commands::region_selected,

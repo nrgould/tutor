@@ -1,8 +1,10 @@
 use base64::{engine::general_purpose::STANDARD, Engine};
 use image::GenericImageView;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
-use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, Window};
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, Window};
 use xcap::Monitor;
 
 #[derive(Debug, Clone, Serialize)]
@@ -18,6 +20,12 @@ pub struct RegionBounds {
     pub width: u32,
     pub height: u32,
 }
+
+// State to hold the pending screenshot for the region selector
+#[derive(Default)]
+pub struct PendingScreenshot(pub Mutex<Option<String>>);
+
+pub type PendingScreenshotHandle = Arc<PendingScreenshot>;
 
 #[tauri::command]
 pub async fn capture_screen(window: Window) -> Result<String, String> {
@@ -115,14 +123,17 @@ pub async fn capture_region(window: Window, bounds: RegionBounds) -> Result<Stri
 }
 
 #[tauri::command]
-pub async fn open_region_selector(app: AppHandle) -> Result<(), String> {
+pub async fn open_region_selector(
+    app: AppHandle,
+    pending_screenshot: State<'_, PendingScreenshotHandle>,
+) -> Result<(), String> {
     // Hide the main window first
     if let Some(main_window) = app.get_webview_window("main") {
         main_window.hide().map_err(|e| format!("Failed to hide main window: {}", e))?;
     }
 
     // Small delay to ensure main window is hidden
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
 
     // Capture the screen and get dimensions
     let (width, height, screenshot) = tokio::task::spawn_blocking(|| {
@@ -150,6 +161,12 @@ pub async fn open_region_selector(app: AppHandle) -> Result<(), String> {
     .await
     .map_err(|e| format!("Task failed: {}", e))??;
 
+    // Store the screenshot in state for the region selector to fetch
+    {
+        let mut pending = pending_screenshot.0.lock();
+        *pending = Some(screenshot);
+    }
+
     // Create a fullscreen window for region selection
     let selector_window = WebviewWindowBuilder::new(
         &app,
@@ -170,14 +187,15 @@ pub async fn open_region_selector(app: AppHandle) -> Result<(), String> {
     // Focus the selector window
     selector_window.set_focus().map_err(|e| format!("Failed to focus window: {}", e))?;
 
-    // Send the screenshot to the region selector window
-    // Small delay to ensure window is ready
-    tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-    selector_window
-        .emit("screenshot-ready", screenshot)
-        .map_err(|e| format!("Failed to emit screenshot: {}", e))?;
-
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_pending_screenshot(
+    pending_screenshot: State<'_, PendingScreenshotHandle>,
+) -> Result<String, String> {
+    let mut pending = pending_screenshot.0.lock();
+    pending.take().ok_or_else(|| "No pending screenshot".to_string())
 }
 
 #[tauri::command]
