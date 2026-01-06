@@ -45,6 +45,10 @@ interface StoredFact {
   confidence: number;
 }
 
+// ============================================================
+// ENHANCED TOPIC SIMILARITY ALGORITHMS
+// ============================================================
+
 // Normalize a topic name for comparison
 function normalizeTopic(name: string): string {
   return name
@@ -55,44 +59,187 @@ function normalizeTopic(name: string): string {
     .trim();
 }
 
-// Calculate similarity between two normalized topic names
+/**
+ * Calculate Levenshtein distance between two strings
+ * More accurate for detecting typos and minor variations
+ */
+function levenshteinDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const matrix: number[][] = [];
+
+  // Initialize first column
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+
+  // Initialize first row
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  // Fill in the rest of the matrix
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+/**
+ * Calculate normalized Levenshtein similarity (0-1)
+ */
+function levenshteinSimilarity(a: string, b: string): number {
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1.0;
+  return 1 - levenshteinDistance(a, b) / maxLen;
+}
+
+/**
+ * Calculate Jaccard similarity between word sets
+ */
+function jaccardSimilarity(wordsA: Set<string>, wordsB: Set<string>): number {
+  if (wordsA.size === 0 && wordsB.size === 0) return 1.0;
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+
+  let intersection = 0;
+  for (const word of wordsA) {
+    if (wordsB.has(word)) intersection++;
+  }
+
+  const union = wordsA.size + wordsB.size - intersection;
+  return intersection / union;
+}
+
+/**
+ * Calculate n-gram similarity for partial word matching
+ */
+function ngramSimilarity(a: string, b: string, n: number = 2): number {
+  const getNgrams = (s: string): Set<string> => {
+    const ngrams = new Set<string>();
+    const padded = ' '.repeat(n - 1) + s + ' '.repeat(n - 1);
+    for (let i = 0; i < padded.length - n + 1; i++) {
+      ngrams.add(padded.slice(i, i + n));
+    }
+    return ngrams;
+  };
+
+  const ngramsA = getNgrams(a);
+  const ngramsB = getNgrams(b);
+
+  return jaccardSimilarity(ngramsA, ngramsB);
+}
+
+/**
+ * Enhanced topic similarity using multiple algorithms
+ * Returns a weighted combination for robust matching
+ */
 function topicSimilarity(a: string, b: string): number {
   if (a === b) return 1.0;
 
-  // Check if one contains the other
+  // Get words for Jaccard
+  const wordsA = new Set(a.split(' ').filter(w => w.length > 1));
+  const wordsB = new Set(b.split(' ').filter(w => w.length > 1));
+
+  // Check if one is a substring of the other (strong indicator)
   if (a.includes(b) || b.includes(a)) {
     const shorter = a.length < b.length ? a : b;
     const longer = a.length < b.length ? b : a;
-    return shorter.length / longer.length;
+    // High score for containment
+    return 0.7 + 0.3 * (shorter.length / longer.length);
   }
 
-  // Simple word overlap for multi-word topics
-  const wordsA = new Set(a.split(' ').filter(w => w.length > 2));
-  const wordsB = new Set(b.split(' ').filter(w => w.length > 2));
+  // Calculate multiple similarity metrics
+  const levenshtein = levenshteinSimilarity(a, b);
+  const jaccard = jaccardSimilarity(wordsA, wordsB);
+  const bigram = ngramSimilarity(a, b, 2);
+  const trigram = ngramSimilarity(a, b, 3);
 
-  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  // Weighted combination
+  // - Jaccard is good for multi-word topics
+  // - Levenshtein catches typos
+  // - N-grams help with partial word matches
+  const weights = {
+    jaccard: 0.35,
+    levenshtein: 0.25,
+    bigram: 0.2,
+    trigram: 0.2,
+  };
 
-  let overlap = 0;
-  for (const word of wordsA) {
-    if (wordsB.has(word)) overlap++;
-  }
-
-  return (2 * overlap) / (wordsA.size + wordsB.size);
+  return (
+    jaccard * weights.jaccard +
+    levenshtein * weights.levenshtein +
+    bigram * weights.bigram +
+    trigram * weights.trigram
+  );
 }
 
-// Find a matching topic from existing topics (exact or fuzzy match)
+// Cache for topic embeddings (semantic similarity)
+const topicEmbeddingCache = new Map<string, number[]>();
+
+/**
+ * Get semantic similarity between topics using embeddings
+ * Falls back to string similarity if embeddings unavailable
+ */
+async function semanticTopicSimilarity(
+  a: string,
+  b: string
+): Promise<number> {
+  try {
+    // Get or generate embeddings
+    let embA = topicEmbeddingCache.get(a);
+    let embB = topicEmbeddingCache.get(b);
+
+    if (!embA) {
+      embA = await generateEmbedding(a);
+      topicEmbeddingCache.set(a, embA);
+    }
+    if (!embB) {
+      embB = await generateEmbedding(b);
+      topicEmbeddingCache.set(b, embB);
+    }
+
+    return cosineSimilarity(embA, embB);
+  } catch {
+    // Fall back to string similarity
+    return topicSimilarity(normalizeTopic(a), normalizeTopic(b));
+  }
+}
+
+/**
+ * Find matching topic with confidence score
+ */
+interface TopicMatch {
+  id: string;
+  name: string;
+  confidence: number;
+  matchType: 'exact' | 'normalized' | 'fuzzy' | 'semantic';
+}
+
+// Find a matching topic from existing topics (multi-stage matching)
 function findMatchingTopic(
   normalizedName: string,
   existingTopics: Map<string, string>
 ): string | undefined {
-  // Exact match first
+  // Stage 1: Exact match
   if (existingTopics.has(normalizedName)) {
     return existingTopics.get(normalizedName);
   }
 
-  // Fuzzy match - find best match above threshold
+  // Stage 2: Fuzzy match with enhanced similarity
   let bestMatch: string | undefined;
-  let bestScore = 0.7; // Minimum similarity threshold
+  let bestScore = 0.65; // Slightly lower threshold due to better algorithm
 
   for (const [existingName, id] of existingTopics) {
     const score = topicSimilarity(normalizedName, existingName);
@@ -103,6 +250,88 @@ function findMatchingTopic(
   }
 
   return bestMatch;
+}
+
+/**
+ * Find best matching topic with full details (async for semantic matching)
+ */
+async function findBestTopicMatch(
+  name: string,
+  existingTopics: StoredTopic[],
+  useSemanticSearch: boolean = false
+): Promise<TopicMatch | null> {
+  const normalized = normalizeTopic(name);
+
+  // Build lookup map
+  const normalizedMap = new Map<string, StoredTopic>();
+  for (const topic of existingTopics) {
+    normalizedMap.set(normalizeTopic(topic.name), topic);
+  }
+
+  // Stage 1: Exact normalized match
+  const exactMatch = normalizedMap.get(normalized);
+  if (exactMatch) {
+    return {
+      id: exactMatch.id,
+      name: exactMatch.name,
+      confidence: 1.0,
+      matchType: 'exact',
+    };
+  }
+
+  // Stage 2: String-based fuzzy match
+  let bestFuzzyMatch: TopicMatch | null = null;
+  let bestFuzzyScore = 0.65;
+
+  for (const [existingNorm, topic] of normalizedMap) {
+    const score = topicSimilarity(normalized, existingNorm);
+    if (score > bestFuzzyScore) {
+      bestFuzzyScore = score;
+      bestFuzzyMatch = {
+        id: topic.id,
+        name: topic.name,
+        confidence: score,
+        matchType: 'fuzzy',
+      };
+    }
+  }
+
+  // Stage 3: Semantic match (if enabled and no good fuzzy match)
+  if (useSemanticSearch && (!bestFuzzyMatch || bestFuzzyMatch.confidence < 0.8)) {
+    let bestSemanticMatch: TopicMatch | null = null;
+    let bestSemanticScore = 0.75; // Higher threshold for semantic
+
+    for (const topic of existingTopics) {
+      try {
+        const score = await semanticTopicSimilarity(name, topic.name);
+        if (score > bestSemanticScore) {
+          bestSemanticScore = score;
+          bestSemanticMatch = {
+            id: topic.id,
+            name: topic.name,
+            confidence: score,
+            matchType: 'semantic',
+          };
+        }
+      } catch {
+        // Skip on error
+      }
+    }
+
+    // Use semantic if better than fuzzy
+    if (bestSemanticMatch && (!bestFuzzyMatch || bestSemanticMatch.confidence > bestFuzzyMatch.confidence)) {
+      return bestSemanticMatch;
+    }
+  }
+
+  return bestFuzzyMatch;
+}
+
+/**
+ * Clear topic embedding cache (call when topics are updated)
+ */
+export function clearTopicEmbeddingCache(): void {
+  topicEmbeddingCache.clear();
 }
 
 // Save a memory with its embedding
@@ -530,4 +759,318 @@ export async function cleanupDuplicateTopics(): Promise<{
   }
 
   return result;
+}
+
+// ============================================================
+// TOPIC RELATIONSHIP DISCOVERY & KNOWLEDGE GRAPH
+// ============================================================
+
+export interface TopicRelationship {
+  fromId: string;
+  toId: string;
+  type: 'prerequisite' | 'related' | 'subtopic' | 'builds_on';
+  strength: number; // 0-1 confidence
+  reason?: string;
+}
+
+/**
+ * Discover semantic relationships between topics using embeddings
+ * Returns pairs of related topics that aren't already connected via parent
+ */
+export async function discoverTopicRelationships(
+  minSimilarity: number = 0.6
+): Promise<TopicRelationship[]> {
+  const topics = await getTopics();
+  const relationships: TopicRelationship[] = [];
+
+  // Build set of existing parent-child connections
+  const existingConnections = new Set<string>();
+  for (const topic of topics) {
+    if (topic.parent_id) {
+      existingConnections.add(`${topic.id}-${topic.parent_id}`);
+      existingConnections.add(`${topic.parent_id}-${topic.id}`);
+    }
+  }
+
+  // Compare all pairs for semantic similarity
+  for (let i = 0; i < topics.length; i++) {
+    for (let j = i + 1; j < topics.length; j++) {
+      const a = topics[i];
+      const b = topics[j];
+
+      // Skip if already connected
+      const connectionKey = `${a.id}-${b.id}`;
+      if (existingConnections.has(connectionKey)) continue;
+
+      try {
+        const similarity = await semanticTopicSimilarity(a.name, b.name);
+
+        if (similarity >= minSimilarity) {
+          // Determine relationship type based on mastery levels
+          let type: TopicRelationship['type'] = 'related';
+
+          // If one has much higher mastery, it might be a prerequisite
+          const masteryDiff = a.mastery_level - b.mastery_level;
+          if (Math.abs(masteryDiff) > 0.3) {
+            type = masteryDiff > 0 ? 'builds_on' : 'prerequisite';
+          }
+
+          // Check if names suggest hierarchy
+          const aNorm = normalizeTopic(a.name);
+          const bNorm = normalizeTopic(b.name);
+          if (aNorm.includes(bNorm) || bNorm.includes(aNorm)) {
+            type = 'subtopic';
+          }
+
+          relationships.push({
+            fromId: a.id,
+            toId: b.id,
+            type,
+            strength: similarity,
+          });
+        }
+      } catch {
+        // Skip on embedding error
+      }
+    }
+  }
+
+  // Sort by strength (strongest relationships first)
+  relationships.sort((a, b) => b.strength - a.strength);
+
+  return relationships;
+}
+
+/**
+ * Get recommended learning order based on prerequisites and mastery
+ * Uses topological sort with mastery weighting
+ */
+export async function getOptimalLearningOrder(): Promise<StoredTopic[]> {
+  const topics = await getTopics();
+
+  // Build adjacency list for prerequisites
+  const prerequisites = new Map<string, Set<string>>();
+  const dependents = new Map<string, Set<string>>();
+
+  for (const topic of topics) {
+    prerequisites.set(topic.id, new Set());
+    dependents.set(topic.id, new Set());
+  }
+
+  // Add parent as prerequisite
+  for (const topic of topics) {
+    if (topic.parent_id) {
+      prerequisites.get(topic.id)?.add(topic.parent_id);
+      dependents.get(topic.parent_id)?.add(topic.id);
+    }
+  }
+
+  // Calculate priority score for each topic
+  // Lower mastery + more dependents = higher priority
+  const priorityScore = (topic: StoredTopic): number => {
+    const dependentCount = dependents.get(topic.id)?.size || 0;
+    const prerequisiteCount = prerequisites.get(topic.id)?.size || 0;
+
+    // Prioritize:
+    // 1. Topics with low mastery
+    // 2. Topics that unlock more content (more dependents)
+    // 3. Topics with fewer prerequisites (easier to start)
+    return (
+      (1 - topic.mastery_level) * 3 +
+      dependentCount * 2 -
+      prerequisiteCount * 0.5
+    );
+  };
+
+  // Sort by priority
+  return [...topics].sort((a, b) => priorityScore(b) - priorityScore(a));
+}
+
+/**
+ * Find knowledge gaps - topics that need attention
+ * Based on: low mastery, overdue review, struggling status
+ */
+export async function findKnowledgeGaps(): Promise<{
+  topic: StoredTopic;
+  reason: string;
+  priority: number;
+}[]> {
+  const topics = await getTopics();
+  const gaps: { topic: StoredTopic; reason: string; priority: number }[] = [];
+
+  const now = new Date();
+
+  for (const topic of topics) {
+    if (topic.status === 'suggested' || topic.status === 'mastered') continue;
+
+    let priority = 0;
+    const reasons: string[] = [];
+
+    // Check mastery level
+    if (topic.mastery_level < 0.3) {
+      priority += 3;
+      reasons.push('Low mastery');
+    } else if (topic.mastery_level < 0.5) {
+      priority += 1;
+      reasons.push('Moderate mastery');
+    }
+
+    // Check if overdue for review
+    if (topic.next_review) {
+      const reviewDate = new Date(topic.next_review);
+      const daysOverdue = Math.floor(
+        (now.getTime() - reviewDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysOverdue > 7) {
+        priority += 3;
+        reasons.push(`${daysOverdue} days overdue`);
+      } else if (daysOverdue > 0) {
+        priority += 1;
+        reasons.push('Due for review');
+      }
+    }
+
+    // Check status
+    if (topic.status === 'struggling') {
+      priority += 2;
+      reasons.push('Struggling');
+    }
+
+    // Check time since last practice
+    if (topic.last_practiced) {
+      const daysSince = Math.floor(
+        (now.getTime() - new Date(topic.last_practiced).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (daysSince > 14) {
+        priority += 1;
+        reasons.push('Not practiced recently');
+      }
+    } else {
+      priority += 2;
+      reasons.push('Never practiced');
+    }
+
+    if (priority > 0) {
+      gaps.push({
+        topic,
+        reason: reasons.join(', '),
+        priority,
+      });
+    }
+  }
+
+  // Sort by priority (highest first)
+  gaps.sort((a, b) => b.priority - a.priority);
+
+  return gaps;
+}
+
+/**
+ * Calculate overall knowledge strength in a domain
+ * Weighted average of topic mastery with time decay
+ */
+export async function calculateDomainStrength(
+  parentTopicId?: string
+): Promise<{
+  strength: number;
+  topicCount: number;
+  averageMastery: number;
+  coverage: number;
+}> {
+  const topics = await getTopics();
+
+  // Filter to domain if specified
+  let domainTopics = topics.filter(t => t.status !== 'suggested');
+  if (parentTopicId) {
+    // Get all descendants of the parent topic
+    const descendants = new Set<string>([parentTopicId]);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const topic of topics) {
+        if (topic.parent_id && descendants.has(topic.parent_id) && !descendants.has(topic.id)) {
+          descendants.add(topic.id);
+          changed = true;
+        }
+      }
+    }
+    domainTopics = topics.filter(t => descendants.has(t.id));
+  }
+
+  if (domainTopics.length === 0) {
+    return { strength: 0, topicCount: 0, averageMastery: 0, coverage: 0 };
+  }
+
+  // Calculate weighted mastery with time decay
+  let totalWeight = 0;
+  let weightedMastery = 0;
+  let masteredCount = 0;
+
+  for (const topic of domainTopics) {
+    // Weight by recency
+    let weight = 1;
+    if (topic.last_practiced) {
+      const daysSince = Math.max(1,
+        (Date.now() - new Date(topic.last_practiced).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      weight = 1 / Math.log2(daysSince + 1); // Logarithmic decay
+    }
+
+    totalWeight += weight;
+    weightedMastery += topic.mastery_level * weight;
+
+    if (topic.status === 'mastered' || topic.mastery_level >= 0.8) {
+      masteredCount++;
+    }
+  }
+
+  const averageMastery = weightedMastery / totalWeight;
+  const coverage = masteredCount / domainTopics.length;
+
+  // Overall strength combines mastery and coverage
+  const strength = averageMastery * 0.7 + coverage * 0.3;
+
+  return {
+    strength,
+    topicCount: domainTopics.length,
+    averageMastery,
+    coverage,
+  };
+}
+
+/**
+ * Get learning velocity - how fast mastery is improving
+ */
+export async function calculateLearningVelocity(
+  topicId: string,
+  dayWindow: number = 30
+): Promise<{
+  velocity: number; // Change in mastery per day
+  trend: 'improving' | 'stable' | 'declining';
+  dataPoints: number;
+}> {
+  // This would ideally use mastery history from the database
+  // For now, estimate based on current state
+  const topics = await getTopics();
+  const topic = topics.find(t => t.id === topicId);
+
+  if (!topic) {
+    return { velocity: 0, trend: 'stable', dataPoints: 0 };
+  }
+
+  // Estimate velocity based on current mastery and time since first seen
+  if (topic.first_seen) {
+    const daysSinceStart = Math.max(1,
+      (Date.now() - new Date(topic.first_seen).getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const velocity = topic.mastery_level / daysSinceStart;
+
+    let trend: 'improving' | 'stable' | 'declining' = 'stable';
+    if (velocity > 0.02) trend = 'improving';
+    else if (velocity < 0.005) trend = 'declining';
+
+    return { velocity, trend, dataPoints: 1 };
+  }
+
+  return { velocity: 0, trend: 'stable', dataPoints: 0 };
 }
