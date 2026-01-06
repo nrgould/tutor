@@ -5,7 +5,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { listen } from '@tauri-apps/api/event';
   import { getSetting, setSetting, createConversation, saveMessage, updateConversation, invalidateConversationsCache, getMessages } from '$lib/utils/db';
-  import { streamChat, analyzeScreenBatch, generateSessionTitle } from '$lib/utils/api';
+  import { streamChat, analyzeScreenBatch, generateSessionTitle, parseSuggestionsFromResponse } from '$lib/utils/api';
   import { parseMarkdown } from '$lib/utils/markdown';
   import { processConversationMemories } from '$lib/services/memoryService';
   import { toast } from '$lib/stores/toast';
@@ -27,6 +27,7 @@
   let messages = $state<Array<{id: string, role: 'user' | 'assistant', content: string, hasScreen?: boolean}>>([]);
   let isLoading = $state(false);
   let streamingContent = $state('');
+  let suggestions = $state<string[]>([]);
 
   // Recording state
   let screenshotBuffer = $state<string[]>([]);
@@ -213,11 +214,12 @@
     inputRef?.focus();
   }
 
-  async function handleSend() {
-    const content = inputValue.trim();
+  async function handleSend(overrideContent?: string) {
+    const content = (overrideContent ?? inputValue).trim();
     if (!content || isLoading) return;
 
     inputValue = '';
+    suggestions = []; // Clear suggestions when sending
 
     // Create conversation if needed
     if (!currentConversationId) {
@@ -272,20 +274,24 @@
         await scrollToBottom();
       }
 
+      // Parse and extract suggestions from the response
+      const { cleanedResponse, suggestions: extractedSuggestions } = parseSuggestionsFromResponse(streamingContent);
+      suggestions = extractedSuggestions;
+
       const assistantMessage = {
         id: crypto.randomUUID(),
         role: 'assistant' as const,
-        content: streamingContent
+        content: cleanedResponse
       };
       messages = [...messages, assistantMessage];
 
-      // Persist assistant message
+      // Persist assistant message (without suggestions marker)
       if (currentConversationId) {
-        saveMessage(currentConversationId, 'assistant', streamingContent).catch(console.error);
+        saveMessage(currentConversationId, 'assistant', cleanedResponse).catch(console.error);
 
         // Generate title after first exchange (2 messages: user + assistant)
         if (messages.length === 2) {
-          generateSessionTitle(content, streamingContent).then(title => {
+          generateSessionTitle(content, cleanedResponse).then(title => {
             if (title && currentConversationId) {
               updateConversation(currentConversationId, { title }).catch(console.error);
               invalidateConversationsCache();
@@ -347,6 +353,7 @@
     currentConversationId = null;
     messages = [];
     streamingContent = '';
+    suggestions = [];
     focusInput();
   }
 
@@ -364,6 +371,7 @@
       }));
 
       currentConversationId = conversationId;
+      suggestions = []; // Clear suggestions when loading a different conversation
 
       // Show chat and expand window
       showChat = true;
@@ -406,6 +414,10 @@
     if (e.key === 'Escape' && showChat) {
       closeChat();
     }
+  }
+
+  function handleSuggestionClick(suggestion: string) {
+    handleSend(suggestion);
   }
 
   async function startDrag(e: MouseEvent) {
@@ -538,6 +550,20 @@
         {/if}
       </div>
 
+      <!-- Suggestion pills -->
+      {#if suggestions.length > 0 && !isLoading}
+        <div class="suggestions">
+          {#each suggestions as suggestion}
+            <button
+              class="suggestion-pill"
+              onclick={() => handleSuggestionClick(suggestion)}
+            >
+              {suggestion}
+            </button>
+          {/each}
+        </div>
+      {/if}
+
       <div class="chat-input">
         <input
           type="text"
@@ -549,7 +575,7 @@
         />
         <button
           class="send-btn"
-          onclick={handleSend}
+          onclick={() => handleSend()}
           disabled={!inputValue.trim() || isLoading}
           aria-label="Send"
         >
@@ -951,5 +977,31 @@
   .markdown-content :global(a) {
     color: #60a5fa;
     text-decoration: none;
+  }
+
+  /* Suggestions */
+  .suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .suggestion-pill {
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    color: rgba(250, 250, 250, 0.8);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+
+  .suggestion-pill:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fafafa;
   }
 </style>

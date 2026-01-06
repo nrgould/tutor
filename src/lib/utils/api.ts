@@ -6,6 +6,28 @@ import { buildMemoryContext } from '$lib/services/memoryService';
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 
+// Parse suggestions from Claude's response
+const SUGGESTIONS_REGEX = /\[SUGGESTIONS:\s*(.+?)\]\s*$/;
+
+export function parseSuggestionsFromResponse(response: string): {
+  cleanedResponse: string;
+  suggestions: string[];
+} {
+  const match = response.match(SUGGESTIONS_REGEX);
+  if (!match) {
+    return { cleanedResponse: response, suggestions: [] };
+  }
+
+  const suggestionsStr = match[1];
+  const suggestions = suggestionsStr
+    .split('|')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  const cleanedResponse = response.replace(SUGGESTIONS_REGEX, '').trim();
+  return { cleanedResponse, suggestions };
+}
+
 function buildSystemPrompt(context?: TutorContext): string {
   let prompt = `You are a personal tutor helping someone learn. You can see their screen when they share it.
 
@@ -16,7 +38,11 @@ Your approach:
 - Use examples and analogies
 - Focus on understanding, not just answers
 - Keep responses concise and actionable
-- When looking at code or technical content, be specific about what you see`;
+- When looking at code or technical content, be specific about what you see
+
+IMPORTANT: At the end of EVERY response, include 2-3 helpful follow-up suggestions the learner might want to ask next. Format them EXACTLY like this on a new line:
+[SUGGESTIONS: Can you explain that differently? | Show me an example | What should I try next?]
+Keep suggestions short (under 8 words each), relevant to the conversation, and phrased as things the learner would say.`;
 
   if (context?.memories?.length) {
     prompt += `\n\nWhat you know about this learner:\n${context.memories.map((m) => `- ${m}`).join('\n')}`;

@@ -1,12 +1,17 @@
 import { writable, derived } from 'svelte/store';
 import type { Message, Conversation, ChatState } from '$lib/types';
 
+interface ExtendedChatState extends ChatState {
+  suggestions: string[];
+}
+
 function createChatStore() {
-  const { subscribe, set, update } = writable<ChatState>({
+  const { subscribe, set, update } = writable<ExtendedChatState>({
     messages: [],
     currentConversation: null,
     isLoading: false,
     error: null,
+    suggestions: [],
   });
 
   return {
@@ -81,7 +86,22 @@ function createChatStore() {
         currentConversation: null,
         isLoading: false,
         error: null,
+        suggestions: [],
       });
+    },
+
+    setSuggestions(suggestions: string[]) {
+      update((state) => ({
+        ...state,
+        suggestions,
+      }));
+    },
+
+    clearSuggestions() {
+      update((state) => ({
+        ...state,
+        suggestions: [],
+      }));
     },
   };
 }
