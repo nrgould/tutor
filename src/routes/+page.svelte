@@ -124,8 +124,15 @@
     }, 1000);
 
     watchInterval = setInterval(async () => {
+      // Double-check recording is still active (prevents race conditions)
+      if (!isRecording) return;
+
       try {
         const screenshot = await invoke<string>('capture_screen_silent');
+
+        // Check again after async operation
+        if (!isRecording) return;
+
         latestScreenshot = screenshot;
         screenshotBuffer = [...screenshotBuffer, screenshot];
 
@@ -149,12 +156,11 @@
       clearInterval(durationInterval);
       durationInterval = null;
     }
-    if (screenshotBuffer.length > 0 && !isProcessingBatch) {
-      processBatch();
-    }
-    // Clear screen context so it doesn't persist to next session
+    // Clear all screen-related state
     latestScreenshot = null;
     screenContextHistory = [];
+    screenshotBuffer = [];
+    recordingDuration = 0;
     // Show toast notification
     if (duration > 0) {
       toast.success(`Session recorded: ${formatDuration(duration)}`);
@@ -170,7 +176,8 @@
 
     try {
       const analysis = await analyzeScreenBatch(batch);
-      if (analysis) {
+      // Only add to history if still recording (prevents adding after stop)
+      if (analysis && isRecording) {
         const newEntry = { time: Date.now(), context: analysis };
         screenContextHistory = [...screenContextHistory, newEntry].slice(-MAX_CONTEXT_HISTORY);
         console.log('[Screen context]', analysis);
