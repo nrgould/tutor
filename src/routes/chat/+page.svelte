@@ -6,11 +6,13 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { chatStore } from '$lib/stores/chat';
   import { settingsStore } from '$lib/stores/settings';
+  import { recordingStore } from '$lib/stores/recording';
   import { parseMarkdown } from '$lib/utils/markdown';
   import type { Message, Conversation, ClaudeMessage, ClaudeContent } from '$lib/types';
 
   const chat = $derived($chatStore);
   const settings = $derived($settingsStore);
+  const recording = $derived($recordingStore);
 
   let inputValue = $state('');
   let messagesContainer: HTMLDivElement;
@@ -30,6 +32,7 @@
   onMount(() => {
     const init = async () => {
       await settingsStore.load();
+      await recordingStore.init();
 
       const initialMessage = $page.url.searchParams.get('message');
       if (initialMessage) {
@@ -48,6 +51,11 @@
 
     return () => {
       unlisten.then(fn => fn());
+      // Ensure recording stops if component unmounts unexpectedly
+      if (recording.status.is_recording) {
+        recordingStore.stopRecording().catch(console.error);
+      }
+      chatStore.clear();
     };
   });
 
@@ -292,6 +300,18 @@ Keep responses focused and conversational.`,
   }
 
   async function closeWindow() {
+    // Stop recording if active
+    if (recording.status.is_recording) {
+      try {
+        await recordingStore.stopRecording();
+      } catch (e) {
+        console.error('Failed to stop recording on close:', e);
+      }
+    }
+
+    // Clear chat state so next window starts fresh
+    chatStore.clear();
+
     const window = getCurrentWindow();
     await window.close();
   }
