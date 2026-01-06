@@ -45,6 +45,66 @@ interface StoredFact {
   confidence: number;
 }
 
+// Normalize a topic name for comparison
+function normalizeTopic(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/['']s\b/g, '') // Remove possessives ('s, 's)
+    .replace(/[^a-z0-9\s]/g, '') // Remove punctuation
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim();
+}
+
+// Calculate similarity between two normalized topic names
+function topicSimilarity(a: string, b: string): number {
+  if (a === b) return 1.0;
+
+  // Check if one contains the other
+  if (a.includes(b) || b.includes(a)) {
+    const shorter = a.length < b.length ? a : b;
+    const longer = a.length < b.length ? b : a;
+    return shorter.length / longer.length;
+  }
+
+  // Simple word overlap for multi-word topics
+  const wordsA = new Set(a.split(' ').filter(w => w.length > 2));
+  const wordsB = new Set(b.split(' ').filter(w => w.length > 2));
+
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+
+  let overlap = 0;
+  for (const word of wordsA) {
+    if (wordsB.has(word)) overlap++;
+  }
+
+  return (2 * overlap) / (wordsA.size + wordsB.size);
+}
+
+// Find a matching topic from existing topics (exact or fuzzy match)
+function findMatchingTopic(
+  normalizedName: string,
+  existingTopics: Map<string, string>
+): string | undefined {
+  // Exact match first
+  if (existingTopics.has(normalizedName)) {
+    return existingTopics.get(normalizedName);
+  }
+
+  // Fuzzy match - find best match above threshold
+  let bestMatch: string | undefined;
+  let bestScore = 0.7; // Minimum similarity threshold
+
+  for (const [existingName, id] of existingTopics) {
+    const score = topicSimilarity(normalizedName, existingName);
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = id;
+    }
+  }
+
+  return bestMatch;
+}
+
 // Save a memory with its embedding
 export async function saveMemoryWithEmbedding(
   content: string,
@@ -167,41 +227,72 @@ export async function processConversationMemories(
       ).catch((e) => console.warn('Failed to save memory:', e));
     }
 
-    // Save topics with parent resolution
+    // Save topics with parent resolution and duplicate detection
     const topicObjects = convertToTopicObjects(extracted);
 
-    // First, get existing topics to resolve parent names
+    // Get existing topics to check for duplicates and resolve parent names
     const existingTopics = await getTopicsUncached();
     const topicNameToId = new Map<string, string>();
+    const existingMastery = new Map<string, number>();
     for (const t of existingTopics) {
-      topicNameToId.set(t.name.toLowerCase(), t.id);
+      const normalizedName = normalizeTopic(t.name);
+      topicNameToId.set(normalizedName, t.id);
+      existingMastery.set(normalizedName, t.mastery_level);
     }
 
-    // Create a map for newly created topics in this batch
+    // Track newly created topics in this batch
     const newTopicIds = new Map<string, string>();
+    const topicsToCreate: typeof topicObjects = [];
+    const topicsToUpdate: { id: string; mastery: number }[] = [];
 
-    // First pass: create all topics without parent links
+    // First pass: determine which topics to create vs update
     for (const topic of topicObjects) {
-      const topicId = crypto.randomUUID();
-      newTopicIds.set(topic.name.toLowerCase(), topicId);
+      const normalizedName = normalizeTopic(topic.name);
 
-      await invoke('save_topic', {
-        topic: {
-          id: topicId,
-          name: topic.name,
-          parent_id: undefined, // Set in second pass
-          mastery_level: topic.mastery_level,
-          status: topic.status,
-        },
-      }).catch((e) => console.warn('Failed to save topic:', e));
+      // Check for exact or fuzzy match with existing topics
+      const existingId = findMatchingTopic(normalizedName, topicNameToId);
+
+      if (existingId) {
+        // Topic exists - update mastery if new level is higher
+        const currentMastery = existingMastery.get(normalizedName) || 0;
+        if (topic.mastery_level > currentMastery) {
+          topicsToUpdate.push({ id: existingId, mastery: topic.mastery_level });
+        }
+        // Use existing ID for parent resolution
+        newTopicIds.set(normalizedName, existingId);
+      } else {
+        // New topic - create it
+        const topicId = crypto.randomUUID();
+        newTopicIds.set(normalizedName, topicId);
+        topicsToCreate.push({ ...topic, name: topic.name }); // Keep original name
+
+        await invoke('save_topic', {
+          topic: {
+            id: topicId,
+            name: topic.name,
+            parent_id: undefined, // Set in second pass
+            mastery_level: topic.mastery_level,
+            status: topic.status,
+          },
+        }).catch((e) => console.warn('Failed to save topic:', e));
+      }
     }
 
-    // Second pass: update parent links
-    for (const topic of topicObjects) {
+    // Update mastery for existing topics
+    for (const update of topicsToUpdate) {
+      await invoke('update_topic_mastery', {
+        id: update.id,
+        masteryLevel: update.mastery,
+      }).catch((e) => console.warn('Failed to update topic mastery:', e));
+    }
+
+    // Second pass: update parent links for new topics
+    for (const topic of topicsToCreate) {
       if (topic.parentName) {
-        const parentNameLower = topic.parentName.toLowerCase();
-        const parentId = topicNameToId.get(parentNameLower) || newTopicIds.get(parentNameLower);
-        const topicId = newTopicIds.get(topic.name.toLowerCase());
+        const parentNormalized = normalizeTopic(topic.parentName);
+        const parentId = findMatchingTopic(parentNormalized, topicNameToId) ||
+                         newTopicIds.get(parentNormalized);
+        const topicId = newTopicIds.get(normalizeTopic(topic.name));
 
         if (parentId && topicId) {
           await invoke('update_topic_parent', {
@@ -215,7 +306,8 @@ export async function processConversationMemories(
     console.log('Processed conversation memories:', {
       facts: extracted.facts.length,
       memories: memoryObjects.length,
-      topics: topicObjects.length,
+      newTopics: topicsToCreate.length,
+      updatedTopics: topicsToUpdate.length,
     });
 
     // Invalidate caches so fresh data is fetched
@@ -378,4 +470,64 @@ export async function getSuggestedTopics(): Promise<
     console.error('Failed to generate suggested topics:', error);
     return [];
   }
+}
+
+// Clean up duplicate topics by merging them
+export async function cleanupDuplicateTopics(): Promise<{
+  merged: number;
+  deleted: string[];
+}> {
+  const topics = await getTopicsUncached();
+  const result = { merged: 0, deleted: [] as string[] };
+
+  // Group topics by normalized name
+  const groups = new Map<string, StoredTopic[]>();
+  for (const topic of topics) {
+    const normalized = normalizeTopic(topic.name);
+    const existing = groups.get(normalized) || [];
+    existing.push(topic);
+    groups.set(normalized, existing);
+  }
+
+  // Process groups with duplicates
+  for (const [, group] of groups) {
+    if (group.length <= 1) continue;
+
+    // Sort by mastery level (highest first), then by first_seen (oldest first)
+    group.sort((a, b) => {
+      if (b.mastery_level !== a.mastery_level) {
+        return b.mastery_level - a.mastery_level;
+      }
+      return (a.first_seen || '').localeCompare(b.first_seen || '');
+    });
+
+    // Keep the first one (highest mastery, oldest)
+    const keeper = group[0];
+    const duplicates = group.slice(1);
+
+    for (const dup of duplicates) {
+      try {
+        // Reassign any children of the duplicate to the keeper
+        await invoke('reassign_topic_parent', {
+          oldParentId: dup.id,
+          newParentId: keeper.id,
+        });
+
+        // Delete the duplicate
+        await invoke('delete_topic', { id: dup.id });
+
+        result.deleted.push(dup.name);
+        result.merged++;
+      } catch (e) {
+        console.warn('Failed to merge duplicate topic:', dup.name, e);
+      }
+    }
+  }
+
+  if (result.merged > 0) {
+    invalidateTopicsCache();
+    console.log('Cleaned up duplicate topics:', result);
+  }
+
+  return result;
 }

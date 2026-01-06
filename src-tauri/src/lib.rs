@@ -163,6 +163,8 @@ pub fn run() {
             commands::get_topics,
             commands::update_topic_mastery,
             commands::update_topic_parent,
+            commands::delete_topic,
+            commands::reassign_topic_parent,
             commands::save_fact,
             commands::get_facts,
             // Recording commands

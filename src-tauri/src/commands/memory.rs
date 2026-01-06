@@ -202,6 +202,39 @@ pub async fn update_topic_parent(topic_id: String, parent_id: String) -> Result<
     })
 }
 
+#[tauri::command]
+pub async fn delete_topic(id: String) -> Result<(), String> {
+    with_connection(|conn| {
+        // First update any topics that have this as parent to have no parent
+        conn.execute(
+            "UPDATE topics SET parent_id = NULL WHERE parent_id = ?1",
+            params![id],
+        )?;
+        // Delete mastery history
+        conn.execute(
+            "DELETE FROM mastery_history WHERE topic_id = ?1",
+            params![id],
+        )?;
+        // Delete the topic
+        conn.execute(
+            "DELETE FROM topics WHERE id = ?1",
+            params![id],
+        )?;
+        Ok(())
+    })
+}
+
+#[tauri::command]
+pub async fn reassign_topic_parent(old_parent_id: String, new_parent_id: String) -> Result<(), String> {
+    with_connection(|conn| {
+        conn.execute(
+            "UPDATE topics SET parent_id = ?1 WHERE parent_id = ?2",
+            params![new_parent_id, old_parent_id],
+        )?;
+        Ok(())
+    })
+}
+
 // Fact commands
 #[tauri::command]
 pub async fn save_fact(fact: Fact) -> Result<(), String> {
