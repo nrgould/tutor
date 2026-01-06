@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { emit } from '@tauri-apps/api/event';
   import { fly, fade } from 'svelte/transition';
   import { page } from '$app/stores';
 
@@ -11,14 +12,7 @@
   } | null>(null);
 
   let visible = $state(false);
-
-  const typeIcons: Record<string, string> = {
-    'tip': '💡',
-    'question': '🤔',
-    'resource': '📚',
-    'funfact': '✨',
-    'check-in': '👋',
-  };
+  let closing = $state(false);
 
   const typeLabels: Record<string, string> = {
     'tip': 'Tip',
@@ -41,26 +35,32 @@
         type: type || 'tip',
         aiMessage,
       };
+      // Show with animation after a brief delay
+      setTimeout(() => {
+        visible = true;
+      }, 50);
     }
 
-    // Show with animation after a brief delay
-    setTimeout(() => {
-      visible = true;
-    }, 100);
-
     // Auto-dismiss after 25 seconds
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       closeWindow();
     }, 25000);
+
+    return () => clearTimeout(timer);
   });
 
   async function handleClick() {
+    if (closing) return;
+    closing = true;
+
     if (nudge) {
       // Emit event to main window to open chat with this message
-      const { emit } = await import('@tauri-apps/api/event');
       await emit('nudge-clicked', { aiMessage: nudge.aiMessage });
     }
-    await closeWindow();
+
+    // Close window directly
+    const window = getCurrentWindow();
+    await window.close();
   }
 
   async function handleDismiss(e: MouseEvent) {
@@ -69,12 +69,15 @@
   }
 
   async function closeWindow() {
+    if (closing) return;
+    closing = true;
     visible = false;
-    // Wait for fade animation
+
+    // Close window after brief delay for fade
     setTimeout(async () => {
       const window = getCurrentWindow();
       await window.close();
-    }, 200);
+    }, 150);
   }
 </script>
 
@@ -84,14 +87,13 @@
       class="nudge-toast"
       role="button"
       tabindex="0"
-      in:fly={{ y: -20, duration: 300 }}
-      out:fade={{ duration: 200 }}
+      in:fly={{ y: -20, duration: 200 }}
+      out:fade={{ duration: 150 }}
       onclick={handleClick}
       onkeydown={(e) => e.key === 'Enter' && handleClick()}
     >
       <div class="nudge-header">
-        <span class="nudge-icon">{typeIcons[nudge.type] || '💬'}</span>
-        <span class="nudge-label">{typeLabels[nudge.type] || 'Tutor'}</span>
+        <span class="nudge-label">{typeLabels[nudge.type] || 'Eigen'}</span>
         <button class="nudge-close" onclick={handleDismiss} aria-label="Dismiss">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M18 6L6 18M6 6l12 12"/>
@@ -99,7 +101,7 @@
         </button>
       </div>
       <p class="nudge-message">{nudge.message}</p>
-      <span class="nudge-hint">Click to chat →</span>
+      <span class="nudge-hint">Click to chat</span>
     </div>
   {/if}
 </div>
@@ -129,22 +131,12 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     cursor: pointer;
     font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    transition: transform 0.15s ease, border-color 0.15s ease;
-  }
-
-  .nudge-toast:hover {
-    transform: translateY(-2px);
-    border-color: rgba(255, 255, 255, 0.2);
   }
 
   .nudge-header {
     display: flex;
     align-items: center;
     gap: 6px;
-  }
-
-  .nudge-icon {
-    font-size: 14px;
   }
 
   .nudge-label {
@@ -166,12 +158,10 @@
     color: rgba(250, 250, 250, 0.3);
     cursor: pointer;
     border-radius: 4px;
-    transition: color 0.15s, background 0.15s;
   }
 
   .nudge-close:hover {
-    color: rgba(250, 250, 250, 0.8);
-    background: rgba(255, 255, 255, 0.1);
+    color: rgba(250, 250, 250, 0.6);
   }
 
   .nudge-message {
@@ -184,10 +174,5 @@
   .nudge-hint {
     font-size: 11px;
     color: rgba(250, 250, 250, 0.4);
-    transition: color 0.15s;
-  }
-
-  .nudge-toast:hover .nudge-hint {
-    color: rgba(250, 250, 250, 0.6);
   }
 </style>
