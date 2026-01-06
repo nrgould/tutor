@@ -270,3 +270,19 @@ pub async fn get_facts() -> Result<Vec<Fact>, String> {
         rows.collect()
     })
 }
+
+// Reset all learning data (topics, memories, facts, mastery history)
+#[tauri::command]
+pub async fn reset_all_learning_data() -> Result<(), String> {
+    with_connection(|conn| {
+        // Delete all mastery history
+        conn.execute("DELETE FROM mastery_history", [])?;
+        // Delete all topics
+        conn.execute("DELETE FROM topics", [])?;
+        // Delete all memories
+        conn.execute("DELETE FROM memories", [])?;
+        // Delete all facts
+        conn.execute("DELETE FROM facts", [])?;
+        Ok(())
+    })
+}

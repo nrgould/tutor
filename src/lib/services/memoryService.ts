@@ -1492,3 +1492,14 @@ export async function calculateLearningVelocity(
 
   return { velocity: 0, trend: 'stable', dataPoints: 0 };
 }
+
+/**
+ * Reset all learning data (topics, memories, facts, mastery history)
+ * This is a destructive operation and cannot be undone
+ */
+export async function resetAllLearningData(): Promise<void> {
+  await invoke('reset_all_learning_data');
+  invalidateTopicsCache();
+  invalidateMemoriesCache();
+  clearTopicEmbeddingCache();
+}

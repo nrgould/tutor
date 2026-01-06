@@ -167,6 +167,7 @@ pub fn run() {
             commands::reassign_topic_parent,
             commands::save_fact,
             commands::get_facts,
+            commands::reset_all_learning_data,
             // Recording commands
             commands::start_recording,
             commands::stop_recording,

@@ -5,7 +5,7 @@
   import { emit } from '@tauri-apps/api/event';
   import { getConversations } from '$lib/utils/db';
   import { settingsStore } from '$lib/stores/settings';
-  import { getTopics, cleanupDuplicateTopics, organizeTopicHierarchy } from '$lib/services/memoryService';
+  import { getTopics, cleanupDuplicateTopics, organizeTopicHierarchy, resetAllLearningData } from '$lib/services/memoryService';
   import type { Conversation } from '$lib/types';
 
   const settings = $derived($settingsStore);
@@ -48,27 +48,31 @@
     return conns;
   });
 
+  // ViewBox dimensions (16:10 aspect ratio to match container)
+  const VIEW_WIDTH = 160;
+  const VIEW_HEIGHT = 100;
+
   // Force-directed layout algorithm
   function computeLayout(nodes: TopicNode[]): Record<string, { x: number; y: number }> {
     if (nodes.length === 0) return {};
 
-    // Initialize positions in a circle
+    // Initialize positions in a circle (centered in 160x100 viewBox)
     const pos: Record<string, { x: number; y: number }> = {};
-    const centerX = 50;
-    const centerY = 50;
-    const radius = 30;
+    const centerX = VIEW_WIDTH / 2; // 80
+    const centerY = VIEW_HEIGHT / 2; // 50
+    const radius = 35;
 
     nodes.forEach((node, i) => {
       const angle = (i / nodes.length) * 2 * Math.PI - Math.PI / 2;
       pos[node.id] = {
-        x: centerX + radius * Math.cos(angle),
+        x: centerX + radius * 1.4 * Math.cos(angle), // Wider spread for 16:10
         y: centerY + radius * Math.sin(angle),
       };
     });
 
     // Simple force simulation (few iterations for quick layout)
     const iterations = 50;
-    const repulsion = 800;
+    const repulsion = 1200; // Increased for wider layout
     const attraction = 0.05;
     const damping = 0.9;
 
@@ -120,9 +124,9 @@
         velocities[node.id].vy *= damping;
         pos[node.id].x += velocities[node.id].vx;
         pos[node.id].y += velocities[node.id].vy;
-        // Clamp to bounds with padding
-        pos[node.id].x = Math.max(12, Math.min(88, pos[node.id].x));
-        pos[node.id].y = Math.max(12, Math.min(88, pos[node.id].y));
+        // Clamp to bounds with padding (wider x range for 16:10)
+        pos[node.id].x = Math.max(15, Math.min(VIEW_WIDTH - 15, pos[node.id].x));
+        pos[node.id].y = Math.max(12, Math.min(VIEW_HEIGHT - 12, pos[node.id].y));
       }
     }
 
@@ -130,6 +134,21 @@
   }
 
   let organizingHierarchy = $state(false);
+  let showResetConfirm = $state(false);
+  let resettingData = $state(false);
+
+  async function handleResetData() {
+    resettingData = true;
+    try {
+      await resetAllLearningData();
+      await loadTopics();
+      showResetConfirm = false;
+    } catch (e) {
+      console.error('Failed to reset learning data:', e);
+    } finally {
+      resettingData = false;
+    }
+  }
 
   async function loadTopics() {
     topicsLoading = true;
@@ -569,7 +588,7 @@
                   class="constellation-inner"
                   style="transform: translate({panX}px, {panY}px) scale({scale});"
                 >
-                  <svg viewBox="0 0 100 100" class="constellation-svg" preserveAspectRatio="xMidYMid meet">
+                  <svg viewBox="0 0 {VIEW_WIDTH} {VIEW_HEIGHT}" class="constellation-svg" preserveAspectRatio="xMidYMid meet">
                     <!-- Connection lines (parent relationships) -->
                     {#each topics as topic}
                       {#if topic.parentId && positions[topic.id] && positions[topic.parentId]}
@@ -612,28 +631,36 @@
                         </g>
                       {/if}
                     {/each}
-                  </svg>
 
-                  <!-- Labels -->
-                  {#each topics as topic}
-                    {@const pos = positions[topic.id]}
-                    {#if pos}
-                      <div
-                        class="topic-label"
-                        class:mastered={topic.status === 'mastered'}
-                        class:proficient={topic.status === 'proficient'}
-                        class:suggested={topic.status === 'suggested'}
-                        style="left: {pos.x}%; top: {pos.y}%;"
-                      >
-                        <span class="topic-name">{topic.name}</span>
-                        {#if topic.status === 'suggested'}
-                          <span class="topic-suggested">Suggested</span>
-                        {:else}
-                          <span class="topic-pct">{Math.round(topic.mastery * 100)}%</span>
-                        {/if}
-                      </div>
-                    {/if}
-                  {/each}
+                    <!-- Labels as foreignObject for proper alignment -->
+                    {#each topics as topic}
+                      {@const pos = positions[topic.id]}
+                      {@const size = topic.status === 'suggested' ? 2 : getNodeSize(topic.mastery)}
+                      {#if pos}
+                        <foreignObject
+                          x={pos.x + size + 2}
+                          y={pos.y - 12}
+                          width="120"
+                          height="30"
+                          class="topic-label-fo"
+                        >
+                          <div
+                            class="topic-label"
+                            class:mastered={topic.status === 'mastered'}
+                            class:proficient={topic.status === 'proficient'}
+                            class:suggested={topic.status === 'suggested'}
+                          >
+                            <span class="topic-name">{topic.name}</span>
+                            {#if topic.status === 'suggested'}
+                              <span class="topic-suggested">Suggested</span>
+                            {:else}
+                              <span class="topic-pct">{Math.round(topic.mastery * 100)}%</span>
+                            {/if}
+                          </div>
+                        </foreignObject>
+                      {/if}
+                    {/each}
+                  </svg>
                 </div>
                 <div class="pan-hint">Drag to pan, scroll to zoom</div>
               </div>
@@ -777,6 +804,40 @@
               </span>
             </button>
           </div>
+        </div>
+
+        <div class="settings-group">
+          <label class="settings-label">Learning Data</label>
+          {#if showResetConfirm}
+            <div class="reset-confirm">
+              <p>This will delete all topics, memories, and learning progress. This cannot be undone.</p>
+              <div class="reset-buttons">
+                <button
+                  class="btn-danger"
+                  onclick={handleResetData}
+                  onmousedown={(e) => e.stopPropagation()}
+                  disabled={resettingData}
+                >
+                  {resettingData ? 'Resetting...' : 'Yes, Reset Everything'}
+                </button>
+                <button
+                  class="btn-secondary"
+                  onclick={() => showResetConfirm = false}
+                  onmousedown={(e) => e.stopPropagation()}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          {:else}
+            <button
+              class="btn-reset"
+              onclick={() => showResetConfirm = true}
+              onmousedown={(e) => e.stopPropagation()}
+            >
+              Reset All Learning Data
+            </button>
+          {/if}
         </div>
 
         <div class="settings-group">
@@ -1210,6 +1271,63 @@
     font-variant-numeric: tabular-nums;
   }
 
+  .btn-reset {
+    padding: 10px 16px;
+    background: transparent;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: 8px;
+    color: rgba(239, 68, 68, 0.8);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-reset:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.6);
+    color: #ef4444;
+  }
+
+  .btn-danger {
+    padding: 10px 16px;
+    background: #ef4444;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .btn-danger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .reset-confirm {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .reset-confirm p {
+    margin: 0;
+    font-size: 13px;
+    color: rgba(250, 250, 250, 0.6);
+    line-height: 1.5;
+  }
+
+  .reset-buttons {
+    display: flex;
+    gap: 8px;
+  }
+
   .toggle-row {
     display: flex;
     align-items: center;
@@ -1466,19 +1584,21 @@
     stroke-dasharray: 2, 2;
   }
 
+  .topic-label-fo {
+    overflow: visible;
+  }
+
   .topic-label {
-    position: absolute;
-    display: flex;
+    display: inline-flex;
     flex-direction: column;
     gap: 1px;
-    padding: 4px 8px;
+    padding: 3px 6px;
     background: rgba(9, 9, 11, 0.92);
     border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 5px;
+    border-radius: 4px;
     white-space: nowrap;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
-    transform: translate(8px, -50%);
     pointer-events: none;
   }
 
