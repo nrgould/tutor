@@ -152,6 +152,8 @@
     if (screenshotBuffer.length > 0 && !isProcessingBatch) {
       processBatch();
     }
+    // Clear screen context so it doesn't persist to next session
+    latestScreenshot = null;
     // Show toast notification
     if (duration > 0) {
       toast.success(`Session recorded: ${formatDuration(duration)}`);
@@ -331,6 +333,12 @@
       invalidateConversationsCache();
     }
 
+    // Clear state for next session
+    currentConversationId = null;
+    messages = [];
+    latestScreenshot = null;
+    suggestions = [];
+
     showChat = false;
     await resizeWindow(false);
   }
@@ -354,6 +362,7 @@
     messages = [];
     streamingContent = '';
     suggestions = [];
+    latestScreenshot = null; // Clear old screen context
     focusInput();
   }
 
