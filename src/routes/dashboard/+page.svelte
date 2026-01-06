@@ -260,7 +260,21 @@
       const date = parseDate(s.started_at);
       return date && date > weekAgo;
     }).length;
-    totalStudyTime = sessions.length * 15;
+
+    // Calculate actual total study time from session durations
+    let totalMinutes = 0;
+    for (const session of sessions) {
+      const startDate = parseDate(session.started_at);
+      if (!startDate) continue;
+
+      const endDate = session.ended_at ? parseDate(session.ended_at) : null;
+      if (endDate) {
+        // Calculate duration in minutes
+        const durationMs = endDate.getTime() - startDate.getTime();
+        totalMinutes += Math.max(0, durationMs / (1000 * 60));
+      }
+    }
+    totalStudyTime = Math.round(totalMinutes);
   }
 
   async function saveApiKey() {
