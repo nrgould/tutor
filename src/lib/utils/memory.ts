@@ -63,7 +63,18 @@ export async function extractMemoriesFromConversation(
 ): Promise<ExtractedMemories | null> {
   const settings = get(settingsStore);
 
-  if (!settings.anthropic_api_key || messages.length < 2) {
+  console.log('extractMemoriesFromConversation called:', {
+    messageCount: messages.length,
+    hasApiKey: !!settings.anthropic_api_key,
+  });
+
+  if (!settings.anthropic_api_key) {
+    console.log('No API key configured - skipping memory extraction');
+    return null;
+  }
+
+  if (messages.length < 2) {
+    console.log('Not enough messages for memory extraction');
     return null;
   }
 
@@ -71,6 +82,8 @@ export async function extractMemoriesFromConversation(
   const conversationText = messages
     .map((m) => `${m.role === 'user' ? 'Student' : 'Tutor'}: ${m.content}`)
     .join('\n\n');
+
+  console.log('Sending conversation to Claude for memory extraction...');
 
   try {
     const response = await fetch(CLAUDE_API_URL, {
@@ -95,7 +108,8 @@ export async function extractMemoriesFromConversation(
     });
 
     if (!response.ok) {
-      console.error('Memory extraction failed:', response.statusText);
+      const errorText = await response.text();
+      console.error('Memory extraction API failed:', response.status, response.statusText, errorText);
       return null;
     }
 
@@ -103,11 +117,18 @@ export async function extractMemoriesFromConversation(
     const content = data.content[0]?.text;
 
     if (!content) {
+      console.log('No content in API response');
       return null;
     }
 
+    console.log('Raw API response for memory extraction:', content.substring(0, 200));
+
     // Parse JSON response
     const extracted = JSON.parse(content) as ExtractedMemories;
+    console.log('Successfully extracted memories:', {
+      topics: extracted.topics?.length || 0,
+      facts: extracted.facts?.length || 0,
+    });
     return extracted;
   } catch (error) {
     console.error('Failed to extract memories:', error);

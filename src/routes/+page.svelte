@@ -165,8 +165,15 @@
     }
 
     // Process memories from any active conversation when stopping recording
+    console.log('stopRecording state check:', {
+      hasConversationId: !!currentConversationId,
+      conversationId: currentConversationId,
+      messageCount: messages.length,
+      messages: messages.map(m => ({ role: m.role, contentPreview: m.content.substring(0, 50) }))
+    });
+
     if (currentConversationId && messages.length >= 2) {
-      console.log('Processing memories on recording stop:', { messageCount: messages.length, conversationId: currentConversationId });
+      console.log('Processing memories on recording stop...');
       const apiMessages: Message[] = messages.map(m => ({
         id: m.id,
         conversation_id: currentConversationId!,
@@ -175,9 +182,14 @@
         created_at: new Date().toISOString()
       }));
       processConversationMemories(apiMessages, currentConversationId)
-        .then(() => console.log('Memory processing completed'))
+        .then(() => console.log('Memory processing completed successfully'))
         .catch(e => console.error('Memory processing failed:', e));
       invalidateConversationsCache();
+    } else {
+      console.log('Skipping memory processing - no active conversation or not enough messages');
+      if (!currentConversationId) {
+        console.log('Hint: You need to chat with the tutor during the session for topics to be tracked');
+      }
     }
 
     // Clear all screen-related state
