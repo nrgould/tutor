@@ -162,6 +162,7 @@ pub fn run() {
             commands::save_topic,
             commands::get_topics,
             commands::update_topic_mastery,
+            commands::update_topic_parent,
             commands::save_fact,
             commands::get_facts,
             // Recording commands

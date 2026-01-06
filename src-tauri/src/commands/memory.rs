@@ -191,6 +191,17 @@ pub async fn update_topic_mastery(id: String, mastery_level: f64, status: String
     })
 }
 
+#[tauri::command]
+pub async fn update_topic_parent(topic_id: String, parent_id: String) -> Result<(), String> {
+    with_connection(|conn| {
+        conn.execute(
+            "UPDATE topics SET parent_id = ?1 WHERE id = ?2",
+            params![parent_id, topic_id],
+        )?;
+        Ok(())
+    })
+}
+
 // Fact commands
 #[tauri::command]
 pub async fn save_fact(fact: Fact) -> Result<(), String> {

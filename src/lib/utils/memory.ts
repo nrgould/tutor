@@ -204,13 +204,21 @@ export function convertToMemoryObjects(
   return memories;
 }
 
-// Convert extracted topics to Topic objects
+// Extended topic object that includes parent name for later resolution
+export interface ExtractedTopicWithParent {
+  name: string;
+  parentName?: string; // Parent name from extraction (to be resolved to ID)
+  mastery_level: number;
+  status: 'new' | 'struggling' | 'learning' | 'proficient' | 'mastered';
+}
+
+// Convert extracted topics to Topic objects (with parent name for resolution)
 export function convertToTopicObjects(
   extracted: ExtractedMemories
-): Omit<Topic, 'id' | 'first_seen' | 'last_practiced' | 'next_review'>[] {
+): ExtractedTopicWithParent[] {
   return extracted.topics.map((t) => ({
     name: t.name,
-    parent_id: undefined,
+    parentName: t.parent || undefined,
     mastery_level: t.mastery_indicators.estimated_level,
     status: getMasteryStatus(t.mastery_indicators.estimated_level),
   }));
@@ -224,4 +232,90 @@ function getMasteryStatus(
   if (level < 0.6) return 'learning';
   if (level < 0.8) return 'proficient';
   return 'mastered';
+}
+
+// Prompt for generating suggested topics
+const TOPIC_SUGGESTIONS_PROMPT = `Based on the learner's current knowledge, suggest 2-3 topics they should learn next.
+
+Return ONLY valid JSON with this exact structure (no markdown, no explanation):
+{
+  "suggestions": [
+    {
+      "name": "Topic Name",
+      "parent": "Parent topic name or null",
+      "reason": "Brief reason why this would be a good next step"
+    }
+  ]
+}
+
+Rules:
+- Suggest topics that logically follow from what they already know
+- Consider prerequisites and natural learning progressions
+- Keep topic names concise (1-4 words)
+- Only suggest 2-3 topics maximum`;
+
+export interface SuggestedTopic {
+  name: string;
+  parentName?: string;
+  reason: string;
+}
+
+// Generate suggested topics based on current knowledge
+export async function generateTopicSuggestions(
+  currentTopics: { name: string; mastery_level: number; status: string }[]
+): Promise<SuggestedTopic[]> {
+  const settings = get(settingsStore);
+
+  if (!settings.anthropic_api_key || currentTopics.length === 0) {
+    return [];
+  }
+
+  const topicsSummary = currentTopics
+    .map((t) => `- ${t.name}: ${Math.round(t.mastery_level * 100)}% mastery (${t.status})`)
+    .join('\n');
+
+  try {
+    const response = await fetch(CLAUDE_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': settings.anthropic_api_key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 512,
+        system: TOPIC_SUGGESTIONS_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content: `The learner currently knows:\n${topicsSummary}\n\nSuggest what they should learn next.`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Topic suggestion failed:', response.statusText);
+      return [];
+    }
+
+    const data = await response.json();
+    const content = data.content[0]?.text;
+
+    if (!content) {
+      return [];
+    }
+
+    const parsed = JSON.parse(content) as { suggestions: { name: string; parent?: string; reason: string }[] };
+    return parsed.suggestions.map((s) => ({
+      name: s.name,
+      parentName: s.parent || undefined,
+      reason: s.reason,
+    }));
+  } catch (error) {
+    console.error('Failed to generate topic suggestions:', error);
+    return [];
+  }
 }

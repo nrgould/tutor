@@ -5,7 +5,7 @@
   import { emit } from '@tauri-apps/api/event';
   import { getConversations } from '$lib/utils/db';
   import { settingsStore } from '$lib/stores/settings';
-  import { getTopics } from '$lib/services/memoryService';
+  import { getTopics, getSuggestedTopics } from '$lib/services/memoryService';
   import type { Conversation } from '$lib/types';
 
   const settings = $derived($settingsStore);
@@ -33,6 +33,7 @@
 
   let topics = $state<TopicNode[]>([]);
   let topicsLoading = $state(true);
+  let generatingSuggestions = $state(false);
 
   // Computed positions using force-directed layout
   let positions = $state<Record<string, { x: number; y: number }>>({});
@@ -146,6 +147,25 @@
       topics = [];
     } finally {
       topicsLoading = false;
+    }
+  }
+
+  async function handleGenerateSuggestions() {
+    if (generatingSuggestions) return;
+
+    // Only generate if we have real topics (not just suggestions)
+    const realTopics = topics.filter((t) => t.status !== 'suggested');
+    if (realTopics.length === 0) return;
+
+    generatingSuggestions = true;
+    try {
+      await getSuggestedTopics();
+      // Reload topics to include new suggestions
+      await loadTopics();
+    } catch (e) {
+      console.error('Failed to generate suggestions:', e);
+    } finally {
+      generatingSuggestions = false;
     }
   }
 
@@ -495,6 +515,27 @@
           {:else}
             <div class="constellation-wrapper">
               <div class="constellation-controls">
+                <button
+                  class="suggest-btn"
+                  onclick={handleGenerateSuggestions}
+                  onmousedown={(e) => e.stopPropagation()}
+                  disabled={generatingSuggestions || topics.filter(t => t.status !== 'suggested').length === 0}
+                  title="Suggest next topics to learn"
+                >
+                  {#if generatingSuggestions}
+                    <svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+                      <path d="M12 2a10 10 0 0 1 10 10"/>
+                    </svg>
+                    Thinking...
+                  {:else}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+                    </svg>
+                    Suggest
+                  {/if}
+                </button>
+                <div class="ctrl-divider"></div>
                 <span class="zoom-level">{Math.round(scale * 100)}%</span>
                 <button class="ctrl-btn" onclick={() => { scale = Math.max(0.5, scale - 0.2); }} onmousedown={(e) => e.stopPropagation()} title="Zoom out">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -539,6 +580,7 @@
                           x2={positions[topic.parentId].x}
                           y2={positions[topic.parentId].y}
                           class="conn-line"
+                          class:suggested={topic.status === 'suggested'}
                         />
                       {/if}
                     {/each}
@@ -546,7 +588,7 @@
                     <!-- Nodes -->
                     {#each topics as topic}
                       {@const pos = positions[topic.id]}
-                      {@const size = getNodeSize(topic.mastery)}
+                      {@const size = topic.status === 'suggested' ? 2 : getNodeSize(topic.mastery)}
                       {#if pos}
                         <g class="topic-node">
                           <circle
@@ -554,7 +596,8 @@
                             cy={pos.y}
                             r={size * 2.5}
                             class="node-glow"
-                            style="opacity: {0.08 + topic.mastery * 0.12}"
+                            class:suggested={topic.status === 'suggested'}
+                            style="opacity: {topic.status === 'suggested' ? 0.04 : 0.08 + topic.mastery * 0.12}"
                           />
                           <circle
                             cx={pos.x}
@@ -565,6 +608,7 @@
                             class:proficient={topic.status === 'proficient'}
                             class:learning={topic.status === 'learning'}
                             class:struggling={topic.status === 'struggling'}
+                            class:suggested={topic.status === 'suggested'}
                           />
                         </g>
                       {/if}
@@ -579,10 +623,15 @@
                         class="topic-label"
                         class:mastered={topic.status === 'mastered'}
                         class:proficient={topic.status === 'proficient'}
+                        class:suggested={topic.status === 'suggested'}
                         style="left: {pos.x}%; top: {pos.y}%;"
                       >
                         <span class="topic-name">{topic.name}</span>
-                        <span class="topic-pct">{Math.round(topic.mastery * 100)}%</span>
+                        {#if topic.status === 'suggested'}
+                          <span class="topic-suggested">Suggested</span>
+                        {:else}
+                          <span class="topic-pct">{Math.round(topic.mastery * 100)}%</span>
+                        {/if}
                       </div>
                     {/if}
                   {/each}
@@ -1231,6 +1280,48 @@
     margin-right: 4px;
   }
 
+  .suggest-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    color: rgba(250, 250, 250, 0.7);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .suggest-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #fafafa;
+  }
+
+  .suggest-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .suggest-btn .spin {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .ctrl-divider {
+    width: 1px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 0 8px;
+  }
+
   .ctrl-btn {
     display: flex;
     align-items: center;
@@ -1284,9 +1375,18 @@
     stroke-dasharray: 1.5, 1.5;
   }
 
+  .conn-line.suggested {
+    stroke: rgba(147, 112, 219, 0.3);
+    stroke-dasharray: 3, 3;
+  }
+
   .node-glow {
     fill: rgba(255, 255, 255, 0.2);
     filter: blur(4px);
+  }
+
+  .node-glow.suggested {
+    fill: rgba(147, 112, 219, 0.15);
   }
 
   .node-circle {
@@ -1307,6 +1407,13 @@
 
   .node-circle.struggling {
     fill: rgba(250, 250, 250, 0.4);
+  }
+
+  .node-circle.suggested {
+    fill: rgba(147, 112, 219, 0.5);
+    stroke: rgba(147, 112, 219, 0.3);
+    stroke-width: 1;
+    stroke-dasharray: 2, 2;
   }
 
   .topic-label {
@@ -1333,6 +1440,12 @@
     border-color: rgba(255, 255, 255, 0.15);
   }
 
+  .topic-label.suggested {
+    border-color: rgba(147, 112, 219, 0.3);
+    border-style: dashed;
+    background: rgba(147, 112, 219, 0.08);
+  }
+
   .topic-name {
     font-size: 10px;
     font-weight: 600;
@@ -1350,6 +1463,17 @@
 
   .topic-label.mastered .topic-pct {
     color: rgba(250, 250, 250, 0.7);
+  }
+
+  .topic-suggested {
+    font-size: 9px;
+    color: rgba(147, 112, 219, 0.8);
+    font-style: italic;
+    line-height: 1.2;
+  }
+
+  .topic-label.suggested .topic-name {
+    color: rgba(200, 180, 230, 0.9);
   }
 
   .pan-hint {

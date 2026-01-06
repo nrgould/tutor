@@ -4,6 +4,9 @@ import {
   extractMemoriesFromConversation,
   convertToMemoryObjects,
   convertToTopicObjects,
+  generateTopicSuggestions,
+  type ExtractedTopicWithParent,
+  type SuggestedTopic,
 } from '$lib/utils/memory';
 import {
   topicsCache,
@@ -164,19 +167,49 @@ export async function processConversationMemories(
       ).catch((e) => console.warn('Failed to save memory:', e));
     }
 
-    // Save topics
+    // Save topics with parent resolution
     const topicObjects = convertToTopicObjects(extracted);
+
+    // First, get existing topics to resolve parent names
+    const existingTopics = await getTopicsUncached();
+    const topicNameToId = new Map<string, string>();
+    for (const t of existingTopics) {
+      topicNameToId.set(t.name.toLowerCase(), t.id);
+    }
+
+    // Create a map for newly created topics in this batch
+    const newTopicIds = new Map<string, string>();
+
+    // First pass: create all topics without parent links
     for (const topic of topicObjects) {
       const topicId = crypto.randomUUID();
+      newTopicIds.set(topic.name.toLowerCase(), topicId);
+
       await invoke('save_topic', {
         topic: {
           id: topicId,
           name: topic.name,
-          parent_id: topic.parent_id,
+          parent_id: undefined, // Set in second pass
           mastery_level: topic.mastery_level,
           status: topic.status,
         },
       }).catch((e) => console.warn('Failed to save topic:', e));
+    }
+
+    // Second pass: update parent links
+    for (const topic of topicObjects) {
+      if (topic.parentName) {
+        const parentNameLower = topic.parentName.toLowerCase();
+        const parentId = topicNameToId.get(parentNameLower) || newTopicIds.get(parentNameLower);
+        const topicId = newTopicIds.get(topic.name.toLowerCase());
+
+        if (parentId && topicId) {
+          await invoke('update_topic_parent', {
+            topicId,
+            parentId,
+          }).catch((e) => console.warn('Failed to update topic parent:', e));
+        }
+      }
     }
 
     console.log('Processed conversation memories:', {
@@ -270,4 +303,79 @@ export async function buildMemoryContext(currentQuery: string): Promise<string> 
   }
 
   return parts.join('\n');
+}
+
+// Generate and return suggested topics based on current knowledge
+export async function getSuggestedTopics(): Promise<
+  { id: string; name: string; parentId?: string; reason: string }[]
+> {
+  try {
+    const topics = await getTopics();
+
+    // Filter out already suggested topics
+    const realTopics = topics.filter((t) => t.status !== 'suggested');
+
+    if (realTopics.length === 0) {
+      return [];
+    }
+
+    const suggestions = await generateTopicSuggestions(realTopics);
+
+    if (suggestions.length === 0) {
+      return [];
+    }
+
+    // Build name-to-id map for parent resolution
+    const topicNameToId = new Map<string, string>();
+    for (const t of topics) {
+      topicNameToId.set(t.name.toLowerCase(), t.id);
+    }
+
+    // Save suggested topics with status "suggested"
+    const result: { id: string; name: string; parentId?: string; reason: string }[] = [];
+
+    for (const suggestion of suggestions) {
+      // Check if this topic already exists
+      const existingId = topicNameToId.get(suggestion.name.toLowerCase());
+      if (existingId) {
+        continue; // Skip if topic already exists
+      }
+
+      const topicId = crypto.randomUUID();
+
+      // Resolve parent name to ID
+      let parentId: string | undefined;
+      if (suggestion.parentName) {
+        parentId = topicNameToId.get(suggestion.parentName.toLowerCase());
+      }
+
+      await invoke('save_topic', {
+        topic: {
+          id: topicId,
+          name: suggestion.name,
+          parent_id: parentId,
+          mastery_level: 0,
+          status: 'suggested',
+        },
+      }).catch((e) => console.warn('Failed to save suggested topic:', e));
+
+      result.push({
+        id: topicId,
+        name: suggestion.name,
+        parentId,
+        reason: suggestion.reason,
+      });
+
+      // Add to map so subsequent suggestions can reference it
+      topicNameToId.set(suggestion.name.toLowerCase(), topicId);
+    }
+
+    // Invalidate cache so UI can show new suggestions
+    invalidateTopicsCache();
+
+    return result;
+  } catch (error) {
+    console.error('Failed to generate suggested topics:', error);
+    return [];
+  }
 }
