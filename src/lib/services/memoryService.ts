@@ -427,18 +427,31 @@ export async function processConversationMemories(
   messages: Message[],
   conversationId: string
 ): Promise<void> {
-  // Only process if we have meaningful conversation (at least 2 exchanges)
-  if (messages.length < 4) {
+  console.log('processConversationMemories called:', { messageCount: messages.length, conversationId });
+
+  // Only process if we have at least one exchange (user + assistant)
+  if (messages.length < 2) {
+    console.log('Skipping memory processing: not enough messages');
     return;
   }
 
   try {
     // Extract memories using Claude
+    console.log('Extracting memories from conversation...');
     const extracted = await extractMemoriesFromConversation(messages);
 
     if (!extracted) {
+      console.log('No memories extracted from conversation');
       return;
     }
+
+    console.log('Extracted from conversation:', {
+      facts: extracted.facts.length,
+      topics: extracted.topics.length,
+      preferences: extracted.preferences.length,
+      struggles: extracted.struggles.length,
+      successes: extracted.successes.length,
+    });
 
     // Save facts
     for (const fact of extracted.facts) {

@@ -163,6 +163,23 @@
       clearInterval(durationInterval);
       durationInterval = null;
     }
+
+    // Process memories from any active conversation when stopping recording
+    if (currentConversationId && messages.length >= 2) {
+      console.log('Processing memories on recording stop:', { messageCount: messages.length, conversationId: currentConversationId });
+      const apiMessages: Message[] = messages.map(m => ({
+        id: m.id,
+        conversation_id: currentConversationId!,
+        role: m.role,
+        content: m.content,
+        created_at: new Date().toISOString()
+      }));
+      processConversationMemories(apiMessages, currentConversationId)
+        .then(() => console.log('Memory processing completed'))
+        .catch(e => console.error('Memory processing failed:', e));
+      invalidateConversationsCache();
+    }
+
     // Clear all screen-related state
     latestScreenshot = null;
     screenContextHistory = [];
@@ -342,8 +359,9 @@
   }
 
   async function closeChat() {
-    // Process memories from the conversation before closing
-    if (currentConversationId && messages.length >= 4) {
+    // Process memories from the conversation before closing (at least one exchange)
+    if (currentConversationId && messages.length >= 2) {
+      console.log('Processing memories on chat close:', { messageCount: messages.length, conversationId: currentConversationId });
       const apiMessages: Message[] = messages.map(m => ({
         id: m.id,
         conversation_id: currentConversationId!,
@@ -351,7 +369,9 @@
         content: m.content,
         created_at: new Date().toISOString()
       }));
-      processConversationMemories(apiMessages, currentConversationId).catch(console.error);
+      processConversationMemories(apiMessages, currentConversationId)
+        .then(() => console.log('Memory processing completed on chat close'))
+        .catch(e => console.error('Memory processing failed on chat close:', e));
       invalidateConversationsCache();
     }
 
@@ -367,8 +387,9 @@
   }
 
   async function startNewChat() {
-    // Process memories from previous conversation
-    if (currentConversationId && messages.length >= 4) {
+    // Process memories from previous conversation (at least one exchange)
+    if (currentConversationId && messages.length >= 2) {
+      console.log('Processing memories on new chat:', { messageCount: messages.length, conversationId: currentConversationId });
       const apiMessages: Message[] = messages.map(m => ({
         id: m.id,
         conversation_id: currentConversationId!,
@@ -376,7 +397,9 @@
         content: m.content,
         created_at: new Date().toISOString()
       }));
-      processConversationMemories(apiMessages, currentConversationId).catch(console.error);
+      processConversationMemories(apiMessages, currentConversationId)
+        .then(() => console.log('Memory processing completed on new chat'))
+        .catch(e => console.error('Memory processing failed on new chat:', e));
       invalidateConversationsCache();
     }
 
