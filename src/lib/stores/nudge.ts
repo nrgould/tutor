@@ -18,6 +18,8 @@ interface NudgeState {
 
 const NUDGE_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
 const NUDGE_DURATION_MS = 25 * 1000; // 25 seconds
+const NUDGE_WINDOW_WIDTH = 320;
+const NUDGE_WINDOW_HEIGHT = 140;
 
 function createNudgeStore() {
   const { subscribe, set, update } = writable<NudgeState>({
@@ -26,12 +28,12 @@ function createNudgeStore() {
     cooldownMs: NUDGE_COOLDOWN_MS,
   });
 
-  let dismissTimeout: ReturnType<typeof setTimeout> | null = null;
+  let currentWindowLabel: string | null = null;
 
   return {
     subscribe,
 
-    show(message: string, aiMessage: string, type: Nudge['type'] = 'tip') {
+    async show(message: string, aiMessage: string, type: Nudge['type'] = 'tip') {
       // Check if nudges are enabled in settings
       const settings = get(settingsStore);
       if (settings.proactive_nudges === false) {
@@ -68,20 +70,66 @@ function createNudgeStore() {
         lastNudgeTime: now,
       }));
 
-      // Auto-dismiss after duration
-      if (dismissTimeout) clearTimeout(dismissTimeout);
-      dismissTimeout = setTimeout(() => {
-        this.dismiss();
-      }, NUDGE_DURATION_MS);
+      // Create a separate window for the nudge notification
+      try {
+        const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        const { primaryMonitor } = await import('@tauri-apps/api/window');
+        const { emit } = await import('@tauri-apps/api/event');
 
-      console.log('[Nudge] Showing:', message);
-      return id;
+        // Get screen dimensions to position in top-right
+        const monitor = await primaryMonitor();
+        const screenWidth = monitor?.size.width || 1920;
+        const x = screenWidth - NUDGE_WINDOW_WIDTH - 20;
+        const y = 20;
+
+        currentWindowLabel = `nudge-${id}`;
+
+        const nudgeWindow = new WebviewWindow(currentWindowLabel, {
+          url: '/nudge',
+          title: 'Tutor',
+          width: NUDGE_WINDOW_WIDTH,
+          height: NUDGE_WINDOW_HEIGHT,
+          x,
+          y,
+          resizable: false,
+          alwaysOnTop: true,
+          decorations: false,
+          transparent: true,
+          skipTaskbar: true,
+          focus: false,
+        });
+
+        // Wait for window to be created, then send nudge data
+        nudgeWindow.once('tauri://created', async () => {
+          await emit('show-nudge', { message, type, aiMessage });
+        });
+
+        nudgeWindow.once('tauri://destroyed', () => {
+          currentWindowLabel = null;
+          update(s => ({ ...s, current: null }));
+        });
+
+        console.log('[Nudge] Showing window:', message);
+        return id;
+      } catch (error) {
+        console.error('[Nudge] Failed to create window:', error);
+        update(s => ({ ...s, current: null }));
+        return null;
+      }
     },
 
-    dismiss() {
-      if (dismissTimeout) {
-        clearTimeout(dismissTimeout);
-        dismissTimeout = null;
+    async dismiss() {
+      if (currentWindowLabel) {
+        try {
+          const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+          const window = await WebviewWindow.getByLabel(currentWindowLabel);
+          if (window) {
+            await window.close();
+          }
+        } catch {
+          // Window might already be closed
+        }
+        currentWindowLabel = null;
       }
       update(s => ({ ...s, current: null }));
     },

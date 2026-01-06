@@ -10,10 +10,8 @@
   import { processConversationMemories } from '$lib/services/memoryService';
   import { tryShowNudge } from '$lib/services/nudgeGenerator';
   import { toast } from '$lib/stores/toast';
-  import { nudgeStore } from '$lib/stores/nudge';
   import type { Message } from '$lib/types';
   import Onboarding from '$lib/components/Onboarding.svelte';
-  import NudgeToast from '$lib/components/NudgeToast.svelte';
 
   const settings = $derived($settingsStore);
 
@@ -79,10 +77,16 @@
       await loadConversation(event.payload.conversationId);
     });
 
+    // Listen for nudge clicks from nudge window
+    const unlistenNudge = listen<{ aiMessage: string }>('nudge-clicked', async (event) => {
+      await handleNudgeClick(event.payload.aiMessage);
+    });
+
     return () => {
       stopRecording();
       unlistenMove.then(fn => fn());
       unlistenConversation.then(fn => fn());
+      unlistenNudge.then(fn => fn());
     };
   });
 
@@ -652,8 +656,6 @@
 {#if showOnboarding && !checkingOnboarding}
   <Onboarding oncomplete={handleOnboardingComplete} />
 {/if}
-
-<NudgeToast on:click={(e) => handleNudgeClick(e.detail)} />
 
 <style>
   :global(*) {
