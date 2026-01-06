@@ -455,3 +455,119 @@ export async function extractReviewItems(
     return [];
   }
 }
+
+// On-demand quiz generation from knowledge map topics
+const QUIZ_GENERATION_PROMPT = `Generate quiz questions to test understanding of the given topics. Create a mix of question types.
+
+Return ONLY valid JSON with this exact structure (no markdown, no explanation):
+{
+  "questions": [
+    {
+      "question_type": "flashcard",
+      "question": "What is X?",
+      "answer": "X is...",
+      "topic": "Topic Name"
+    },
+    {
+      "question_type": "multiple_choice",
+      "question": "Which of the following best describes X?",
+      "answer": "B",
+      "options": ["A) Wrong answer", "B) Correct answer", "C) Wrong answer", "D) Wrong answer"],
+      "topic": "Topic Name"
+    },
+    {
+      "question_type": "true_false",
+      "question": "X is Y. (True or False)",
+      "answer": "true",
+      "topic": "Topic Name"
+    }
+  ]
+}
+
+Rules:
+- Create questions that test real understanding, not just definitions
+- For multiple_choice: answer should be just the letter (A, B, C, or D), make distractors plausible
+- For true_false: answer should be "true" or "false" (lowercase), include some false statements
+- For flashcard: answer should be clear and educational
+- Vary difficulty based on mastery level (lower mastery = more basic questions)
+- Make questions specific and substantive
+- Generate 5-8 questions total, mixing types`;
+
+export interface QuizQuestion {
+  question_type: 'flashcard' | 'multiple_choice' | 'true_false';
+  question: string;
+  answer: string;
+  options?: string[];
+  topic: string;
+}
+
+export async function generateQuizFromTopics(
+  topics: { name: string; mastery_level: number }[],
+  count: number = 6
+): Promise<QuizQuestion[]> {
+  const settings = get(settingsStore);
+
+  if (!settings.anthropic_api_key) {
+    console.log('No API key configured - cannot generate quiz');
+    return [];
+  }
+
+  if (topics.length === 0) {
+    console.log('No topics provided for quiz generation');
+    return [];
+  }
+
+  // Format topics with mastery levels
+  const topicsText = topics
+    .map((t) => `- ${t.name} (${Math.round(t.mastery_level * 100)}% mastery)`)
+    .join('\n');
+
+  console.log('Generating quiz from topics:', topics.map(t => t.name));
+
+  try {
+    const response = await fetch(CLAUDE_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': settings.anthropic_api_key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2048,
+        system: QUIZ_GENERATION_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content: `Generate ${count} quiz questions about these topics:\n\n${topicsText}`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Quiz generation API failed:', response.status, errorText);
+      return [];
+    }
+
+    const data = await response.json();
+    const content = data.content[0]?.text;
+
+    if (!content) {
+      console.log('No content in API response');
+      return [];
+    }
+
+    console.log('Raw API response for quiz:', content.substring(0, 200));
+
+    // Parse JSON response
+    const parsed = JSON.parse(content) as { questions: QuizQuestion[] };
+    console.log('Generated quiz questions:', parsed.questions?.length || 0);
+    return parsed.questions || [];
+  } catch (error) {
+    console.error('Failed to generate quiz:', error);
+    return [];
+  }
+}

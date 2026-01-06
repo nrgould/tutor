@@ -5,7 +5,8 @@
   import { emit } from '@tauri-apps/api/event';
   import { getConversations } from '$lib/utils/db';
   import { settingsStore } from '$lib/stores/settings';
-  import { getTopics, cleanupDuplicateTopics, organizeTopicHierarchy, resetAllLearningData, getDueReviewItems, getReviewStats, updateReviewItemSchedule, type ReviewItem, type ReviewStats } from '$lib/services/memoryService';
+  import { getTopics, cleanupDuplicateTopics, organizeTopicHierarchy, resetAllLearningData } from '$lib/services/memoryService';
+  import { generateQuizFromTopics, type QuizQuestion } from '$lib/utils/memory';
   import type { Conversation } from '$lib/types';
 
   const settings = $derived($settingsStore);
@@ -22,13 +23,15 @@
   let activeSection = $state<'overview' | 'sessions' | 'review' | 'mind' | 'settings'>('overview');
   let mindTab = $state<'constellation' | 'profile'>('constellation');
 
-  // Review state
-  let reviewItems = $state<ReviewItem[]>([]);
-  let reviewStats = $state<ReviewStats>({ total: 0, due: 0, mastered: 0 });
-  let currentReviewIndex = $state(0);
+  // Quiz state (on-demand, no scheduling)
+  let quizQuestions = $state<QuizQuestion[]>([]);
+  let currentQuestionIndex = $state(0);
   let showAnswer = $state(false);
   let selectedAnswer = $state<string | null>(null);
-  let reviewLoading = $state(true);
+  let quizLoading = $state(false);
+  let quizMode = $state<'select' | 'quiz'>('select');
+  let selectedTopicIds = $state<Set<string>>(new Set());
+  let quizScore = $state({ correct: 0, total: 0 });
 
   // Topic data from database
   interface TopicNode {
@@ -247,42 +250,66 @@
 
   onMount(async () => {
     await settingsStore.load();
-    await Promise.all([loadSessions(), loadTopics(), loadReviewData()]);
+    await Promise.all([loadSessions(), loadTopics()]);
   });
 
-  async function loadReviewData() {
+  // Quiz functions
+  function toggleTopicSelection(topicId: string) {
+    const newSet = new Set(selectedTopicIds);
+    if (newSet.has(topicId)) {
+      newSet.delete(topicId);
+    } else {
+      newSet.add(topicId);
+    }
+    selectedTopicIds = newSet;
+  }
+
+  function selectAllTopics() {
+    const learnedTopics = topics.filter(t => t.status !== 'suggested');
+    selectedTopicIds = new Set(learnedTopics.map(t => t.id));
+  }
+
+  function clearTopicSelection() {
+    selectedTopicIds = new Set();
+  }
+
+  async function startQuiz() {
+    const selectedTopics = topics
+      .filter(t => selectedTopicIds.has(t.id))
+      .map(t => ({ name: t.name, mastery_level: t.mastery }));
+
+    if (selectedTopics.length === 0) return;
+
+    quizLoading = true;
+    quizMode = 'quiz';
+    quizScore = { correct: 0, total: 0 };
+
     try {
-      reviewLoading = true;
-      const [items, stats] = await Promise.all([
-        getDueReviewItems(),
-        getReviewStats()
-      ]);
-      reviewItems = items;
-      reviewStats = stats;
+      const questions = await generateQuizFromTopics(selectedTopics, 6);
+      quizQuestions = questions;
+      currentQuestionIndex = 0;
+      showAnswer = false;
+      selectedAnswer = null;
     } catch (error) {
-      console.error('Failed to load review data:', error);
+      console.error('Failed to generate quiz:', error);
     } finally {
-      reviewLoading = false;
+      quizLoading = false;
     }
   }
 
-  async function handleReviewAnswer(quality: number) {
-    const currentItem = reviewItems[currentReviewIndex];
-    if (!currentItem) return;
+  function handleQuizAnswer(isCorrect: boolean) {
+    quizScore = {
+      correct: quizScore.correct + (isCorrect ? 1 : 0),
+      total: quizScore.total + 1
+    };
 
-    await updateReviewItemSchedule(currentItem.id, quality);
-
-    // Move to next item
-    if (currentReviewIndex < reviewItems.length - 1) {
-      currentReviewIndex++;
+    // Move to next question
+    if (currentQuestionIndex < quizQuestions.length - 1) {
+      currentQuestionIndex++;
       showAnswer = false;
       selectedAnswer = null;
     } else {
-      // Reload to get fresh items
-      await loadReviewData();
-      currentReviewIndex = 0;
-      showAnswer = false;
-      selectedAnswer = null;
+      // Quiz complete - stay on last question with score showing
     }
   }
 
@@ -294,6 +321,15 @@
   function handleTFAnswer(answer: string) {
     selectedAnswer = answer;
     showAnswer = true;
+  }
+
+  function resetQuiz() {
+    quizMode = 'select';
+    quizQuestions = [];
+    currentQuestionIndex = 0;
+    showAnswer = false;
+    selectedAnswer = null;
+    quizScore = { correct: 0, total: 0 };
   }
 
   async function loadSessions() {
@@ -439,12 +475,7 @@
         class:active={activeSection === 'review'}
         onclick={() => activeSection = 'review'}
         onmousedown={(e) => e.stopPropagation()}
-      >
-        Review
-        {#if reviewStats.due > 0}
-          <span class="badge">{reviewStats.due}</span>
-        {/if}
-      </button>
+      >Review</button>
       <button
         class="nav-item"
         class:active={activeSection === 'mind'}
@@ -813,136 +844,204 @@
     {:else if activeSection === 'review'}
       <div class="view review-view">
         <div class="section-header">
-          <h2>Review</h2>
-          <div class="review-stats-mini">
-            <span class="stat">{reviewStats.due} due</span>
-            <span class="stat">{reviewStats.total} total</span>
-            <span class="stat">{reviewStats.mastered} mastered</span>
-          </div>
+          <h2>Quiz</h2>
+          {#if quizMode === 'quiz' && quizQuestions.length > 0}
+            <button class="btn-secondary" onclick={resetQuiz}>Back to Topics</button>
+          {/if}
         </div>
 
-        {#if reviewLoading}
-          <div class="loading-state">Loading review items...</div>
-        {:else if reviewItems.length === 0}
-          <div class="empty-state">
-            <div class="empty-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M9 12l2 2 4-4"/>
-                <circle cx="12" cy="12" r="10"/>
-              </svg>
+        {#if quizMode === 'select'}
+          <!-- Topic Selection -->
+          {@const learnedTopics = topics.filter(t => t.status !== 'suggested')}
+          {#if learnedTopics.length === 0}
+            <div class="empty-state">
+              <div class="empty-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
+              </div>
+              <p>No topics yet</p>
+              <span class="empty-hint">Study some topics first, then come back to quiz yourself</span>
             </div>
-            <p>All caught up!</p>
-            <span class="empty-hint">Study more to generate review items</span>
-          </div>
-        {:else}
-          {@const currentItem = reviewItems[currentReviewIndex]}
-          <div class="review-card">
-            <div class="review-progress">
-              {currentReviewIndex + 1} / {reviewItems.length}
-            </div>
-
-            <div class="review-type-badge {currentItem.question_type}">
-              {currentItem.question_type === 'flashcard' ? 'Flashcard' :
-               currentItem.question_type === 'multiple_choice' ? 'Multiple Choice' : 'True/False'}
+          {:else}
+            <div class="quiz-intro">
+              <p>Select topics to quiz yourself on:</p>
+              <div class="topic-actions">
+                <button class="btn-text" onclick={selectAllTopics}>Select All</button>
+                <button class="btn-text" onclick={clearTopicSelection}>Clear</button>
+              </div>
             </div>
 
-            <div class="review-question">
-              {currentItem.question}
-            </div>
-
-            {#if currentItem.question_type === 'flashcard'}
-              {#if !showAnswer}
-                <button class="reveal-btn" onclick={() => showAnswer = true}>
-                  Reveal Answer
+            <div class="topic-grid">
+              {#each learnedTopics as topic}
+                <button
+                  class="topic-chip"
+                  class:selected={selectedTopicIds.has(topic.id)}
+                  onclick={() => toggleTopicSelection(topic.id)}
+                >
+                  <span class="topic-name">{topic.name}</span>
+                  <span class="topic-mastery">{Math.round(topic.mastery * 100)}%</span>
                 </button>
-              {:else}
-                <div class="review-answer">
-                  {currentItem.answer}
+              {/each}
+            </div>
+
+            <div class="quiz-start">
+              <button
+                class="start-quiz-btn"
+                disabled={selectedTopicIds.size === 0}
+                onclick={startQuiz}
+              >
+                Start Quiz ({selectedTopicIds.size} topic{selectedTopicIds.size !== 1 ? 's' : ''})
+              </button>
+            </div>
+          {/if}
+
+        {:else if quizLoading}
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Generating questions...</p>
+          </div>
+
+        {:else if quizQuestions.length === 0}
+          <div class="empty-state">
+            <p>Couldn't generate questions</p>
+            <button class="btn-secondary" onclick={resetQuiz}>Try Again</button>
+          </div>
+
+        {:else}
+          <!-- Quiz in progress -->
+          {@const currentQuestion = quizQuestions[currentQuestionIndex]}
+          {@const isLastQuestion = currentQuestionIndex === quizQuestions.length - 1}
+          {@const quizComplete = isLastQuestion && showAnswer}
+
+          {#if quizComplete}
+            <div class="quiz-complete">
+              <div class="score-display">
+                <span class="score-number">{quizScore.correct}</span>
+                <span class="score-divider">/</span>
+                <span class="score-total">{quizScore.total}</span>
+              </div>
+              <p class="score-label">
+                {#if quizScore.correct === quizScore.total}
+                  Perfect score!
+                {:else if quizScore.correct >= quizScore.total * 0.7}
+                  Great job!
+                {:else}
+                  Keep practicing!
+                {/if}
+              </p>
+              <div class="quiz-complete-actions">
+                <button class="btn-primary" onclick={startQuiz}>Quiz Again</button>
+                <button class="btn-secondary" onclick={resetQuiz}>Choose Topics</button>
+              </div>
+            </div>
+          {:else}
+            <div class="quiz-card">
+              <div class="quiz-progress">
+                <span>{currentQuestionIndex + 1} / {quizQuestions.length}</span>
+                {#if quizScore.total > 0}
+                  <span class="score-mini">{quizScore.correct} correct</span>
+                {/if}
+              </div>
+
+              <div class="quiz-topic-badge">{currentQuestion.topic}</div>
+
+              <div class="quiz-type-badge {currentQuestion.question_type}">
+                {currentQuestion.question_type === 'flashcard' ? 'Flashcard' :
+                 currentQuestion.question_type === 'multiple_choice' ? 'Multiple Choice' : 'True/False'}
+              </div>
+
+              <div class="quiz-question">
+                {currentQuestion.question}
+              </div>
+
+              {#if currentQuestion.question_type === 'flashcard'}
+                {#if !showAnswer}
+                  <button class="reveal-btn" onclick={() => showAnswer = true}>
+                    Reveal Answer
+                  </button>
+                {:else}
+                  <div class="quiz-answer">
+                    {currentQuestion.answer}
+                  </div>
+                  <div class="quiz-feedback">
+                    <p>Did you know this?</p>
+                    <div class="feedback-buttons">
+                      <button class="feedback-btn no" onclick={() => handleQuizAnswer(false)}>
+                        No
+                      </button>
+                      <button class="feedback-btn yes" onclick={() => handleQuizAnswer(true)}>
+                        Yes
+                      </button>
+                    </div>
+                  </div>
+                {/if}
+
+              {:else if currentQuestion.question_type === 'multiple_choice'}
+                <div class="mc-options">
+                  {#each currentQuestion.options || [] as option, i}
+                    {@const letter = String.fromCharCode(65 + i)}
+                    {@const isCorrect = currentQuestion.answer === letter}
+                    {@const isSelected = selectedAnswer === letter}
+                    <button
+                      class="mc-option"
+                      class:selected={isSelected}
+                      class:correct={showAnswer && isCorrect}
+                      class:incorrect={showAnswer && isSelected && !isCorrect}
+                      disabled={showAnswer}
+                      onclick={() => handleMCAnswer(letter)}
+                    >
+                      {option}
+                    </button>
+                  {/each}
                 </div>
-                <div class="review-rating">
-                  <p>How well did you know this?</p>
-                  <div class="rating-buttons">
-                    <button class="rating-btn fail" onclick={() => handleReviewAnswer(1)}>
-                      Didn't know
-                    </button>
-                    <button class="rating-btn hard" onclick={() => handleReviewAnswer(3)}>
-                      Hard
-                    </button>
-                    <button class="rating-btn good" onclick={() => handleReviewAnswer(4)}>
-                      Good
-                    </button>
-                    <button class="rating-btn easy" onclick={() => handleReviewAnswer(5)}>
-                      Easy
+                {#if showAnswer}
+                  <div class="quiz-feedback">
+                    <button
+                      class="next-btn"
+                      onclick={() => handleQuizAnswer(selectedAnswer === currentQuestion.answer)}
+                    >
+                      {isLastQuestion ? 'See Results' : 'Next Question'}
                     </button>
                   </div>
-                </div>
-              {/if}
+                {/if}
 
-            {:else if currentItem.question_type === 'multiple_choice'}
-              {@const options = currentItem.options ? JSON.parse(currentItem.options) : []}
-              <div class="mc-options">
-                {#each options as option, i}
-                  {@const letter = String.fromCharCode(65 + i)}
-                  {@const isCorrect = currentItem.answer === letter}
-                  {@const isSelected = selectedAnswer === letter}
+              {:else if currentQuestion.question_type === 'true_false'}
+                <div class="tf-options">
                   <button
-                    class="mc-option"
-                    class:selected={isSelected}
-                    class:correct={showAnswer && isCorrect}
-                    class:incorrect={showAnswer && isSelected && !isCorrect}
+                    class="tf-option"
+                    class:selected={selectedAnswer === 'true'}
+                    class:correct={showAnswer && currentQuestion.answer === 'true'}
+                    class:incorrect={showAnswer && selectedAnswer === 'true' && currentQuestion.answer !== 'true'}
                     disabled={showAnswer}
-                    onclick={() => handleMCAnswer(letter)}
+                    onclick={() => handleTFAnswer('true')}
                   >
-                    {option}
+                    True
                   </button>
-                {/each}
-              </div>
-              {#if showAnswer}
-                <div class="review-rating">
                   <button
-                    class="next-btn"
-                    onclick={() => handleReviewAnswer(selectedAnswer === currentItem.answer ? 4 : 2)}
+                    class="tf-option"
+                    class:selected={selectedAnswer === 'false'}
+                    class:correct={showAnswer && currentQuestion.answer === 'false'}
+                    class:incorrect={showAnswer && selectedAnswer === 'false' && currentQuestion.answer !== 'false'}
+                    disabled={showAnswer}
+                    onclick={() => handleTFAnswer('false')}
                   >
-                    Next Question
+                    False
                   </button>
                 </div>
+                {#if showAnswer}
+                  <div class="quiz-feedback">
+                    <button
+                      class="next-btn"
+                      onclick={() => handleQuizAnswer(selectedAnswer === currentQuestion.answer)}
+                    >
+                      {isLastQuestion ? 'See Results' : 'Next Question'}
+                    </button>
+                  </div>
+                {/if}
               {/if}
-
-            {:else if currentItem.question_type === 'true_false'}
-              <div class="tf-options">
-                <button
-                  class="tf-option"
-                  class:selected={selectedAnswer === 'true'}
-                  class:correct={showAnswer && currentItem.answer === 'true'}
-                  class:incorrect={showAnswer && selectedAnswer === 'true' && currentItem.answer !== 'true'}
-                  disabled={showAnswer}
-                  onclick={() => handleTFAnswer('true')}
-                >
-                  True
-                </button>
-                <button
-                  class="tf-option"
-                  class:selected={selectedAnswer === 'false'}
-                  class:correct={showAnswer && currentItem.answer === 'false'}
-                  class:incorrect={showAnswer && selectedAnswer === 'false' && currentItem.answer !== 'false'}
-                  disabled={showAnswer}
-                  onclick={() => handleTFAnswer('false')}
-                >
-                  False
-                </button>
-              </div>
-              {#if showAnswer}
-                <div class="review-rating">
-                  <button
-                    class="next-btn"
-                    onclick={() => handleReviewAnswer(selectedAnswer === currentItem.answer ? 4 : 2)}
-                  >
-                    Next Question
-                  </button>
-                </div>
-              {/if}
-            {/if}
-          </div>
+            </div>
+          {/if}
         {/if}
       </div>
 
@@ -1908,33 +2007,134 @@
     color: rgba(250, 250, 250, 0.45);
   }
 
-  /* Review Tab Styles */
-  .nav-item .badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
-    margin-left: 6px;
-    background: #ef4444;
-    border-radius: 9px;
-    font-size: 11px;
-    font-weight: 600;
-    color: white;
-  }
-
-  .review-stats-mini {
+  /* Quiz Tab Styles */
+  .quiz-intro {
     display: flex;
-    gap: 16px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
   }
 
-  .review-stats-mini .stat {
+  .quiz-intro p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 15px;
+  }
+
+  .topic-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  .btn-text {
+    background: none;
+    border: none;
+    color: #3b82f6;
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    padding: 4px 8px;
   }
 
-  .review-card {
+  .btn-text:hover {
+    text-decoration: underline;
+  }
+
+  .btn-secondary {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .btn-primary {
+    padding: 12px 24px;
+    background: #3b82f6;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .btn-primary:hover {
+    background: #2563eb;
+  }
+
+  .topic-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .topic-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .topic-chip:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .topic-chip.selected {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.4);
+  }
+
+  .topic-name {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+  }
+
+  .topic-mastery {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 12px;
+  }
+
+  .quiz-start {
+    text-align: center;
+    padding-top: 20px;
+  }
+
+  .start-quiz-btn {
+    padding: 14px 32px;
+    background: #3b82f6;
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .start-quiz-btn:hover:not(:disabled) {
+    background: #2563eb;
+    transform: translateY(-1px);
+  }
+
+  .start-quiz-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .quiz-card {
     max-width: 600px;
     margin: 0 auto;
     padding: 32px;
@@ -1943,38 +2143,55 @@
     border-radius: 16px;
   }
 
-  .review-progress {
-    text-align: center;
+  .quiz-progress {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-size: 13px;
     color: rgba(255, 255, 255, 0.4);
     margin-bottom: 16px;
   }
 
-  .review-type-badge {
+  .score-mini {
+    color: #22c55e;
+  }
+
+  .quiz-topic-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 8px;
+  }
+
+  .quiz-type-badge {
     display: inline-block;
     padding: 4px 12px;
     border-radius: 12px;
     font-size: 12px;
     font-weight: 500;
     margin-bottom: 20px;
+    margin-left: 8px;
   }
 
-  .review-type-badge.flashcard {
+  .quiz-type-badge.flashcard {
     background: rgba(59, 130, 246, 0.15);
     color: #3b82f6;
   }
 
-  .review-type-badge.multiple_choice {
+  .quiz-type-badge.multiple_choice {
     background: rgba(168, 85, 247, 0.15);
     color: #a855f7;
   }
 
-  .review-type-badge.true_false {
+  .quiz-type-badge.true_false {
     background: rgba(34, 197, 94, 0.15);
     color: #22c55e;
   }
 
-  .review-question {
+  .quiz-question {
     font-size: 20px;
     font-weight: 500;
     line-height: 1.5;
@@ -1999,7 +2216,7 @@
     background: rgba(59, 130, 246, 0.25);
   }
 
-  .review-answer {
+  .quiz-answer {
     padding: 20px;
     background: rgba(34, 197, 94, 0.08);
     border: 1px solid rgba(34, 197, 94, 0.2);
@@ -2010,70 +2227,50 @@
     margin-bottom: 24px;
   }
 
-  .review-rating {
+  .quiz-feedback {
     text-align: center;
   }
 
-  .review-rating p {
+  .quiz-feedback p {
     font-size: 14px;
     color: rgba(255, 255, 255, 0.5);
     margin-bottom: 12px;
   }
 
-  .rating-buttons {
+  .feedback-buttons {
     display: flex;
-    gap: 8px;
+    gap: 12px;
     justify-content: center;
   }
 
-  .rating-btn {
-    padding: 10px 20px;
+  .feedback-btn {
+    padding: 12px 32px;
     border-radius: 8px;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
     border: 1px solid transparent;
   }
 
-  .rating-btn.fail {
+  .feedback-btn.no {
     background: rgba(239, 68, 68, 0.12);
     color: #ef4444;
-    border-color: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.3);
   }
 
-  .rating-btn.fail:hover {
+  .feedback-btn.no:hover {
     background: rgba(239, 68, 68, 0.2);
   }
 
-  .rating-btn.hard {
-    background: rgba(249, 115, 22, 0.12);
-    color: #f97316;
-    border-color: rgba(249, 115, 22, 0.2);
-  }
-
-  .rating-btn.hard:hover {
-    background: rgba(249, 115, 22, 0.2);
-  }
-
-  .rating-btn.good {
+  .feedback-btn.yes {
     background: rgba(34, 197, 94, 0.12);
     color: #22c55e;
-    border-color: rgba(34, 197, 94, 0.2);
+    border-color: rgba(34, 197, 94, 0.3);
   }
 
-  .rating-btn.good:hover {
+  .feedback-btn.yes:hover {
     background: rgba(34, 197, 94, 0.2);
-  }
-
-  .rating-btn.easy {
-    background: rgba(59, 130, 246, 0.12);
-    color: #3b82f6;
-    border-color: rgba(59, 130, 246, 0.2);
-  }
-
-  .rating-btn.easy:hover {
-    background: rgba(59, 130, 246, 0.2);
   }
 
   .mc-options, .tf-options {
@@ -2143,6 +2340,47 @@
     background: #2563eb;
   }
 
+  .quiz-complete {
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .score-display {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+
+  .score-number {
+    font-size: 64px;
+    font-weight: 600;
+    color: #22c55e;
+  }
+
+  .score-divider {
+    font-size: 40px;
+    color: rgba(255, 255, 255, 0.3);
+  }
+
+  .score-total {
+    font-size: 40px;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .score-label {
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 24px;
+  }
+
+  .quiz-complete-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
   .empty-state {
     text-align: center;
     padding: 60px 20px;
@@ -2169,5 +2407,19 @@
     text-align: center;
     padding: 60px 20px;
     color: rgba(255, 255, 255, 0.5);
+  }
+
+  .loading-state .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    margin: 0 auto 16px;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 </style>
