@@ -154,6 +154,7 @@
     }
     // Clear screen context so it doesn't persist to next session
     latestScreenshot = null;
+    screenContextHistory = [];
     // Show toast notification
     if (duration > 0) {
       toast.success(`Session recorded: ${formatDuration(duration)}`);
@@ -337,6 +338,7 @@
     currentConversationId = null;
     messages = [];
     latestScreenshot = null;
+    screenContextHistory = [];
     suggestions = [];
 
     showChat = false;
@@ -362,7 +364,8 @@
     messages = [];
     streamingContent = '';
     suggestions = [];
-    latestScreenshot = null; // Clear old screen context
+    latestScreenshot = null;
+    screenContextHistory = []; // Clear old screen context history
     focusInput();
   }
 
