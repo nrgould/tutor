@@ -74,7 +74,7 @@
   :global(html), :global(body) {
     margin: 0;
     padding: 0;
-    background: transparent;
+    background: #09090b;
     overflow: hidden;
   }
 
@@ -83,12 +83,11 @@
     flex-direction: column;
     gap: 8px;
     padding: 14px 16px;
-    background: rgba(9, 9, 11, 0.98);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    height: 100vh;
+    box-sizing: border-box;
+    background: #09090b;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     cursor: pointer;
     font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   }

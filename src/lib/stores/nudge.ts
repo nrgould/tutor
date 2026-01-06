@@ -100,7 +100,7 @@ function createNudgeStore() {
           resizable: false,
           alwaysOnTop: true,
           decorations: false,
-          transparent: true,
+          transparent: false,
           skipTaskbar: true,
           focus: false,
         });
