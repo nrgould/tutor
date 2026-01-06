@@ -198,7 +198,8 @@
   ];
 
   function getNodeSize(mastery: number): number {
-    return 2 + mastery * 2;
+    // Size in viewBox units (160x100) - make circles more visible
+    return 3 + mastery * 3;
   }
 
   // Pan/zoom state for constellation
@@ -632,32 +633,27 @@
                       {/if}
                     {/each}
 
-                    <!-- Labels as foreignObject for proper alignment -->
+                    <!-- Labels using SVG text for proper scaling -->
                     {#each topics as topic}
                       {@const pos = positions[topic.id]}
-                      {@const size = topic.status === 'suggested' ? 2 : getNodeSize(topic.mastery)}
+                      {@const size = topic.status === 'suggested' ? 3 : getNodeSize(topic.mastery)}
                       {#if pos}
-                        <foreignObject
-                          x={pos.x + size + 2}
-                          y={pos.y - 12}
-                          width="120"
-                          height="30"
-                          class="topic-label-fo"
-                        >
-                          <div
-                            class="topic-label"
+                        <g class="topic-label-group" class:suggested={topic.status === 'suggested'}>
+                          <text
+                            x={pos.x + size + 2}
+                            y={pos.y - 1}
+                            class="topic-label-name"
                             class:mastered={topic.status === 'mastered'}
                             class:proficient={topic.status === 'proficient'}
                             class:suggested={topic.status === 'suggested'}
-                          >
-                            <span class="topic-name">{topic.name}</span>
-                            {#if topic.status === 'suggested'}
-                              <span class="topic-suggested">Suggested</span>
-                            {:else}
-                              <span class="topic-pct">{Math.round(topic.mastery * 100)}%</span>
-                            {/if}
-                          </div>
-                        </foreignObject>
+                          >{topic.name}</text>
+                          <text
+                            x={pos.x + size + 2}
+                            y={pos.y + 4}
+                            class="topic-label-pct"
+                            class:suggested={topic.status === 'suggested'}
+                          >{topic.status === 'suggested' ? 'Suggested' : `${Math.round(topic.mastery * 100)}%`}</text>
+                        </g>
                       {/if}
                     {/each}
                   </svg>
@@ -1584,66 +1580,38 @@
     stroke-dasharray: 2, 2;
   }
 
-  .topic-label-fo {
-    overflow: visible;
-  }
-
-  .topic-label {
-    display: inline-flex;
-    flex-direction: column;
-    gap: 1px;
-    padding: 3px 6px;
-    background: rgba(9, 9, 11, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 4px;
-    white-space: nowrap;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+  .topic-label-group {
     pointer-events: none;
   }
 
-  .topic-label.mastered {
-    border-color: rgba(255, 255, 255, 0.2);
-  }
-
-  .topic-label.proficient {
-    border-color: rgba(255, 255, 255, 0.15);
-  }
-
-  .topic-label.suggested {
-    border-color: rgba(147, 112, 219, 0.3);
-    border-style: dashed;
-    background: rgba(147, 112, 219, 0.08);
-  }
-
-  .topic-name {
-    font-size: 10px;
+  .topic-label-name {
+    font-size: 4px;
     font-weight: 600;
-    color: #fafafa;
-    letter-spacing: -0.2px;
-    line-height: 1.2;
+    fill: #fafafa;
+    font-family: inherit;
   }
 
-  .topic-pct {
-    font-size: 9px;
-    color: rgba(250, 250, 250, 0.5);
-    font-variant-numeric: tabular-nums;
-    line-height: 1.2;
+  .topic-label-name.mastered {
+    fill: #fafafa;
   }
 
-  .topic-label.mastered .topic-pct {
-    color: rgba(250, 250, 250, 0.7);
+  .topic-label-name.proficient {
+    fill: rgba(250, 250, 250, 0.9);
   }
 
-  .topic-suggested {
-    font-size: 9px;
-    color: rgba(147, 112, 219, 0.8);
+  .topic-label-name.suggested {
+    fill: rgba(200, 180, 230, 0.9);
+  }
+
+  .topic-label-pct {
+    font-size: 3px;
+    fill: rgba(250, 250, 250, 0.5);
+    font-family: inherit;
+  }
+
+  .topic-label-pct.suggested {
+    fill: rgba(147, 112, 219, 0.8);
     font-style: italic;
-    line-height: 1.2;
-  }
-
-  .topic-label.suggested .topic-name {
-    color: rgba(200, 180, 230, 0.9);
   }
 
   .pan-hint {

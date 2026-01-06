@@ -485,7 +485,7 @@ export async function processConversationMemories(
     // Track newly created topics in this batch
     const newTopicIds = new Map<string, string>();
     const topicsToCreate: typeof topicObjects = [];
-    const topicsToUpdate: { id: string; mastery: number }[] = [];
+    const topicsToUpdate: { id: string; mastery: number; status: string }[] = [];
 
     // First pass: determine which topics to create vs update
     for (const topic of topicObjects) {
@@ -498,7 +498,7 @@ export async function processConversationMemories(
         // Topic exists - update mastery if new level is higher
         const currentMastery = existingMastery.get(normalizedName) || 0;
         if (topic.mastery_level > currentMastery) {
-          topicsToUpdate.push({ id: existingId, mastery: topic.mastery_level });
+          topicsToUpdate.push({ id: existingId, mastery: topic.mastery_level, status: topic.status });
         }
         // Use existing ID for parent resolution
         newTopicIds.set(normalizedName, existingId);
@@ -524,7 +524,8 @@ export async function processConversationMemories(
     for (const update of topicsToUpdate) {
       await invoke('update_topic_mastery', {
         id: update.id,
-        masteryLevel: update.mastery,
+        mastery_level: update.mastery,
+        status: update.status,
       }).catch((e) => console.warn('Failed to update topic mastery:', e));
     }
 
