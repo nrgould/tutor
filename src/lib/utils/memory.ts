@@ -562,8 +562,14 @@ export async function generateQuizFromTopics(
 
     console.log('Raw API response for quiz:', content.substring(0, 200));
 
+    // Strip markdown code fences if present
+    let jsonContent = content.trim();
+    if (jsonContent.startsWith('```')) {
+      jsonContent = jsonContent.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    }
+
     // Parse JSON response
-    const parsed = JSON.parse(content) as { questions: QuizQuestion[] };
+    const parsed = JSON.parse(jsonContent) as { questions: QuizQuestion[] };
     console.log('Generated quiz questions:', parsed.questions?.length || 0);
     return parsed.questions || [];
   } catch (error) {
