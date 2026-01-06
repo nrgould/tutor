@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the Eigen AI tutor",
-  "windows": ["main", "settings", "history", "chat", "dashboard"],
+  "windows": ["main", "settings", "history", "chat", "dashboard", "nudge"],
   "permissions": [
     "core:default",
     "core:window:default",
@@ -22,6 +22,9 @@
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
     "global-shortcut:allow-is-registered",
-    "notification:default"
+    "notification:default",
+    "core:event:default",
+    "core:event:allow-emit",
+    "core:event:allow-listen"
   ]
 }

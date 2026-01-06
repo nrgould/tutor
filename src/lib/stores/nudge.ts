@@ -81,7 +81,7 @@ function createNudgeStore() {
         const x = screenWidth - NUDGE_WINDOW_WIDTH - 20;
         const y = 20;
 
-        currentWindowLabel = `nudge-${id}`;
+        currentWindowLabel = 'nudge';
 
         // Encode nudge data in URL params to avoid race condition with events
         const params = new URLSearchParams({
