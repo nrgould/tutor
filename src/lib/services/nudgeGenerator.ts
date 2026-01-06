@@ -27,12 +27,12 @@ You should NOT nudge if:
 - The screen content is unclear or not study-related
 - You'd just be restating what's already on screen
 
-Respond with JSON only:
+Respond with JSON only (NO emojis anywhere):
 {
   "shouldNudge": true/false,
   "type": "tip" | "question" | "resource" | "funfact" | "check-in",
-  "toastMessage": "Short 1-line message for notification (max 80 chars)",
-  "aiMessage": "Your full conversational message as the tutor (2-4 sentences, friendly and helpful)"
+  "toastMessage": "Short 1-line message for notification (max 80 chars, no emojis)",
+  "aiMessage": "Your full conversational message as the tutor (2-4 sentences, friendly and helpful, no emojis)"
 }
 
 If shouldNudge is false, still include placeholder values for other fields.`;

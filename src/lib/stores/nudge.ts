@@ -18,8 +18,8 @@ interface NudgeState {
 
 const NUDGE_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
 const NUDGE_DURATION_MS = 25 * 1000; // 25 seconds
-const NUDGE_WINDOW_WIDTH = 320;
-const NUDGE_WINDOW_HEIGHT = 140;
+const NUDGE_WINDOW_WIDTH = 300;
+const NUDGE_WINDOW_HEIGHT = 120;
 
 function createNudgeStore() {
   const { subscribe, set, update } = writable<NudgeState>({

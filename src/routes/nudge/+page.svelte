@@ -2,17 +2,12 @@
   import { onMount } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { emit } from '@tauri-apps/api/event';
-  import { fly, fade } from 'svelte/transition';
   import { page } from '$app/stores';
 
-  let nudge = $state<{
-    message: string;
-    type: string;
-    aiMessage: string;
-  } | null>(null);
-
-  let visible = $state(false);
-  let closing = $state(false);
+  let message = $state('');
+  let type = $state('tip');
+  let aiMessage = $state('');
+  let mounted = $state(false);
 
   const typeLabels: Record<string, string> = {
     'tip': 'Tip',
@@ -25,97 +20,62 @@
   onMount(() => {
     // Read nudge data from URL params
     const params = $page.url.searchParams;
-    const message = params.get('message');
-    const type = params.get('type');
-    const aiMessage = params.get('aiMessage');
-
-    if (message && aiMessage) {
-      nudge = {
-        message,
-        type: type || 'tip',
-        aiMessage,
-      };
-      // Show with animation after a brief delay
-      setTimeout(() => {
-        visible = true;
-      }, 50);
-    }
+    message = params.get('message') || '';
+    type = params.get('type') || 'tip';
+    aiMessage = params.get('aiMessage') || '';
+    mounted = true;
 
     // Auto-dismiss after 25 seconds
-    const timer = setTimeout(() => {
+    setTimeout(() => {
       closeWindow();
     }, 25000);
-
-    return () => clearTimeout(timer);
   });
 
   async function handleClick() {
-    if (closing) return;
-    closing = true;
-
-    if (nudge) {
-      // Emit event to main window to open chat with this message
-      await emit('nudge-clicked', { aiMessage: nudge.aiMessage });
+    if (aiMessage) {
+      await emit('nudge-clicked', { aiMessage });
     }
-
-    // Close window directly
-    const window = getCurrentWindow();
-    await window.close();
+    closeWindow();
   }
 
   async function handleDismiss(e: MouseEvent) {
     e.stopPropagation();
-    await closeWindow();
+    closeWindow();
   }
 
-  async function closeWindow() {
-    if (closing) return;
-    closing = true;
-    visible = false;
-
-    // Close window after brief delay for fade
-    setTimeout(async () => {
-      const window = getCurrentWindow();
-      await window.close();
-    }, 150);
+  function closeWindow() {
+    const window = getCurrentWindow();
+    window.close();
   }
 </script>
 
-<div class="nudge-container">
-  {#if visible && nudge}
-    <div
-      class="nudge-toast"
-      role="button"
-      tabindex="0"
-      in:fly={{ y: -20, duration: 200 }}
-      out:fade={{ duration: 150 }}
-      onclick={handleClick}
-      onkeydown={(e) => e.key === 'Enter' && handleClick()}
-    >
-      <div class="nudge-header">
-        <span class="nudge-label">{typeLabels[nudge.type] || 'Eigen'}</span>
-        <button class="nudge-close" onclick={handleDismiss} aria-label="Dismiss">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
-        </button>
-      </div>
-      <p class="nudge-message">{nudge.message}</p>
-      <span class="nudge-hint">Click to chat</span>
+{#if mounted && message}
+  <div
+    class="nudge-toast"
+    role="button"
+    tabindex="0"
+    onclick={handleClick}
+    onkeydown={(e) => e.key === 'Enter' && handleClick()}
+  >
+    <div class="nudge-header">
+      <span class="nudge-label">{typeLabels[type] || 'Eigen'}</span>
+      <button class="nudge-close" onclick={handleDismiss} aria-label="Dismiss">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
     </div>
-  {/if}
-</div>
+    <p class="nudge-message">{message}</p>
+    <span class="nudge-hint">Click to chat</span>
+  </div>
+{/if}
 
 <style>
-  :global(body) {
+  :global(html), :global(body) {
     margin: 0;
     padding: 0;
     background: transparent;
     overflow: hidden;
-  }
-
-  .nudge-container {
-    padding: 8px;
   }
 
   .nudge-toast {
@@ -123,7 +83,7 @@
     flex-direction: column;
     gap: 8px;
     padding: 14px 16px;
-    background: rgba(9, 9, 11, 0.95);
+    background: rgba(9, 9, 11, 0.98);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.12);
