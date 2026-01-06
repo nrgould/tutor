@@ -74,7 +74,6 @@ function createNudgeStore() {
       try {
         const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
         const { primaryMonitor } = await import('@tauri-apps/api/window');
-        const { emit } = await import('@tauri-apps/api/event');
 
         // Get screen dimensions to position in top-right
         const monitor = await primaryMonitor();
@@ -84,8 +83,15 @@ function createNudgeStore() {
 
         currentWindowLabel = `nudge-${id}`;
 
+        // Encode nudge data in URL params to avoid race condition with events
+        const params = new URLSearchParams({
+          message,
+          type,
+          aiMessage,
+        });
+
         const nudgeWindow = new WebviewWindow(currentWindowLabel, {
-          url: '/nudge',
+          url: `/nudge?${params.toString()}`,
           title: 'Tutor',
           width: NUDGE_WINDOW_WIDTH,
           height: NUDGE_WINDOW_HEIGHT,
@@ -97,11 +103,6 @@ function createNudgeStore() {
           transparent: true,
           skipTaskbar: true,
           focus: false,
-        });
-
-        // Wait for window to be created, then send nudge data
-        nudgeWindow.once('tauri://created', async () => {
-          await emit('show-nudge', { message, type, aiMessage });
         });
 
         nudgeWindow.once('tauri://destroyed', () => {

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
-  import { listen } from '@tauri-apps/api/event';
   import { fly, fade } from 'svelte/transition';
+  import { page } from '$app/stores';
 
   let nudge = $state<{
     message: string;
@@ -28,32 +28,30 @@
     'check-in': 'Check-in',
   };
 
-  onMount(async () => {
-    // Listen for nudge data from main window
-    const unlistenNudge = await listen<{ message: string; type: string; aiMessage: string }>('show-nudge', (event) => {
-      nudge = event.payload;
-      visible = true;
-    });
+  onMount(() => {
+    // Read nudge data from URL params
+    const params = $page.url.searchParams;
+    const message = params.get('message');
+    const type = params.get('type');
+    const aiMessage = params.get('aiMessage');
 
-    // Listen for dismiss command
-    const unlistenDismiss = await listen('dismiss-nudge', () => {
-      closeWindow();
-    });
-
-    // Auto-dismiss after 25 seconds
-    setTimeout(() => {
-      closeWindow();
-    }, 25000);
+    if (message && aiMessage) {
+      nudge = {
+        message,
+        type: type || 'tip',
+        aiMessage,
+      };
+    }
 
     // Show with animation after a brief delay
     setTimeout(() => {
       visible = true;
     }, 100);
 
-    return () => {
-      unlistenNudge();
-      unlistenDismiss();
-    };
+    // Auto-dismiss after 25 seconds
+    setTimeout(() => {
+      closeWindow();
+    }, 25000);
   });
 
   async function handleClick() {
