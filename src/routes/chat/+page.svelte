@@ -31,7 +31,23 @@
 
   onMount(() => {
     const init = async () => {
+      // Force clear any stale state from previous session
+      chatStore.clear();
+
       await settingsStore.load();
+
+      // Check backend recording status directly and stop if active
+      try {
+        const backendStatus = await invoke<{ is_recording: boolean }>('get_recording_status');
+        if (backendStatus.is_recording) {
+          console.log('Stopping lingering recording from previous session');
+          await invoke('stop_recording');
+        }
+      } catch (e) {
+        console.error('Failed to check/stop recording:', e);
+      }
+
+      // Now init the recording store with fresh state
       await recordingStore.init();
 
       const initialMessage = $page.url.searchParams.get('message');
