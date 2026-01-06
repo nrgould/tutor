@@ -542,6 +542,18 @@ export async function processConversationMemories(
     // Invalidate caches so fresh data is fetched
     invalidateTopicsCache();
     invalidateMemoriesCache();
+
+    // Auto-organize topic hierarchy after adding new topics
+    if (topicsToCreate.length > 0) {
+      try {
+        const hierarchyResult = await organizeTopicHierarchy();
+        if (hierarchyResult.updated > 0) {
+          console.log('Auto-organized topic hierarchy:', hierarchyResult);
+        }
+      } catch (e) {
+        console.warn('Failed to auto-organize topic hierarchy:', e);
+      }
+    }
   } catch (error) {
     console.error('Failed to process conversation memories:', error);
   }
@@ -759,6 +771,412 @@ export async function cleanupDuplicateTopics(): Promise<{
   }
 
   return result;
+}
+
+// ============================================================
+// TOPIC HIERARCHY INFERENCE
+// ============================================================
+
+/**
+ * Common adjectival suffixes that indicate derivation from a root concept
+ * e.g., "Hegel" → "Hegelian", "Marx" → "Marxist", "Kant" → "Kantian"
+ */
+const ADJECTIVAL_SUFFIXES = ['ian', 'ist', 'ism', 'ic', 'esque', 'an', 'ean'];
+
+/**
+ * Extract the potential root concept from a topic name
+ * "Hegel's Philosophy" → "Hegel"
+ * "Hegelian Dialectics" → "Hegel"
+ * "Machine Learning Algorithms" → "Machine Learning"
+ */
+function extractRootConcept(topicName: string): {
+  root: string;
+  pattern: 'possessive' | 'adjectival' | 'compound' | 'none';
+  remainder: string;
+} {
+  const name = topicName.trim();
+
+  // Pattern 1: Possessive form - "X's Y" or "Xs Y"
+  const possessiveMatch = name.match(/^(.+?)['']s\s+(.+)$/i);
+  if (possessiveMatch) {
+    return {
+      root: possessiveMatch[1].trim(),
+      pattern: 'possessive',
+      remainder: possessiveMatch[2].trim(),
+    };
+  }
+
+  // Pattern 2: Adjectival form - "Hegelian X" → root is "Hegel"
+  const words = name.split(/\s+/);
+  if (words.length >= 2) {
+    const firstWord = words[0];
+
+    for (const suffix of ADJECTIVAL_SUFFIXES) {
+      if (firstWord.toLowerCase().endsWith(suffix) && firstWord.length > suffix.length + 2) {
+        // Extract the root by removing the suffix
+        const potentialRoot = firstWord.slice(0, -suffix.length);
+
+        // Handle common transformations
+        // "Hegelian" → "Hegel" (remove 'i' before 'an')
+        // "Kantian" → "Kant"
+        let root = potentialRoot;
+        if (suffix === 'ian' && potentialRoot.endsWith('i')) {
+          root = potentialRoot.slice(0, -1);
+        }
+
+        // Capitalize the root
+        root = root.charAt(0).toUpperCase() + root.slice(1);
+
+        return {
+          root,
+          pattern: 'adjectival',
+          remainder: words.slice(1).join(' '),
+        };
+      }
+    }
+  }
+
+  // Pattern 3: Compound topic - "Machine Learning Algorithms"
+  // where "Machine Learning" might be a parent
+  if (words.length >= 2) {
+    // Try progressively shorter prefixes
+    for (let i = words.length - 1; i >= 1; i--) {
+      const prefix = words.slice(0, i).join(' ');
+      const remainder = words.slice(i).join(' ');
+
+      return {
+        root: prefix,
+        pattern: 'compound',
+        remainder,
+      };
+    }
+  }
+
+  return {
+    root: name,
+    pattern: 'none',
+    remainder: '',
+  };
+}
+
+/**
+ * Calculate how likely topic B is a parent of topic A
+ * Returns a score from 0 to 1
+ */
+function calculateParentLikelihood(
+  childName: string,
+  potentialParentName: string
+): { score: number; reason: string } {
+  const childNorm = normalizeTopic(childName).toLowerCase();
+  const parentNorm = normalizeTopic(potentialParentName).toLowerCase();
+
+  // Exact match means they're the same topic, not parent-child
+  if (childNorm === parentNorm) {
+    return { score: 0, reason: 'same topic' };
+  }
+
+  // Extract root concept from child
+  const extracted = extractRootConcept(childName);
+  const extractedRootNorm = normalizeTopic(extracted.root).toLowerCase();
+
+  // High confidence: possessive or adjectival pattern matches parent
+  if (extracted.pattern === 'possessive' || extracted.pattern === 'adjectival') {
+    // Check if extracted root matches or is similar to potential parent
+    if (extractedRootNorm === parentNorm) {
+      return {
+        score: 0.95,
+        reason: `${extracted.pattern} form of "${potentialParentName}"`,
+      };
+    }
+
+    // Fuzzy match for slight variations
+    const similarity = topicSimilarity(extractedRootNorm, parentNorm);
+    if (similarity > 0.8) {
+      return {
+        score: 0.85,
+        reason: `likely ${extracted.pattern} form (${Math.round(similarity * 100)}% match)`,
+      };
+    }
+  }
+
+  // Medium confidence: child contains parent name
+  if (childNorm.includes(parentNorm) && parentNorm.length >= 3) {
+    // The shorter the parent relative to child, the more likely it's the root
+    const lengthRatio = parentNorm.length / childNorm.length;
+    const score = 0.6 + lengthRatio * 0.3;
+    return {
+      score: Math.min(0.85, score),
+      reason: `child contains parent name`,
+    };
+  }
+
+  // Check if parent name appears at the start of child
+  if (childNorm.startsWith(parentNorm + ' ')) {
+    return {
+      score: 0.8,
+      reason: 'child starts with parent name',
+    };
+  }
+
+  // Low confidence: word overlap
+  const childWords = new Set(childNorm.split(' ').filter(w => w.length > 2));
+  const parentWords = new Set(parentNorm.split(' ').filter(w => w.length > 2));
+
+  let overlap = 0;
+  for (const word of parentWords) {
+    if (childWords.has(word)) overlap++;
+  }
+
+  if (parentWords.size > 0 && overlap === parentWords.size) {
+    // All parent words appear in child
+    return {
+      score: 0.5,
+      reason: 'all parent words in child',
+    };
+  }
+
+  return { score: 0, reason: 'no relationship detected' };
+}
+
+/**
+ * Find the best parent candidate for a topic from a list of existing topics
+ */
+function findBestParentCandidate(
+  topic: StoredTopic,
+  allTopics: StoredTopic[]
+): { parent: StoredTopic; score: number; reason: string } | null {
+  let bestCandidate: { parent: StoredTopic; score: number; reason: string } | null = null;
+
+  for (const potentialParent of allTopics) {
+    // Skip self
+    if (potentialParent.id === topic.id) continue;
+
+    // Skip if this topic is already the parent
+    if (topic.parent_id === potentialParent.id) continue;
+
+    // Skip if potential parent already has this topic as ancestor (avoid cycles)
+    let ancestor: StoredTopic | undefined = potentialParent;
+    let isCycle = false;
+    while (ancestor?.parent_id) {
+      if (ancestor.parent_id === topic.id) {
+        isCycle = true;
+        break;
+      }
+      ancestor = allTopics.find(t => t.id === ancestor!.parent_id);
+    }
+    if (isCycle) continue;
+
+    const { score, reason } = calculateParentLikelihood(topic.name, potentialParent.name);
+
+    if (score > 0.5 && (!bestCandidate || score > bestCandidate.score)) {
+      bestCandidate = { parent: potentialParent, score, reason };
+    }
+  }
+
+  return bestCandidate;
+}
+
+/**
+ * Infer hierarchy depth - topics with shorter names and no detected parent
+ * are more likely to be root concepts
+ */
+function inferTopicDepth(topic: StoredTopic, allTopics: StoredTopic[]): number {
+  const extracted = extractRootConcept(topic.name);
+
+  // If this is a base form (no pattern detected), it's likely a root
+  if (extracted.pattern === 'none') {
+    const wordCount = topic.name.split(/\s+/).length;
+    return wordCount; // Single words are most likely roots
+  }
+
+  // Check if the root exists as a separate topic
+  const rootNorm = normalizeTopic(extracted.root);
+  const rootExists = allTopics.some(
+    t => t.id !== topic.id && normalizeTopic(t.name) === rootNorm
+  );
+
+  if (rootExists) {
+    return 2; // This is a derived topic
+  }
+
+  return 1; // Root concept but expressed in derived form
+}
+
+/**
+ * Organize topics into proper hierarchy
+ * Identifies root concepts and creates parent-child relationships
+ *
+ * @returns Object containing new relationships and suggested new root topics
+ */
+export async function organizeTopicHierarchy(): Promise<{
+  relationships: { childId: string; parentId: string; reason: string }[];
+  suggestedRoots: { name: string; derivedFrom: string[] }[];
+  updated: number;
+}> {
+  const topics = await getTopicsUncached();
+  const result: {
+    relationships: { childId: string; parentId: string; reason: string }[];
+    suggestedRoots: { name: string; derivedFrom: string[] }[];
+    updated: number;
+  } = {
+    relationships: [],
+    suggestedRoots: [],
+    updated: 0,
+  };
+
+  // Track which topics need root concepts created
+  const missingRoots = new Map<string, StoredTopic[]>();
+
+  // First pass: identify topics without parents that should have them
+  for (const topic of topics) {
+    if (topic.parent_id) continue; // Already has parent
+
+    const bestParent = findBestParentCandidate(topic, topics);
+
+    if (bestParent) {
+      result.relationships.push({
+        childId: topic.id,
+        parentId: bestParent.parent.id,
+        reason: bestParent.reason,
+      });
+    } else {
+      // Check if this topic implies a root that doesn't exist
+      const extracted = extractRootConcept(topic.name);
+
+      if (extracted.pattern !== 'none') {
+        const rootNorm = normalizeTopic(extracted.root);
+        const rootExists = topics.some(
+          t => normalizeTopic(t.name) === rootNorm
+        );
+
+        if (!rootExists) {
+          // Track this missing root
+          const existing = missingRoots.get(rootNorm) || [];
+          existing.push(topic);
+          missingRoots.set(rootNorm, existing);
+        }
+      }
+    }
+  }
+
+  // Suggest creation of missing root topics
+  for (const [rootNorm, derivedTopics] of missingRoots) {
+    if (derivedTopics.length >= 1) {
+      // Capitalize the root concept name properly
+      const rootName = derivedTopics[0].name.split(/\s+/)[0]
+        .replace(/'s$/i, '')
+        .replace(/ian$/i, '')
+        .replace(/ist$/i, '')
+        .replace(/ism$/i, '');
+
+      // Use the extracted root from the first topic for better naming
+      const extracted = extractRootConcept(derivedTopics[0].name);
+
+      result.suggestedRoots.push({
+        name: extracted.root,
+        derivedFrom: derivedTopics.map(t => t.name),
+      });
+    }
+  }
+
+  // Apply the relationships
+  for (const rel of result.relationships) {
+    try {
+      await invoke('update_topic_parent', {
+        topicId: rel.childId,
+        parentId: rel.parentId,
+      });
+      result.updated++;
+    } catch (e) {
+      console.warn('Failed to update topic parent:', e);
+    }
+  }
+
+  // Create suggested root topics and link their children
+  for (const suggested of result.suggestedRoots) {
+    try {
+      const rootId = crypto.randomUUID();
+
+      // Create the root topic
+      await invoke('save_topic', {
+        topic: {
+          id: rootId,
+          name: suggested.name,
+          parent_id: undefined,
+          mastery_level: 0.1, // Start with low mastery
+          status: 'new',
+        },
+      });
+
+      // Link derived topics to this new root
+      for (const childName of suggested.derivedFrom) {
+        const childTopic = topics.find(t => t.name === childName);
+        if (childTopic && !childTopic.parent_id) {
+          await invoke('update_topic_parent', {
+            topicId: childTopic.id,
+            parentId: rootId,
+          });
+          result.updated++;
+
+          result.relationships.push({
+            childId: childTopic.id,
+            parentId: rootId,
+            reason: `auto-created root "${suggested.name}"`,
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to create root topic:', e);
+    }
+  }
+
+  if (result.updated > 0) {
+    invalidateTopicsCache();
+    console.log('Organized topic hierarchy:', result);
+  }
+
+  return result;
+}
+
+/**
+ * Get the full hierarchy path for a topic
+ * Returns array from root to the topic itself
+ */
+export async function getTopicHierarchyPath(topicId: string): Promise<StoredTopic[]> {
+  const topics = await getTopics();
+  const path: StoredTopic[] = [];
+
+  let current = topics.find(t => t.id === topicId);
+  while (current) {
+    path.unshift(current);
+    if (current.parent_id) {
+      current = topics.find(t => t.id === current!.parent_id);
+    } else {
+      break;
+    }
+  }
+
+  return path;
+}
+
+/**
+ * Get all descendants of a topic (children, grandchildren, etc.)
+ */
+export async function getTopicDescendants(topicId: string): Promise<StoredTopic[]> {
+  const topics = await getTopics();
+  const descendants: StoredTopic[] = [];
+
+  const collectDescendants = (parentId: string) => {
+    for (const topic of topics) {
+      if (topic.parent_id === parentId) {
+        descendants.push(topic);
+        collectDescendants(topic.id);
+      }
+    }
+  };
+
+  collectDescendants(topicId);
+  return descendants;
 }
 
 // ============================================================

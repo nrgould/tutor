@@ -5,7 +5,7 @@
   import { emit } from '@tauri-apps/api/event';
   import { getConversations } from '$lib/utils/db';
   import { settingsStore } from '$lib/stores/settings';
-  import { getTopics, cleanupDuplicateTopics } from '$lib/services/memoryService';
+  import { getTopics, cleanupDuplicateTopics, organizeTopicHierarchy } from '$lib/services/memoryService';
   import type { Conversation } from '$lib/types';
 
   const settings = $derived($settingsStore);
@@ -129,6 +129,8 @@
     return pos;
   }
 
+  let organizingHierarchy = $state(false);
+
   async function loadTopics() {
     topicsLoading = true;
     try {
@@ -149,6 +151,20 @@
       topics = [];
     } finally {
       topicsLoading = false;
+    }
+  }
+
+  async function handleOrganizeHierarchy() {
+    organizingHierarchy = true;
+    try {
+      const result = await organizeTopicHierarchy();
+      console.log('Hierarchy organization result:', result);
+      // Reload topics to show updated hierarchy
+      await loadTopics();
+    } catch (e) {
+      console.error('Failed to organize hierarchy:', e);
+    } finally {
+      organizingHierarchy = false;
     }
   }
 
@@ -498,6 +514,27 @@
           {:else}
             <div class="constellation-wrapper">
               <div class="constellation-controls">
+                <button
+                  class="ctrl-btn organize-btn"
+                  onclick={handleOrganizeHierarchy}
+                  onmousedown={(e) => e.stopPropagation()}
+                  title="Auto-organize topic hierarchy"
+                  disabled={organizingHierarchy}
+                >
+                  {#if organizingHierarchy}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
+                      <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                    </svg>
+                  {:else}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="5" r="2"/>
+                      <circle cx="6" cy="19" r="2"/>
+                      <circle cx="18" cy="19" r="2"/>
+                      <path d="M12 7v4M12 11l-4 6M12 11l4 6"/>
+                    </svg>
+                  {/if}
+                </button>
+                <div class="ctrl-divider"></div>
                 <span class="zoom-level">{Math.round(scale * 100)}%</span>
                 <button class="ctrl-btn" onclick={() => { scale = Math.max(0.5, scale - 0.2); }} onmousedown={(e) => e.stopPropagation()} title="Zoom out">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1322,9 +1359,36 @@
     transition: all 0.15s ease;
   }
 
-  .ctrl-btn:hover {
+  .ctrl-btn:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.08);
     color: #fafafa;
+  }
+
+  .ctrl-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .ctrl-btn.organize-btn {
+    width: auto;
+    padding: 0 8px;
+    gap: 4px;
+  }
+
+  .ctrl-divider {
+    width: 1px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.1);
+    margin: 0 4px;
+  }
+
+  .spinning {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 
   .constellation-canvas {
