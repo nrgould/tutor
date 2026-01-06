@@ -334,6 +334,58 @@ export function clearTopicEmbeddingCache(): void {
   topicEmbeddingCache.clear();
 }
 
+/**
+ * Find topics semantically related to the current content.
+ * Uses a high similarity threshold (0.75+) to avoid false connections.
+ * Returns topics sorted by relevance with their similarity scores.
+ */
+export async function findRelatedTopicsForContext(
+  currentContent: string,
+  limit: number = 3,
+  minSimilarity: number = 0.75
+): Promise<{ topic: StoredTopic; similarity: number }[]> {
+  try {
+    // Get all topics
+    const topics = await getTopics();
+    if (topics.length === 0) return [];
+
+    // Generate embedding for current content
+    const contentEmbedding = await generateEmbedding(currentContent);
+
+    const results: { topic: StoredTopic; similarity: number }[] = [];
+
+    for (const topic of topics) {
+      // Skip suggested topics - only match against actually studied topics
+      if (topic.status === 'suggested') continue;
+
+      try {
+        // Get or generate topic embedding
+        let topicEmbedding = topicEmbeddingCache.get(topic.name);
+        if (!topicEmbedding) {
+          topicEmbedding = await generateEmbedding(topic.name);
+          topicEmbeddingCache.set(topic.name, topicEmbedding);
+        }
+
+        const similarity = cosineSimilarity(contentEmbedding, topicEmbedding);
+
+        // Only include if above high threshold
+        if (similarity >= minSimilarity) {
+          results.push({ topic, similarity });
+        }
+      } catch {
+        // Skip on embedding error
+      }
+    }
+
+    // Sort by similarity descending and limit results
+    results.sort((a, b) => b.similarity - a.similarity);
+    return results.slice(0, limit);
+  } catch (error) {
+    console.warn('Could not find related topics:', error);
+    return [];
+  }
+}
+
 // Save a memory with its embedding
 export async function saveMemoryWithEmbedding(
   content: string,
@@ -647,6 +699,24 @@ export async function buildMemoryContext(currentQuery: string): Promise<string> 
     }
   } catch {
     // Ignore
+  }
+
+  // Find semantically related past topics (high threshold to avoid false connections)
+  // Only suggest connections when topics are genuinely related (>75% similarity)
+  try {
+    const relatedTopics = await findRelatedTopicsForContext(currentQuery, 3, 0.75);
+    if (relatedTopics.length > 0) {
+      parts.push('\nThis may connect to topics they\'ve studied before:');
+      parts.push(
+        ...relatedTopics.map(
+          ({ topic, similarity }) =>
+            `- ${topic.name} (${Math.round(topic.mastery_level * 100)}% mastery) - ${Math.round(similarity * 100)}% relevant`
+        )
+      );
+      parts.push('(Only mention these connections if genuinely helpful - don\'t force unrelated topics together)');
+    }
+  } catch {
+    // Ignore - embeddings might not be available
   }
 
   return parts.join('\n');
