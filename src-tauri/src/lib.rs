@@ -168,6 +168,13 @@ pub fn run() {
             commands::save_fact,
             commands::get_facts,
             commands::reset_all_learning_data,
+            // Review item commands
+            commands::save_review_item,
+            commands::get_review_items,
+            commands::get_due_review_items,
+            commands::update_review_item_schedule,
+            commands::delete_review_item,
+            commands::get_review_stats,
             // Recording commands
             commands::start_recording,
             commands::stop_recording,

@@ -5,8 +5,10 @@ import {
   convertToMemoryObjects,
   convertToTopicObjects,
   generateTopicSuggestions,
+  extractReviewItems,
   type ExtractedTopicWithParent,
   type SuggestedTopic,
+  type ExtractedReviewItem,
 } from '$lib/utils/memory';
 import {
   topicsCache,
@@ -619,6 +621,17 @@ export async function processConversationMemories(
       } catch (e) {
         console.warn('Failed to auto-organize topic hierarchy:', e);
       }
+    }
+
+    // Extract and save review items for active learning
+    try {
+      const reviewItems = await extractReviewItems(messages);
+      if (reviewItems.length > 0) {
+        await saveReviewItems(reviewItems, conversationId, newTopicIds, topicNameToId);
+        console.log('Saved review items:', reviewItems.length);
+      }
+    } catch (e) {
+      console.warn('Failed to extract/save review items:', e);
     }
   } catch (error) {
     console.error('Failed to process conversation memories:', error);
@@ -1586,4 +1599,141 @@ export async function resetAllLearningData(): Promise<void> {
   invalidateTopicsCache();
   invalidateMemoriesCache();
   clearTopicEmbeddingCache();
+}
+
+// ============================================================
+// REVIEW ITEMS FOR ACTIVE LEARNING
+// ============================================================
+
+export interface ReviewItem {
+  id: string;
+  topic_id?: string;
+  question_type: 'flashcard' | 'multiple_choice' | 'true_false';
+  question: string;
+  answer: string;
+  options?: string;
+  source_conversation_id?: string;
+  ease_factor: number;
+  interval: number;
+  repetitions: number;
+  next_review?: string;
+  last_reviewed?: string;
+  created_at?: string;
+}
+
+export interface ReviewStats {
+  total: number;
+  due: number;
+  mastered: number;
+}
+
+/**
+ * Save extracted review items to the database
+ */
+async function saveReviewItems(
+  items: ExtractedReviewItem[],
+  conversationId: string,
+  newTopicIds: Map<string, string>,
+  topicNameToId: Map<string, string>
+): Promise<void> {
+  for (const item of items) {
+    const id = crypto.randomUUID();
+
+    // Try to resolve topic name to ID
+    let topicId: string | undefined;
+    if (item.topic) {
+      const normalized = normalizeTopic(item.topic);
+      topicId = topicNameToId.get(normalized) || newTopicIds.get(normalized);
+    }
+
+    await invoke('save_review_item', {
+      item: {
+        id,
+        topic_id: topicId,
+        question_type: item.question_type,
+        question: item.question,
+        answer: item.answer,
+        options: item.options ? JSON.stringify(item.options) : undefined,
+        source_conversation_id: conversationId,
+      },
+    }).catch((e) => console.warn('Failed to save review item:', e));
+  }
+}
+
+/**
+ * Get all review items
+ */
+export async function getReviewItems(): Promise<ReviewItem[]> {
+  return invoke<ReviewItem[]>('get_review_items');
+}
+
+/**
+ * Get review items that are due for review
+ */
+export async function getDueReviewItems(): Promise<ReviewItem[]> {
+  return invoke<ReviewItem[]>('get_due_review_items');
+}
+
+/**
+ * Get review statistics
+ */
+export async function getReviewStats(): Promise<ReviewStats> {
+  return invoke<ReviewStats>('get_review_stats');
+}
+
+/**
+ * Update a review item's schedule after answering (SM-2 algorithm)
+ * @param id - Review item ID
+ * @param quality - Quality of response (0-5, where 0-2 = fail, 3-5 = pass)
+ */
+export async function updateReviewItemSchedule(
+  id: string,
+  quality: number
+): Promise<void> {
+  // Get current item data
+  const items = await getReviewItems();
+  const item = items.find(i => i.id === id);
+  if (!item) return;
+
+  let { ease_factor, interval, repetitions } = item;
+
+  // SM-2 algorithm implementation
+  if (quality < 3) {
+    // Failed - reset repetitions
+    repetitions = 0;
+    interval = 1;
+  } else {
+    // Passed
+    if (repetitions === 0) {
+      interval = 1;
+    } else if (repetitions === 1) {
+      interval = 6;
+    } else {
+      interval = Math.round(interval * ease_factor);
+    }
+    repetitions += 1;
+  }
+
+  // Update ease factor
+  ease_factor = Math.max(1.3, ease_factor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)));
+
+  // Calculate next review date
+  const nextReview = new Date();
+  nextReview.setDate(nextReview.getDate() + interval);
+  const nextReviewStr = nextReview.toISOString();
+
+  await invoke('update_review_item_schedule', {
+    id,
+    ease_factor,
+    interval,
+    repetitions,
+    next_review: nextReviewStr,
+  });
+}
+
+/**
+ * Delete a review item
+ */
+export async function deleteReviewItem(id: string): Promise<void> {
+  await invoke('delete_review_item', { id });
 }

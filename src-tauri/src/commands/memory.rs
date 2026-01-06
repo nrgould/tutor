@@ -271,7 +271,7 @@ pub async fn get_facts() -> Result<Vec<Fact>, String> {
     })
 }
 
-// Reset all learning data (topics, memories, facts, mastery history)
+// Reset all learning data (topics, memories, facts, mastery history, review items)
 #[tauri::command]
 pub async fn reset_all_learning_data() -> Result<(), String> {
     with_connection(|conn| {
@@ -283,6 +283,189 @@ pub async fn reset_all_learning_data() -> Result<(), String> {
         conn.execute("DELETE FROM memories", [])?;
         // Delete all facts
         conn.execute("DELETE FROM facts", [])?;
+        // Delete all review items
+        conn.execute("DELETE FROM review_items", [])?;
         Ok(())
     })
+}
+
+// Review item types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewItem {
+    pub id: String,
+    pub topic_id: Option<String>,
+    pub question_type: String, // 'flashcard', 'multiple_choice', 'true_false'
+    pub question: String,
+    pub answer: String,
+    pub options: Option<String>, // JSON array for multiple choice
+    pub source_conversation_id: Option<String>,
+    pub ease_factor: f64,
+    pub interval: i32,
+    pub repetitions: i32,
+    pub next_review: Option<String>,
+    pub last_reviewed: Option<String>,
+    pub created_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewItemInput {
+    pub id: String,
+    pub topic_id: Option<String>,
+    pub question_type: String,
+    pub question: String,
+    pub answer: String,
+    pub options: Option<String>,
+    pub source_conversation_id: Option<String>,
+}
+
+// Review item commands
+#[tauri::command]
+pub async fn save_review_item(item: ReviewItemInput) -> Result<(), String> {
+    with_connection(|conn| {
+        conn.execute(
+            "INSERT INTO review_items (id, topic_id, question_type, question, answer, options, source_conversation_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT(id) DO UPDATE SET
+                question = excluded.question,
+                answer = excluded.answer,
+                options = excluded.options",
+            params![
+                item.id,
+                item.topic_id,
+                item.question_type,
+                item.question,
+                item.answer,
+                item.options,
+                item.source_conversation_id,
+            ],
+        )?;
+        Ok(())
+    })
+}
+
+#[tauri::command]
+pub async fn get_review_items() -> Result<Vec<ReviewItem>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, topic_id, question_type, question, answer, options,
+                    source_conversation_id, ease_factor, interval, repetitions,
+                    next_review, last_reviewed, created_at
+             FROM review_items
+             ORDER BY next_review ASC",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            Ok(ReviewItem {
+                id: row.get(0)?,
+                topic_id: row.get(1)?,
+                question_type: row.get(2)?,
+                question: row.get(3)?,
+                answer: row.get(4)?,
+                options: row.get(5)?,
+                source_conversation_id: row.get(6)?,
+                ease_factor: row.get(7)?,
+                interval: row.get(8)?,
+                repetitions: row.get(9)?,
+                next_review: row.get(10)?,
+                last_reviewed: row.get(11)?,
+                created_at: row.get(12)?,
+            })
+        })?;
+
+        rows.collect()
+    })
+}
+
+#[tauri::command]
+pub async fn get_due_review_items() -> Result<Vec<ReviewItem>, String> {
+    with_connection(|conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, topic_id, question_type, question, answer, options,
+                    source_conversation_id, ease_factor, interval, repetitions,
+                    next_review, last_reviewed, created_at
+             FROM review_items
+             WHERE next_review <= datetime('now')
+             ORDER BY next_review ASC",
+        )?;
+
+        let rows = stmt.query_map([], |row| {
+            Ok(ReviewItem {
+                id: row.get(0)?,
+                topic_id: row.get(1)?,
+                question_type: row.get(2)?,
+                question: row.get(3)?,
+                answer: row.get(4)?,
+                options: row.get(5)?,
+                source_conversation_id: row.get(6)?,
+                ease_factor: row.get(7)?,
+                interval: row.get(8)?,
+                repetitions: row.get(9)?,
+                next_review: row.get(10)?,
+                last_reviewed: row.get(11)?,
+                created_at: row.get(12)?,
+            })
+        })?;
+
+        rows.collect()
+    })
+}
+
+#[tauri::command]
+pub async fn update_review_item_schedule(
+    id: String,
+    ease_factor: f64,
+    interval: i32,
+    repetitions: i32,
+    next_review: String,
+) -> Result<(), String> {
+    with_connection(|conn| {
+        conn.execute(
+            "UPDATE review_items
+             SET ease_factor = ?1, interval = ?2, repetitions = ?3,
+                 next_review = ?4, last_reviewed = datetime('now')
+             WHERE id = ?5",
+            params![ease_factor, interval, repetitions, next_review, id],
+        )?;
+        Ok(())
+    })
+}
+
+#[tauri::command]
+pub async fn delete_review_item(id: String) -> Result<(), String> {
+    with_connection(|conn| {
+        conn.execute("DELETE FROM review_items WHERE id = ?1", params![id])?;
+        Ok(())
+    })
+}
+
+#[tauri::command]
+pub async fn get_review_stats() -> Result<ReviewStats, String> {
+    with_connection(|conn| {
+        let total: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM review_items",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let due: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM review_items WHERE next_review <= datetime('now')",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let mastered: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM review_items WHERE interval >= 21",
+            [],
+            |row| row.get(0),
+        )?;
+
+        Ok(ReviewStats { total, due, mastered })
+    })
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewStats {
+    pub total: i32,
+    pub due: i32,
+    pub mastered: i32,
 }

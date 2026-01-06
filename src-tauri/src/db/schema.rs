@@ -82,6 +82,30 @@ pub fn init_database(conn: &Connection) -> rusqlite::Result<()> {
             FOREIGN KEY (source_conversation_id) REFERENCES conversations(id)
         );
 
+        -- Review items table (flashcards, multiple choice, true/false)
+        CREATE TABLE IF NOT EXISTS review_items (
+            id TEXT PRIMARY KEY,
+            topic_id TEXT,
+            question_type TEXT NOT NULL CHECK (question_type IN ('flashcard', 'multiple_choice', 'true_false')),
+            question TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            options TEXT,
+            source_conversation_id TEXT,
+            ease_factor REAL DEFAULT 2.5,
+            interval INTEGER DEFAULT 0,
+            repetitions INTEGER DEFAULT 0,
+            next_review TEXT DEFAULT (datetime('now')),
+            last_reviewed TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (topic_id) REFERENCES topics(id),
+            FOREIGN KEY (source_conversation_id) REFERENCES conversations(id)
+        );
+
+        -- Create indexes for review items
+        CREATE INDEX IF NOT EXISTS idx_review_items_topic_id ON review_items(topic_id);
+        CREATE INDEX IF NOT EXISTS idx_review_items_next_review ON review_items(next_review);
+        CREATE INDEX IF NOT EXISTS idx_review_items_question_type ON review_items(question_type);
+
         -- Settings table
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
@@ -181,7 +205,8 @@ pub fn init_database(conn: &Connection) -> rusqlite::Result<()> {
             ('hotkey_screenshot', 'Ctrl+Shift+S'),
             ('theme', 'system'),
             ('overlay_position', '{"x": 100, "y": 100}'),
-            ('overlay_size', '{"width": 400, "height": 500}');
+            ('overlay_size', '{"width": 400, "height": 500}'),
+            ('socratic_mode', 'false');
 
         -- Create indexes for better query performance
         CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);

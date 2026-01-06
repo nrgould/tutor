@@ -319,7 +319,8 @@
       }));
 
       const context = {
-        screenHistory: getScreenHistorySummary() || undefined
+        screenHistory: getScreenHistorySummary() || undefined,
+        socraticMode: settings.socratic_mode
       };
 
       for await (const chunk of streamChat(apiMessages, context)) {
@@ -543,6 +544,12 @@
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }
+
+  async function toggleSocraticMode() {
+    const newValue = !settings.socratic_mode;
+    await settingsStore.save('socratic_mode', newValue.toString());
+    toast.info(newValue ? 'Socratic mode on - I\'ll guide you with questions' : 'Socratic mode off - Direct explanations');
+  }
 </script>
 
 
@@ -593,6 +600,19 @@
         {#if latestScreenshot}
           <span class="screen-badge">Screen active</span>
         {/if}
+        <button
+          class="mode-toggle"
+          class:active={settings.socratic_mode}
+          onclick={toggleSocraticMode}
+          title={settings.socratic_mode ? 'Socratic mode: Guiding with questions' : 'Direct mode: Clear explanations'}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+            <circle cx="12" cy="17" r="0.5" fill="currentColor"/>
+          </svg>
+          <span>{settings.socratic_mode ? 'Socratic' : 'Direct'}</span>
+        </button>
       </div>
 
       <div class="bar-actions">
@@ -839,6 +859,36 @@
     font-size: 12px;
     font-weight: 500;
     color: #22c55e;
+  }
+
+  .mode-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .mode-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .mode-toggle.active {
+    background: rgba(147, 51, 234, 0.15);
+    border-color: rgba(147, 51, 234, 0.3);
+    color: #a855f7;
+  }
+
+  .mode-toggle.active:hover {
+    background: rgba(147, 51, 234, 0.25);
   }
 
   .bar-actions {

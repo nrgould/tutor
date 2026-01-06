@@ -340,3 +340,118 @@ export async function generateTopicSuggestions(
     return [];
   }
 }
+
+// Review item extraction for active learning
+export interface ExtractedReviewItem {
+  question_type: 'flashcard' | 'multiple_choice' | 'true_false';
+  question: string;
+  answer: string;
+  options?: string[]; // For multiple choice
+  topic?: string;
+}
+
+const REVIEW_EXTRACTION_PROMPT = `Analyze this tutoring conversation and create 3-5 review items to help the learner remember key concepts. Generate a mix of question types.
+
+Return ONLY valid JSON with this exact structure (no markdown, no explanation):
+{
+  "review_items": [
+    {
+      "question_type": "flashcard",
+      "question": "What is X?",
+      "answer": "X is...",
+      "topic": "Topic Name"
+    },
+    {
+      "question_type": "multiple_choice",
+      "question": "Which of the following is true about X?",
+      "answer": "B",
+      "options": ["A) Wrong answer", "B) Correct answer", "C) Wrong answer", "D) Wrong answer"],
+      "topic": "Topic Name"
+    },
+    {
+      "question_type": "true_false",
+      "question": "X is Y. (True or False)",
+      "answer": "true",
+      "topic": "Topic Name"
+    }
+  ]
+}
+
+Rules:
+- Create questions that test understanding, not just recall
+- For multiple_choice: answer should be just the letter (A, B, C, or D)
+- For true_false: answer should be "true" or "false" (lowercase)
+- For flashcard: answer should be a clear, concise explanation
+- Focus on the main concepts discussed
+- Make questions clear and unambiguous
+- If the conversation is too short or lacks educational content, return fewer items or empty array`;
+
+export async function extractReviewItems(
+  messages: Message[]
+): Promise<ExtractedReviewItem[]> {
+  const settings = get(settingsStore);
+
+  if (!settings.anthropic_api_key) {
+    console.log('No API key configured - skipping review item extraction');
+    return [];
+  }
+
+  if (messages.length < 2) {
+    console.log('Not enough messages for review item extraction');
+    return [];
+  }
+
+  // Format conversation for analysis
+  const conversationText = messages
+    .map((m) => `${m.role === 'user' ? 'Student' : 'Tutor'}: ${m.content}`)
+    .join('\n\n');
+
+  console.log('Extracting review items from conversation...');
+
+  try {
+    const response = await fetch(CLAUDE_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': settings.anthropic_api_key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2048,
+        system: REVIEW_EXTRACTION_PROMPT,
+        messages: [
+          {
+            role: 'user',
+            content: `Create review items from this conversation:\n\n${conversationText}`,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Review extraction API failed:', response.status, errorText);
+      return [];
+    }
+
+    const data = await response.json();
+    const content = data.content[0]?.text;
+
+    if (!content) {
+      console.log('No content in API response');
+      return [];
+    }
+
+    console.log('Raw API response for review extraction:', content.substring(0, 200));
+
+    // Parse JSON response
+    const parsed = JSON.parse(content) as { review_items: ExtractedReviewItem[] };
+    console.log('Successfully extracted review items:', parsed.review_items?.length || 0);
+    return parsed.review_items || [];
+  } catch (error) {
+    console.error('Failed to extract review items:', error);
+    return [];
+  }
+}

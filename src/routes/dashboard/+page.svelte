@@ -5,7 +5,7 @@
   import { emit } from '@tauri-apps/api/event';
   import { getConversations } from '$lib/utils/db';
   import { settingsStore } from '$lib/stores/settings';
-  import { getTopics, cleanupDuplicateTopics, organizeTopicHierarchy, resetAllLearningData } from '$lib/services/memoryService';
+  import { getTopics, cleanupDuplicateTopics, organizeTopicHierarchy, resetAllLearningData, getDueReviewItems, getReviewStats, updateReviewItemSchedule, type ReviewItem, type ReviewStats } from '$lib/services/memoryService';
   import type { Conversation } from '$lib/types';
 
   const settings = $derived($settingsStore);
@@ -19,8 +19,16 @@
   let showApiKey = $state(false);
   let saveSuccess = $state(false);
 
-  let activeSection = $state<'overview' | 'sessions' | 'mind' | 'settings'>('overview');
+  let activeSection = $state<'overview' | 'sessions' | 'review' | 'mind' | 'settings'>('overview');
   let mindTab = $state<'constellation' | 'profile'>('constellation');
+
+  // Review state
+  let reviewItems = $state<ReviewItem[]>([]);
+  let reviewStats = $state<ReviewStats>({ total: 0, due: 0, mastered: 0 });
+  let currentReviewIndex = $state(0);
+  let showAnswer = $state(false);
+  let selectedAnswer = $state<string | null>(null);
+  let reviewLoading = $state(true);
 
   // Topic data from database
   interface TopicNode {
@@ -239,8 +247,54 @@
 
   onMount(async () => {
     await settingsStore.load();
-    await Promise.all([loadSessions(), loadTopics()]);
+    await Promise.all([loadSessions(), loadTopics(), loadReviewData()]);
   });
+
+  async function loadReviewData() {
+    try {
+      reviewLoading = true;
+      const [items, stats] = await Promise.all([
+        getDueReviewItems(),
+        getReviewStats()
+      ]);
+      reviewItems = items;
+      reviewStats = stats;
+    } catch (error) {
+      console.error('Failed to load review data:', error);
+    } finally {
+      reviewLoading = false;
+    }
+  }
+
+  async function handleReviewAnswer(quality: number) {
+    const currentItem = reviewItems[currentReviewIndex];
+    if (!currentItem) return;
+
+    await updateReviewItemSchedule(currentItem.id, quality);
+
+    // Move to next item
+    if (currentReviewIndex < reviewItems.length - 1) {
+      currentReviewIndex++;
+      showAnswer = false;
+      selectedAnswer = null;
+    } else {
+      // Reload to get fresh items
+      await loadReviewData();
+      currentReviewIndex = 0;
+      showAnswer = false;
+      selectedAnswer = null;
+    }
+  }
+
+  function handleMCAnswer(answer: string) {
+    selectedAnswer = answer;
+    showAnswer = true;
+  }
+
+  function handleTFAnswer(answer: string) {
+    selectedAnswer = answer;
+    showAnswer = true;
+  }
 
   async function loadSessions() {
     try {
@@ -380,6 +434,17 @@
         onclick={() => activeSection = 'sessions'}
         onmousedown={(e) => e.stopPropagation()}
       >Sessions</button>
+      <button
+        class="nav-item"
+        class:active={activeSection === 'review'}
+        onclick={() => activeSection = 'review'}
+        onmousedown={(e) => e.stopPropagation()}
+      >
+        Review
+        {#if reviewStats.due > 0}
+          <span class="badge">{reviewStats.due}</span>
+        {/if}
+      </button>
       <button
         class="nav-item"
         class:active={activeSection === 'mind'}
@@ -741,6 +806,142 @@
                 </div>
               {/each}
             </div>
+          </div>
+        {/if}
+      </div>
+
+    {:else if activeSection === 'review'}
+      <div class="view review-view">
+        <div class="section-header">
+          <h2>Review</h2>
+          <div class="review-stats-mini">
+            <span class="stat">{reviewStats.due} due</span>
+            <span class="stat">{reviewStats.total} total</span>
+            <span class="stat">{reviewStats.mastered} mastered</span>
+          </div>
+        </div>
+
+        {#if reviewLoading}
+          <div class="loading-state">Loading review items...</div>
+        {:else if reviewItems.length === 0}
+          <div class="empty-state">
+            <div class="empty-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M9 12l2 2 4-4"/>
+                <circle cx="12" cy="12" r="10"/>
+              </svg>
+            </div>
+            <p>All caught up!</p>
+            <span class="empty-hint">Study more to generate review items</span>
+          </div>
+        {:else}
+          {@const currentItem = reviewItems[currentReviewIndex]}
+          <div class="review-card">
+            <div class="review-progress">
+              {currentReviewIndex + 1} / {reviewItems.length}
+            </div>
+
+            <div class="review-type-badge {currentItem.question_type}">
+              {currentItem.question_type === 'flashcard' ? 'Flashcard' :
+               currentItem.question_type === 'multiple_choice' ? 'Multiple Choice' : 'True/False'}
+            </div>
+
+            <div class="review-question">
+              {currentItem.question}
+            </div>
+
+            {#if currentItem.question_type === 'flashcard'}
+              {#if !showAnswer}
+                <button class="reveal-btn" onclick={() => showAnswer = true}>
+                  Reveal Answer
+                </button>
+              {:else}
+                <div class="review-answer">
+                  {currentItem.answer}
+                </div>
+                <div class="review-rating">
+                  <p>How well did you know this?</p>
+                  <div class="rating-buttons">
+                    <button class="rating-btn fail" onclick={() => handleReviewAnswer(1)}>
+                      Didn't know
+                    </button>
+                    <button class="rating-btn hard" onclick={() => handleReviewAnswer(3)}>
+                      Hard
+                    </button>
+                    <button class="rating-btn good" onclick={() => handleReviewAnswer(4)}>
+                      Good
+                    </button>
+                    <button class="rating-btn easy" onclick={() => handleReviewAnswer(5)}>
+                      Easy
+                    </button>
+                  </div>
+                </div>
+              {/if}
+
+            {:else if currentItem.question_type === 'multiple_choice'}
+              {@const options = currentItem.options ? JSON.parse(currentItem.options) : []}
+              <div class="mc-options">
+                {#each options as option, i}
+                  {@const letter = String.fromCharCode(65 + i)}
+                  {@const isCorrect = currentItem.answer === letter}
+                  {@const isSelected = selectedAnswer === letter}
+                  <button
+                    class="mc-option"
+                    class:selected={isSelected}
+                    class:correct={showAnswer && isCorrect}
+                    class:incorrect={showAnswer && isSelected && !isCorrect}
+                    disabled={showAnswer}
+                    onclick={() => handleMCAnswer(letter)}
+                  >
+                    {option}
+                  </button>
+                {/each}
+              </div>
+              {#if showAnswer}
+                <div class="review-rating">
+                  <button
+                    class="next-btn"
+                    onclick={() => handleReviewAnswer(selectedAnswer === currentItem.answer ? 4 : 2)}
+                  >
+                    Next Question
+                  </button>
+                </div>
+              {/if}
+
+            {:else if currentItem.question_type === 'true_false'}
+              <div class="tf-options">
+                <button
+                  class="tf-option"
+                  class:selected={selectedAnswer === 'true'}
+                  class:correct={showAnswer && currentItem.answer === 'true'}
+                  class:incorrect={showAnswer && selectedAnswer === 'true' && currentItem.answer !== 'true'}
+                  disabled={showAnswer}
+                  onclick={() => handleTFAnswer('true')}
+                >
+                  True
+                </button>
+                <button
+                  class="tf-option"
+                  class:selected={selectedAnswer === 'false'}
+                  class:correct={showAnswer && currentItem.answer === 'false'}
+                  class:incorrect={showAnswer && selectedAnswer === 'false' && currentItem.answer !== 'false'}
+                  disabled={showAnswer}
+                  onclick={() => handleTFAnswer('false')}
+                >
+                  False
+                </button>
+              </div>
+              {#if showAnswer}
+                <div class="review-rating">
+                  <button
+                    class="next-btn"
+                    onclick={() => handleReviewAnswer(selectedAnswer === currentItem.answer ? 4 : 2)}
+                  >
+                    Next Question
+                  </button>
+                </div>
+              {/if}
+            {/if}
           </div>
         {/if}
       </div>
@@ -1705,5 +1906,268 @@
   .radar-value {
     font-size: 10px;
     color: rgba(250, 250, 250, 0.45);
+  }
+
+  /* Review Tab Styles */
+  .nav-item .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: 6px;
+    background: #ef4444;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+  }
+
+  .review-stats-mini {
+    display: flex;
+    gap: 16px;
+  }
+
+  .review-stats-mini .stat {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .review-card {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 32px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+  }
+
+  .review-progress {
+    text-align: center;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 16px;
+  }
+
+  .review-type-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 20px;
+  }
+
+  .review-type-badge.flashcard {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+  }
+
+  .review-type-badge.multiple_choice {
+    background: rgba(168, 85, 247, 0.15);
+    color: #a855f7;
+  }
+
+  .review-type-badge.true_false {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+  }
+
+  .review-question {
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.95);
+    margin-bottom: 24px;
+  }
+
+  .reveal-btn {
+    width: 100%;
+    padding: 16px 24px;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 12px;
+    color: #3b82f6;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .reveal-btn:hover {
+    background: rgba(59, 130, 246, 0.25);
+  }
+
+  .review-answer {
+    padding: 20px;
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    border-radius: 12px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+
+  .review-rating {
+    text-align: center;
+  }
+
+  .review-rating p {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 12px;
+  }
+
+  .rating-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .rating-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+  }
+
+  .rating-btn.fail {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+
+  .rating-btn.fail:hover {
+    background: rgba(239, 68, 68, 0.2);
+  }
+
+  .rating-btn.hard {
+    background: rgba(249, 115, 22, 0.12);
+    color: #f97316;
+    border-color: rgba(249, 115, 22, 0.2);
+  }
+
+  .rating-btn.hard:hover {
+    background: rgba(249, 115, 22, 0.2);
+  }
+
+  .rating-btn.good {
+    background: rgba(34, 197, 94, 0.12);
+    color: #22c55e;
+    border-color: rgba(34, 197, 94, 0.2);
+  }
+
+  .rating-btn.good:hover {
+    background: rgba(34, 197, 94, 0.2);
+  }
+
+  .rating-btn.easy {
+    background: rgba(59, 130, 246, 0.12);
+    color: #3b82f6;
+    border-color: rgba(59, 130, 246, 0.2);
+  }
+
+  .rating-btn.easy:hover {
+    background: rgba(59, 130, 246, 0.2);
+  }
+
+  .mc-options, .tf-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .tf-options {
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .mc-option, .tf-option {
+    padding: 14px 20px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .tf-option {
+    flex: 1;
+    text-align: center;
+  }
+
+  .mc-option:hover:not(:disabled), .tf-option:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .mc-option.selected, .tf-option.selected {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.4);
+  }
+
+  .mc-option.correct, .tf-option.correct {
+    background: rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.5);
+    color: #22c55e;
+  }
+
+  .mc-option.incorrect, .tf-option.incorrect {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #ef4444;
+  }
+
+  .next-btn {
+    padding: 12px 32px;
+    background: #3b82f6;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+
+  .next-btn:hover {
+    background: #2563eb;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+  }
+
+  .empty-icon {
+    color: rgba(255, 255, 255, 0.2);
+    margin-bottom: 16px;
+  }
+
+  .empty-state p {
+    font-size: 18px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 8px;
+  }
+
+  .empty-hint {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  .loading-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: rgba(255, 255, 255, 0.5);
   }
 </style>

@@ -84,6 +84,7 @@ export interface Settings {
   overlay_position: { x: number; y: number };
   overlay_size: { width: number; height: number };
   proactive_nudges: boolean;
+  socratic_mode: boolean;
 }
 
 // Claude API types
@@ -101,6 +102,7 @@ export interface TutorContext {
   currentTopic?: string;
   masteryLevel?: number;
   screenHistory?: string; // Recent screen observations with timestamps
+  socraticMode?: boolean; // Guide with questions instead of direct answers
 }
 
 // Chat state
