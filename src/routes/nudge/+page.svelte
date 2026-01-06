@@ -18,7 +18,6 @@
   };
 
   onMount(() => {
-    // Read nudge data from URL params
     const params = $page.url.searchParams;
     message = params.get('message') || '';
     type = params.get('type') || 'tip';
@@ -26,40 +25,40 @@
     mounted = true;
 
     // Auto-dismiss after 25 seconds
-    setTimeout(() => {
-      closeWindow();
-    }, 25000);
+    const timer = setTimeout(closeWindow, 25000);
+    return () => clearTimeout(timer);
   });
 
-  async function handleClick() {
+  async function handleToastClick() {
+    console.log('[Nudge] Toast clicked');
     if (aiMessage) {
       await emit('nudge-clicked', { aiMessage });
     }
     closeWindow();
   }
 
-  async function handleDismiss(e: MouseEvent) {
+  function handleDismissClick(e: Event) {
+    console.log('[Nudge] Dismiss clicked');
+    e.preventDefault();
     e.stopPropagation();
     closeWindow();
   }
 
   function closeWindow() {
-    const window = getCurrentWindow();
-    window.close();
+    console.log('[Nudge] Closing window');
+    getCurrentWindow().close();
   }
 </script>
 
+<svelte:window on:keydown={(e) => e.key === 'Escape' && closeWindow()} />
+
 {#if mounted && message}
-  <div
-    class="nudge-toast"
-    role="button"
-    tabindex="0"
-    onclick={handleClick}
-    onkeydown={(e) => e.key === 'Enter' && handleClick()}
-  >
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="nudge-toast" on:click={handleToastClick}>
     <div class="nudge-header">
       <span class="nudge-label">{typeLabels[type] || 'Eigen'}</span>
-      <button class="nudge-close" onclick={handleDismiss} aria-label="Dismiss">
+      <button type="button" class="nudge-close" on:click={handleDismissClick}>
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <path d="M18 6L6 18M6 6l12 12"/>
         </svg>
@@ -90,6 +89,8 @@
     border-radius: 12px;
     cursor: pointer;
     font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   .nudge-header {
@@ -111,7 +112,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 4px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
     background: transparent;
     border: none;
     color: rgba(250, 250, 250, 0.3);
@@ -121,6 +124,7 @@
 
   .nudge-close:hover {
     color: rgba(250, 250, 250, 0.6);
+    background: rgba(255, 255, 255, 0.1);
   }
 
   .nudge-message {

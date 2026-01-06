@@ -102,7 +102,6 @@ function createNudgeStore() {
           decorations: false,
           transparent: false,
           skipTaskbar: true,
-          focus: false,
         });
 
         nudgeWindow.once('tauri://destroyed', () => {
