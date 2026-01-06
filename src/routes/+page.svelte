@@ -78,8 +78,8 @@
     });
 
     // Listen for nudge clicks from nudge window
-    const unlistenNudge = listen<{ aiMessage: string }>('nudge-clicked', async (event) => {
-      await handleNudgeClick(event.payload.aiMessage);
+    const unlistenNudge = listen<{ aiMessage: string; suggestions?: string[] }>('nudge-clicked', async (event) => {
+      await handleNudgeClick(event.payload.aiMessage, event.payload.suggestions || []);
     });
 
     return () => {
@@ -189,10 +189,12 @@
         screenContextHistory = [...screenContextHistory, newEntry].slice(-MAX_CONTEXT_HISTORY);
         console.log('[Screen context]', analysis);
 
-        // Try to generate a proactive nudge
-        const previousContexts = screenContextHistory.slice(0, -1).map(e => e.context);
-        tryShowNudge(analysis, latestScreenshot || undefined, previousContexts)
-          .catch(err => console.error('[Nudge] Error:', err));
+        // Try to generate a proactive nudge (only when not in conversation)
+        if (!showChat) {
+          const previousContexts = screenContextHistory.slice(0, -1).map(e => e.context);
+          tryShowNudge(analysis, latestScreenshot || undefined, previousContexts)
+            .catch(err => console.error('[Nudge] Error:', err));
+        }
       }
     } catch (error) {
       console.error('Batch analysis failed:', error);
@@ -388,7 +390,7 @@
     focusInput();
   }
 
-  async function handleNudgeClick(aiMessage: string) {
+  async function handleNudgeClick(aiMessage: string, nudgeSuggestions: string[] = []) {
     // Create a new conversation if needed
     if (!currentConversationId) {
       try {
@@ -407,6 +409,9 @@
       content: aiMessage,
     };
     messages = [assistantMessage];
+
+    // Set quick reply suggestions
+    suggestions = nudgeSuggestions;
 
     // Save the message
     if (currentConversationId) {

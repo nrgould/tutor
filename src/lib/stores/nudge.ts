@@ -6,6 +6,7 @@ export interface Nudge {
   message: string;
   type: 'tip' | 'question' | 'resource' | 'funfact' | 'check-in';
   aiMessage: string; // The full message to show in chat when clicked
+  suggestions: string[]; // Quick reply suggestions
   duration: number;
   createdAt: number;
 }
@@ -33,7 +34,7 @@ function createNudgeStore() {
   return {
     subscribe,
 
-    async show(message: string, aiMessage: string, type: Nudge['type'] = 'tip') {
+    async show(message: string, aiMessage: string, type: Nudge['type'] = 'tip', suggestions: string[] = []) {
       // Check if nudges are enabled in settings
       const settings = get(settingsStore);
       if (settings.proactive_nudges === false) {
@@ -60,6 +61,7 @@ function createNudgeStore() {
         message,
         type,
         aiMessage,
+        suggestions,
         duration: NUDGE_DURATION_MS,
         createdAt: now,
       };
@@ -88,6 +90,7 @@ function createNudgeStore() {
           message,
           type,
           aiMessage,
+          suggestions: JSON.stringify(suggestions),
         });
 
         const nudgeWindow = new WebviewWindow(currentWindowLabel, {

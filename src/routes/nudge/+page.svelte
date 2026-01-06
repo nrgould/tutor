@@ -7,6 +7,7 @@
   let message = $state('');
   let type = $state('tip');
   let aiMessage = $state('');
+  let suggestions = $state<string[]>([]);
   let mounted = $state(false);
 
   const typeLabels: Record<string, string> = {
@@ -22,6 +23,11 @@
     message = params.get('message') || '';
     type = params.get('type') || 'tip';
     aiMessage = params.get('aiMessage') || '';
+    try {
+      suggestions = JSON.parse(params.get('suggestions') || '[]');
+    } catch {
+      suggestions = [];
+    }
     mounted = true;
 
     // Auto-dismiss after 25 seconds
@@ -32,7 +38,7 @@
   async function handleToastClick() {
     console.log('[Nudge] Toast clicked');
     if (aiMessage) {
-      await emit('nudge-clicked', { aiMessage });
+      await emit('nudge-clicked', { aiMessage, suggestions });
     }
     closeWindow();
   }

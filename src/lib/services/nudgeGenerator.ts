@@ -11,6 +11,7 @@ interface NudgeResult {
   type: Nudge['type'];
   toastMessage: string;  // Short message for the toast (1 line)
   aiMessage: string;     // Full message to show in chat
+  suggestions: string[]; // Quick reply suggestions
 }
 
 const NUDGE_SYSTEM_PROMPT = `You are a helpful, proactive AI tutor. Based on what the user is currently viewing/studying, decide if you should proactively reach out with something helpful or interesting.
@@ -32,9 +33,11 @@ Respond with JSON only (NO emojis anywhere):
   "shouldNudge": true/false,
   "type": "tip" | "question" | "resource" | "funfact" | "check-in",
   "toastMessage": "Short 1-line message for notification (max 80 chars, no emojis)",
-  "aiMessage": "Your full conversational message as the tutor (2-4 sentences, friendly and helpful, no emojis)"
+  "aiMessage": "Your full conversational message as the tutor (2-4 sentences, friendly and helpful, no emojis)",
+  "suggestions": ["Quick reply 1", "Quick reply 2", "Quick reply 3"]
 }
 
+The suggestions should be 2-3 short phrases (3-6 words each) the user might want to respond with.
 If shouldNudge is false, still include placeholder values for other fields.`;
 
 export async function generateNudge(
@@ -163,6 +166,6 @@ export async function tryShowNudge(
     return false;
   }
 
-  const id = nudgeStore.show(result.toastMessage, result.aiMessage, result.type);
+  const id = nudgeStore.show(result.toastMessage, result.aiMessage, result.type, result.suggestions || []);
   return id !== null;
 }
