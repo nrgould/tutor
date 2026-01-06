@@ -10,6 +10,7 @@ const defaultSettings: Settings = {
   theme: 'system',
   overlay_position: { x: 100, y: 100 },
   overlay_size: { width: 400, height: 500 },
+  proactive_nudges: true,
 };
 
 function createSettingsStore() {
@@ -31,6 +32,8 @@ function createSettingsStore() {
                 loadedSettings[key] = JSON.parse(value);
               } else if (key === 'theme') {
                 loadedSettings[key] = value as 'light' | 'dark' | 'system';
+              } else if (key === 'proactive_nudges') {
+                loadedSettings[key] = value === 'true';
               } else if (
                 key === 'anthropic_api_key' ||
                 key === 'openai_api_key' ||

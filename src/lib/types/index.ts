@@ -83,6 +83,7 @@ export interface Settings {
   theme: 'light' | 'dark' | 'system';
   overlay_position: { x: number; y: number };
   overlay_size: { width: number; height: number };
+  proactive_nudges: boolean;
 }
 
 // Claude API types

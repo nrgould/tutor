@@ -8,9 +8,12 @@
   import { streamChat, analyzeScreenBatch, generateSessionTitle, parseSuggestionsFromResponse } from '$lib/utils/api';
   import { parseMarkdown } from '$lib/utils/markdown';
   import { processConversationMemories } from '$lib/services/memoryService';
+  import { tryShowNudge } from '$lib/services/nudgeGenerator';
   import { toast } from '$lib/stores/toast';
+  import { nudgeStore } from '$lib/stores/nudge';
   import type { Message } from '$lib/types';
   import Onboarding from '$lib/components/Onboarding.svelte';
+  import NudgeToast from '$lib/components/NudgeToast.svelte';
 
   const settings = $derived($settingsStore);
 
@@ -181,6 +184,11 @@
         const newEntry = { time: Date.now(), context: analysis };
         screenContextHistory = [...screenContextHistory, newEntry].slice(-MAX_CONTEXT_HISTORY);
         console.log('[Screen context]', analysis);
+
+        // Try to generate a proactive nudge
+        const previousContexts = screenContextHistory.slice(0, -1).map(e => e.context);
+        tryShowNudge(analysis, latestScreenshot || undefined, previousContexts)
+          .catch(err => console.error('[Nudge] Error:', err));
       }
     } catch (error) {
       console.error('Batch analysis failed:', error);
@@ -374,6 +382,40 @@
     latestScreenshot = null;
     screenContextHistory = []; // Clear old screen context history
     focusInput();
+  }
+
+  async function handleNudgeClick(aiMessage: string) {
+    // Create a new conversation if needed
+    if (!currentConversationId) {
+      try {
+        const conversation = await createConversation('Tutor Suggestion');
+        currentConversationId = conversation.id;
+      } catch (e) {
+        console.error('Failed to create conversation for nudge:', e);
+        return;
+      }
+    }
+
+    // Add the AI's proactive message
+    const assistantMessage = {
+      id: crypto.randomUUID(),
+      role: 'assistant' as const,
+      content: aiMessage,
+    };
+    messages = [assistantMessage];
+
+    // Save the message
+    if (currentConversationId) {
+      saveMessage(currentConversationId, 'assistant', aiMessage).catch(console.error);
+    }
+
+    // Open the chat panel
+    if (!showChat) {
+      showChat = true;
+      await resizeWindow(true);
+    }
+
+    await focusInput();
   }
 
   async function loadConversation(conversationId: string) {
@@ -610,6 +652,8 @@
 {#if showOnboarding && !checkingOnboarding}
   <Onboarding oncomplete={handleOnboardingComplete} />
 {/if}
+
+<NudgeToast on:click={(e) => handleNudgeClick(e.detail)} />
 
 <style>
   :global(*) {

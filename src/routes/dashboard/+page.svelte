@@ -726,6 +726,23 @@
         </div>
 
         <div class="settings-group">
+          <label class="settings-label">Proactive Nudges</label>
+          <div class="toggle-row">
+            <span class="toggle-description">Get helpful tips and suggestions during recording sessions</span>
+            <button
+              class="toggle-btn"
+              class:active={settings.proactive_nudges}
+              onclick={() => settingsStore.save('proactive_nudges', (!settings.proactive_nudges).toString())}
+              aria-pressed={settings.proactive_nudges}
+            >
+              <span class="toggle-track">
+                <span class="toggle-thumb"></span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-group">
           <label class="settings-label">Version</label>
           <span class="version">0.1.0</span>
         </div>
@@ -1154,6 +1171,55 @@
     font-size: 14px;
     color: rgba(250, 250, 250, 0.45);
     font-variant-numeric: tabular-nums;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .toggle-description {
+    font-size: 13px;
+    color: rgba(250, 250, 250, 0.6);
+    flex: 1;
+  }
+
+  .toggle-btn {
+    position: relative;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .toggle-track {
+    display: block;
+    width: 44px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    transition: background 0.2s ease;
+  }
+
+  .toggle-btn.active .toggle-track {
+    background: #22c55e;
+  }
+
+  .toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: #fafafa;
+    border-radius: 50%;
+    transition: transform 0.2s ease;
+  }
+
+  .toggle-btn.active .toggle-thumb {
+    transform: translateX(20px);
   }
 
   /* Mind Section */
