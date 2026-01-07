@@ -74,6 +74,15 @@ export interface LearningEvent {
   created_at: string;
 }
 
+// Model options
+export type ModelId = 'claude-sonnet-4-20250514' | 'claude-sonnet-4-5-20241022' | 'claude-opus-4-5-20251101';
+
+export const MODEL_OPTIONS: { id: ModelId; name: string; description: string }[] = [
+  { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', description: 'Fast and capable' },
+  { id: 'claude-sonnet-4-5-20241022', name: 'Claude Sonnet 4.5', description: 'Enhanced reasoning' },
+  { id: 'claude-opus-4-5-20251101', name: 'Claude Opus 4.5', description: 'Most capable' },
+];
+
 // Settings
 export interface Settings {
   anthropic_api_key: string;
@@ -85,6 +94,9 @@ export interface Settings {
   overlay_size: { width: number; height: number };
   proactive_nudges: boolean;
   socratic_mode: boolean;
+  model: ModelId;
+  extended_thinking: boolean;
+  thinking_budget: number; // tokens for thinking
 }
 
 // Claude API types

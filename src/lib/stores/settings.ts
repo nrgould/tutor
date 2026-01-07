@@ -1,5 +1,5 @@
 import { writable, get } from 'svelte/store';
-import type { Settings } from '$lib/types';
+import type { Settings, ModelId } from '$lib/types';
 import { invoke } from '@tauri-apps/api/core';
 
 const defaultSettings: Settings = {
@@ -12,6 +12,9 @@ const defaultSettings: Settings = {
   overlay_size: { width: 400, height: 500 },
   proactive_nudges: true,
   socratic_mode: false,
+  model: 'claude-sonnet-4-5-20241022',
+  extended_thinking: false,
+  thinking_budget: 10000,
 };
 
 function createSettingsStore() {
@@ -33,8 +36,12 @@ function createSettingsStore() {
                 loadedSettings[key] = JSON.parse(value);
               } else if (key === 'theme') {
                 loadedSettings[key] = value as 'light' | 'dark' | 'system';
-              } else if (key === 'proactive_nudges' || key === 'socratic_mode') {
+              } else if (key === 'proactive_nudges' || key === 'socratic_mode' || key === 'extended_thinking') {
                 loadedSettings[key] = value === 'true';
+              } else if (key === 'thinking_budget') {
+                loadedSettings[key] = parseInt(value, 10) || defaultSettings.thinking_budget;
+              } else if (key === 'model') {
+                loadedSettings[key] = value as ModelId;
               } else if (
                 key === 'anthropic_api_key' ||
                 key === 'openai_api_key' ||

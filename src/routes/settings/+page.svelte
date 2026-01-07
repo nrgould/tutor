@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { settingsStore } from '$lib/stores/settings';
+  import { MODEL_OPTIONS, type ModelId } from '$lib/types';
   import {
     exportAllData,
     downloadExportFile,
@@ -12,6 +13,21 @@
   } from '$lib/utils/dataExport';
 
   const settings = $derived($settingsStore);
+
+  // Model settings
+  async function handleModelChange(e: Event) {
+    const target = e.target as HTMLSelectElement;
+    await settingsStore.save('model', target.value);
+  }
+
+  async function handleThinkingToggle() {
+    await settingsStore.save('extended_thinking', (!settings.extended_thinking).toString());
+  }
+
+  async function handleThinkingBudgetChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    await settingsStore.save('thinking_budget', target.value);
+  }
 
   // Export state
   let isExporting = $state(false);
@@ -185,6 +201,65 @@
           <span class="success-text">Saved!</span>
         {/if}
       </div>
+    </section>
+
+    <!-- AI Model -->
+    <section class="section">
+      <div class="section-header">
+        <div class="section-icon model">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+          </svg>
+        </div>
+        <div>
+          <h2>AI Model</h2>
+          <p>Choose your AI model and reasoning settings</p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="model-select">Model</label>
+        <select id="model-select" value={settings.model} onchange={handleModelChange}>
+          {#each MODEL_OPTIONS as option}
+            <option value={option.id}>{option.name} - {option.description}</option>
+          {/each}
+        </select>
+        <span class="hint">
+          Opus 4.5 is the most capable but slower. Sonnet 4.5 is a good balance of capability and speed.
+        </span>
+      </div>
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <h3>Extended Thinking</h3>
+          <p>Enable deep reasoning for complex questions</p>
+        </div>
+        <button
+          class="toggle {settings.extended_thinking ? 'active' : ''}"
+          onclick={handleThinkingToggle}
+          aria-label="Toggle extended thinking"
+        >
+          <span class="toggle-slider"></span>
+        </button>
+      </div>
+
+      {#if settings.extended_thinking}
+        <div class="field">
+          <label for="thinking-budget">Thinking Budget (tokens)</label>
+          <input
+            id="thinking-budget"
+            type="number"
+            min="1000"
+            max="50000"
+            step="1000"
+            value={settings.thinking_budget}
+            onchange={handleThinkingBudgetChange}
+          />
+          <span class="hint">
+            More tokens = deeper reasoning. Recommended: 10000 for most tasks, 30000+ for complex problems.
+          </span>
+        </div>
+      {/if}
     </section>
 
     <!-- Data Management -->
@@ -609,5 +684,103 @@
     color: rgba(255, 255, 255, 0.5);
     line-height: 1.5;
     margin: 0;
+  }
+
+  /* Model section icon */
+  .section-icon.model {
+    background: rgba(147, 112, 219, 0.15);
+    color: #9370db;
+  }
+
+  /* Select dropdown */
+  .field select {
+    width: 100%;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: white;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.15s;
+    box-sizing: border-box;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.5)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+  }
+
+  .field select:focus {
+    border-color: rgba(10, 132, 255, 0.5);
+    box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.1);
+  }
+
+  .field select option {
+    background: #1c1c1e;
+    color: white;
+    padding: 8px;
+  }
+
+  /* Toggle row */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    margin-bottom: 14px;
+  }
+
+  .toggle-info h3 {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+  }
+
+  .toggle-info p {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    margin: 2px 0 0 0;
+  }
+
+  /* Toggle switch */
+  .toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    padding: 0;
+  }
+
+  .toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .toggle.active {
+    background: #9370db;
+  }
+
+  .toggle-slider {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  .toggle.active .toggle-slider {
+    transform: translateX(20px);
   }
 </style>

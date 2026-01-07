@@ -21,6 +21,11 @@
   let useScreen = $state(false);
   let activeTab = $state<'chat' | 'transcript'>('chat');
 
+  // Extended thinking state
+  let currentThinking = $state<string>('');
+  let thinkingExpanded = $state(false);
+  let isThinking = $state(false);
+
   // Quick actions
   const quickActions = [
     { label: 'Explain this', icon: 'lightbulb', prompt: 'Can you explain what I\'m looking at on my screen?' },
@@ -223,19 +228,29 @@
   }
 
   async function streamResponse(messages: ClaudeMessage[], assistantMessage: Message) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': settings.anthropic_api_key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
-        stream: true,
-        system: `You are Eigen, a friendly AI study companion. Help students learn by:
+    // Reset thinking state
+    currentThinking = '';
+    isThinking = false;
+
+    // Build request headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'x-api-key': settings.anthropic_api_key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    };
+
+    // Add extended thinking beta header if enabled
+    if (settings.extended_thinking) {
+      headers['anthropic-beta'] = 'interleaved-thinking-2025-05-14';
+    }
+
+    // Build request body
+    const body: Record<string, unknown> = {
+      model: settings.model,
+      max_tokens: settings.extended_thinking ? 16000 : 4096,
+      stream: true,
+      system: `You are Eigen, a friendly AI study companion. Help students learn by:
 - Explaining concepts clearly with examples
 - Asking clarifying questions when needed
 - Encouraging understanding over memorization
@@ -244,8 +259,21 @@
 When the user shares their screen, identify what they're working on and provide relevant help.
 
 Keep responses focused and conversational.`,
-        messages,
-      }),
+      messages,
+    };
+
+    // Add thinking configuration if enabled
+    if (settings.extended_thinking) {
+      body.thinking = {
+        type: 'enabled',
+        budget_tokens: settings.thinking_budget,
+      };
+    }
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -258,6 +286,8 @@ Keep responses focused and conversational.`,
 
     const decoder = new TextDecoder();
     let fullContent = '';
+    let fullThinking = '';
+    let currentBlockType: 'thinking' | 'text' | null = null;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -273,9 +303,36 @@ Keep responses focused and conversational.`,
 
           try {
             const parsed = JSON.parse(data);
-            if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-              fullContent += parsed.delta.text;
-              chatStore.updateLastMessage(fullContent);
+
+            // Handle content block start (identifies thinking vs text)
+            if (parsed.type === 'content_block_start') {
+              if (parsed.content_block?.type === 'thinking') {
+                currentBlockType = 'thinking';
+                isThinking = true;
+              } else if (parsed.content_block?.type === 'text') {
+                currentBlockType = 'text';
+                isThinking = false;
+              }
+            }
+
+            // Handle content block delta
+            if (parsed.type === 'content_block_delta') {
+              if (parsed.delta?.type === 'thinking_delta' && parsed.delta?.thinking) {
+                fullThinking += parsed.delta.thinking;
+                currentThinking = fullThinking;
+              } else if (parsed.delta?.type === 'text_delta' && parsed.delta?.text) {
+                fullContent += parsed.delta.text;
+                chatStore.updateLastMessage(fullContent);
+              } else if (parsed.delta?.text) {
+                // Fallback for non-thinking responses
+                fullContent += parsed.delta.text;
+                chatStore.updateLastMessage(fullContent);
+              }
+            }
+
+            // Handle content block stop
+            if (parsed.type === 'content_block_stop') {
+              currentBlockType = null;
             }
           } catch {
             // Ignore parse errors
@@ -283,6 +340,8 @@ Keep responses focused and conversational.`,
         }
       }
     }
+
+    isThinking = false;
 
     await invoke('save_message', {
       id: assistantMessage.id,
@@ -392,6 +451,30 @@ Keep responses focused and conversational.`,
           {/if}
         </div>
       {/each}
+    {/if}
+
+    <!-- Thinking indicator -->
+    {#if currentThinking && chat.isLoading}
+      <div class="thinking-container">
+        <button class="thinking-header" onclick={() => thinkingExpanded = !thinkingExpanded}>
+          <span class="thinking-icon" class:spinning={isThinking}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.636 5.636l2.122 2.122m8.484 8.484l2.122 2.122M5.636 18.364l2.122-2.122m8.484-8.484l2.122-2.122" />
+            </svg>
+          </span>
+          <span class="thinking-label">{isThinking ? 'Thinking...' : 'Thought process'}</span>
+          <span class="thinking-chevron" class:expanded={thinkingExpanded}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 9l-7 7-7-7" />
+            </svg>
+          </span>
+        </button>
+        {#if thinkingExpanded}
+          <div class="thinking-content">
+            <pre>{currentThinking}</pre>
+          </div>
+        {/if}
+      </div>
     {/if}
   </div>
 
@@ -887,5 +970,93 @@ Keep responses focused and conversational.`,
   .send-btn svg {
     width: 16px;
     height: 16px;
+  }
+
+  /* Thinking UI */
+  .thinking-container {
+    margin-top: 8px;
+    background: rgba(147, 112, 219, 0.1);
+    border: 1px solid rgba(147, 112, 219, 0.2);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .thinking-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .thinking-header:hover {
+    background: rgba(147, 112, 219, 0.1);
+  }
+
+  .thinking-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: #9370db;
+  }
+
+  .thinking-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .thinking-icon.spinning svg {
+    animation: spin 1.5s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .thinking-label {
+    flex: 1;
+    color: #9370db;
+  }
+
+  .thinking-chevron {
+    width: 16px;
+    height: 16px;
+    color: rgba(255, 255, 255, 0.5);
+    transition: transform 0.2s;
+  }
+
+  .thinking-chevron.expanded {
+    transform: rotate(180deg);
+  }
+
+  .thinking-chevron svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .thinking-content {
+    padding: 0 14px 14px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .thinking-content pre {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: 'SF Mono', Monaco, 'Consolas', monospace;
   }
 </style>
