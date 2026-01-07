@@ -8,7 +8,6 @@
   import { getTopics, cleanupDuplicateTopics, organizeTopicHierarchy, resetAllLearningData } from '$lib/services/memoryService';
   import { generateQuizFromTopics, type QuizQuestion } from '$lib/utils/memory';
   import type { Conversation } from '$lib/types';
-  import { MODEL_OPTIONS } from '$lib/types';
 
   const settings = $derived($settingsStore);
 
@@ -1098,53 +1097,6 @@
               <span>Not configured</span>
             {/if}
           </div>
-        </div>
-
-        <div class="settings-group">
-          <label class="settings-label">AI Model</label>
-          <select
-            class="model-select"
-            value={settings.model}
-            onchange={(e) => settingsStore.save('model', (e.target as HTMLSelectElement).value)}
-            onmousedown={(e) => e.stopPropagation()}
-          >
-            {#each MODEL_OPTIONS as option}
-              <option value={option.id}>{option.name} - {option.description}</option>
-            {/each}
-          </select>
-        </div>
-
-        <div class="settings-group">
-          <label class="settings-label">Extended Thinking</label>
-          <div class="toggle-row">
-            <span class="toggle-description">Enable deep reasoning for complex questions</span>
-            <button
-              class="toggle-btn"
-              class:active={settings.extended_thinking}
-              onclick={() => settingsStore.save('extended_thinking', (!settings.extended_thinking).toString())}
-              aria-pressed={settings.extended_thinking}
-            >
-              <span class="toggle-track">
-                <span class="toggle-thumb"></span>
-              </span>
-            </button>
-          </div>
-          {#if settings.extended_thinking}
-            <div class="thinking-budget-row">
-              <label class="budget-label">Thinking Budget</label>
-              <input
-                type="number"
-                class="budget-input"
-                min="1000"
-                max="50000"
-                step="1000"
-                value={settings.thinking_budget}
-                onchange={(e) => settingsStore.save('thinking_budget', (e.target as HTMLInputElement).value)}
-                onmousedown={(e) => e.stopPropagation()}
-              />
-              <span class="budget-hint">tokens</span>
-            </div>
-          {/if}
         </div>
 
         <div class="settings-group">
