@@ -119,15 +119,6 @@
     Skip intro
   </button>
 
-  <!-- Character avatar -->
-  <div class="mb-6" in:fly={{ y: 20, duration: 500, delay: 200 }}>
-    <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-[var(--accent)] to-[#6366f1] flex items-center justify-center shadow-lg shadow-[var(--accent)]/25">
-      <svg class="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
-      </svg>
-    </div>
-  </div>
-
   <!-- Message bubble -->
   <div
     class="max-w-sm w-full bg-[var(--gray-2)] rounded-2xl p-5 border border-[var(--gray-4)] shadow-xl mb-6"
@@ -141,63 +132,64 @@
     </p>
   </div>
 
-  <!-- Input area -->
-  {#if step >= 2 && step <= 4 && !isTyping}
-    <div class="max-w-sm w-full" in:fly={{ y: 20, duration: 300 }}>
-      {#if step === 2}
-        <input
-          type="text"
-          bind:value={userName}
-          placeholder="Your name..."
-          class="w-full px-4 py-3 text-sm rounded-xl bg-[var(--gray-2)] border border-[var(--gray-4)] text-[var(--gray-12)] placeholder:text-[var(--gray-8)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent-muted)] transition-colors"
-          onkeydown={handleKeydown}
-          autofocus
-        />
-      {:else if step === 3}
-        <input
-          type="text"
-          bind:value={userCourses}
-          placeholder="e.g., Calculus, Chemistry, History..."
-          class="w-full px-4 py-3 text-sm rounded-xl bg-[var(--gray-2)] border border-[var(--gray-4)] text-[var(--gray-12)] placeholder:text-[var(--gray-8)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent-muted)] transition-colors"
-          onkeydown={handleKeydown}
-          autofocus
-        />
-      {:else if step === 4}
-        <textarea
-          bind:value={userGoals}
-          placeholder="e.g., Pass my finals, understand quantum physics, get better at coding..."
-          rows="3"
-          class="w-full px-4 py-3 text-sm rounded-xl bg-[var(--gray-2)] border border-[var(--gray-4)] text-[var(--gray-12)] placeholder:text-[var(--gray-8)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent-muted)] transition-colors resize-none"
-          onkeydown={handleKeydown}
-        ></textarea>
-      {/if}
+  <!-- Input/Button area - fixed height container to prevent layout shift -->
+  <div class="max-w-sm w-full min-h-[140px] flex flex-col items-center justify-start">
+    {#if step >= 2 && step <= 4 && !isTyping}
+      <div class="w-full" in:fly={{ y: 20, duration: 300 }}>
+        {#if step === 2}
+          <input
+            type="text"
+            bind:value={userName}
+            placeholder="Your name..."
+            class="w-full px-4 py-3 text-sm rounded-xl bg-[var(--gray-2)] border border-[var(--gray-4)] text-[var(--gray-12)] placeholder:text-[var(--gray-8)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent-muted)] transition-colors"
+            onkeydown={handleKeydown}
+            autofocus
+          />
+        {:else if step === 3}
+          <input
+            type="text"
+            bind:value={userCourses}
+            placeholder="e.g., Calculus, Chemistry, History..."
+            class="w-full px-4 py-3 text-sm rounded-xl bg-[var(--gray-2)] border border-[var(--gray-4)] text-[var(--gray-12)] placeholder:text-[var(--gray-8)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent-muted)] transition-colors"
+            onkeydown={handleKeydown}
+            autofocus
+          />
+        {:else if step === 4}
+          <textarea
+            bind:value={userGoals}
+            placeholder="e.g., Pass my finals, understand quantum physics, get better at coding..."
+            rows="3"
+            class="w-full px-4 py-3 text-sm rounded-xl bg-[var(--gray-2)] border border-[var(--gray-4)] text-[var(--gray-12)] placeholder:text-[var(--gray-8)] focus:outline-none focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent-muted)] transition-colors resize-none"
+            onkeydown={handleKeydown}
+          ></textarea>
+        {/if}
 
+        <button
+          class="w-full mt-3 py-3 px-4 bg-[var(--accent)] text-white rounded-xl font-medium text-sm hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          onclick={handleContinue}
+          disabled={
+            (step === 2 && !userName.trim()) ||
+            (step === 3 && !userCourses.trim()) ||
+            (step === 4 && !userGoals.trim())
+          }
+        >
+          Continue
+        </button>
+      </div>
+    {:else if step < 2 && !isTyping}
       <button
-        class="w-full mt-3 py-3 px-4 bg-[var(--accent)] text-white rounded-xl font-medium text-sm hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        class="px-6 py-3 bg-[var(--accent)] text-white rounded-xl font-medium text-sm hover:bg-[var(--accent-hover)] transition-colors"
         onclick={handleContinue}
-        disabled={
-          (step === 2 && !userName.trim()) ||
-          (step === 3 && !userCourses.trim()) ||
-          (step === 4 && !userGoals.trim())
-        }
       >
-        Continue
+        {step === 0 ? "Let's go!" : 'Continue'}
       </button>
-    </div>
-  {:else if step < 2 && !isTyping}
-    <button
-      class="px-6 py-3 bg-[var(--accent)] text-white rounded-xl font-medium text-sm hover:bg-[var(--accent-hover)] transition-colors"
-      onclick={handleContinue}
-      in:fly={{ y: 20, duration: 300 }}
-    >
-      {step === 0 ? "Let's go!" : 'Continue'}
-    </button>
-  {:else if step === messages.length - 1 && !isTyping}
-    <div class="flex items-center gap-2 text-sm text-[var(--gray-10)]" in:fly={{ y: 20, duration: 300 }}>
-      <div class="animate-spin w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full"></div>
-      Starting your journey...
-    </div>
-  {/if}
+    {:else if step === messages.length - 1 && !isTyping}
+      <div class="flex items-center gap-2 text-sm text-[var(--gray-10)]">
+        <div class="animate-spin w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full"></div>
+        Starting your journey...
+      </div>
+    {/if}
+  </div>
 
   <!-- Progress dots -->
   <div class="absolute bottom-8 flex items-center gap-2">
