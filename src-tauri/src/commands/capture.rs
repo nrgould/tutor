@@ -36,7 +36,7 @@ pub type RegionCaptureResultHandle = Arc<RegionCaptureResult>;
 #[tauri::command]
 pub async fn capture_screen(window: Window) -> Result<String, String> {
     // Hide the window before capturing
-    window.hide().map_err(|e| format!("Failed to hide window: {}", e))?;
+    let _ = window.hide();
 
     // Small delay to ensure window is hidden
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -66,13 +66,14 @@ pub async fn capture_screen(window: Window) -> Result<String, String> {
 
         Ok::<String, String>(base64_image)
     })
-    .await
-    .map_err(|e| format!("Task failed: {}", e))?;
+    .await;
 
-    // Show the window again
-    window.show().map_err(|e| format!("Failed to show window: {}", e))?;
+    // ALWAYS show the window again, even if capture failed
+    let _ = window.show();
+    let _ = window.set_focus();
 
-    result
+    // Now handle the result
+    result.map_err(|e| format!("Task failed: {}", e))?
 }
 
 /// Silent capture - doesn't hide/show window. Use for background recording.
@@ -105,7 +106,7 @@ pub async fn capture_screen_silent() -> Result<String, String> {
 #[tauri::command]
 pub async fn capture_region(window: Window, bounds: RegionBounds) -> Result<String, String> {
     // Hide the window before capturing
-    window.hide().map_err(|e| format!("Failed to hide window: {}", e))?;
+    let _ = window.hide();
 
     // Small delay to ensure window is hidden
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -146,13 +147,14 @@ pub async fn capture_region(window: Window, bounds: RegionBounds) -> Result<Stri
 
         Ok::<String, String>(base64_image)
     })
-    .await
-    .map_err(|e| format!("Task failed: {}", e))?;
+    .await;
 
-    // Show the window again
-    window.show().map_err(|e| format!("Failed to show window: {}", e))?;
+    // ALWAYS show the window again, even if capture failed
+    let _ = window.show();
+    let _ = window.set_focus();
 
-    result
+    // Now handle the result
+    result.map_err(|e| format!("Task failed: {}", e))?
 }
 
 #[tauri::command]
