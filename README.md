@@ -81,6 +81,22 @@ On first launch, macOS will ask for:
 - **Screen Recording** - Required for screen capture features
 - **Accessibility** - Required for global keyboard shortcuts
 
+## Quick Update (For Testers)
+
+Pull the latest changes and run with a single command:
+
+**macOS/Linux:**
+```bash
+./update.sh
+```
+
+**Windows:**
+```cmd
+update.bat
+```
+
+These scripts will automatically pull updates, install dependencies, and start the app.
+
 ## License
 
 MIT
