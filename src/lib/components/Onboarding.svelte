@@ -107,7 +107,7 @@
 </script>
 
 <div
-  class="fixed inset-0 z-[9999] bg-[var(--gray-1)] flex flex-col items-center justify-center p-6"
+  class="absolute inset-0 z-[9999] bg-[var(--gray-1)] flex flex-col items-center p-6"
   in:fade={{ duration: 300 }}
   out:fade={{ duration: 200 }}
 >
@@ -119,9 +119,12 @@
     Skip intro
   </button>
 
+  <!-- Spacer to push content down -->
+  <div class="flex-1 min-h-[60px]"></div>
+
   <!-- Message bubble -->
   <div
-    class="max-w-sm w-full bg-[var(--gray-2)] rounded-2xl p-5 border border-[var(--gray-4)] shadow-xl mb-6"
+    class="max-w-sm w-full bg-[var(--gray-2)] rounded-2xl p-5 border border-[var(--gray-4)] shadow-xl"
     in:fly={{ y: 20, duration: 500, delay: 400 }}
   >
     <p class="text-[var(--gray-12)] text-sm leading-relaxed min-h-[3em]">
@@ -132,8 +135,11 @@
     </p>
   </div>
 
-  <!-- Input/Button area - fixed height container to prevent layout shift -->
-  <div class="max-w-sm w-full min-h-[140px] flex flex-col items-center justify-start">
+  <!-- Spacer between message and button area -->
+  <div class="flex-1"></div>
+
+  <!-- Input/Button area - positioned above pagination -->
+  <div class="max-w-sm w-full min-h-[140px] flex flex-col items-center justify-center mb-12">
     {#if step >= 2 && step <= 4 && !isTyping}
       <div class="w-full" in:fly={{ y: 20, duration: 300 }}>
         {#if step === 2}
@@ -192,7 +198,7 @@
   </div>
 
   <!-- Progress dots -->
-  <div class="absolute bottom-8 flex items-center gap-2">
+  <div class="flex items-center gap-2 mb-4">
     {#each messages as _, i}
       <div
         class="w-2 h-2 rounded-full transition-colors duration-300 {i === step
