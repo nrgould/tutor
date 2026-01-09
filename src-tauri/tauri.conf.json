@@ -20,7 +20,7 @@
         "alwaysOnTop": true,
         "decorations": false,
         "transparent": true,
-        "visible": false,
+        "visible": true,
         "focus": true,
         "skipTaskbar": true
       }

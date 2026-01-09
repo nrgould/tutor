@@ -94,13 +94,32 @@
     try {
       const x = await getSetting('bar_position_x');
       const y = await getSetting('bar_position_y');
+      const window = getCurrentWindow();
+      const { LogicalPosition } = await import('@tauri-apps/api/dpi');
+
       if (x && y) {
+        const posX = parseInt(x);
+        const posY = parseInt(y);
+
+        // Validate position is on-screen (basic check)
+        // If position seems off-screen, use default centered position
+        if (posX >= 0 && posX < 4000 && posY >= 0 && posY < 3000) {
+          await window.setPosition(new LogicalPosition(posX, posY));
+          return;
+        }
+      }
+
+      // Default: center horizontally near top of screen
+      await window.setPosition(new LogicalPosition(100, 100));
+    } catch {
+      // Use default position on error
+      try {
         const window = getCurrentWindow();
         const { LogicalPosition } = await import('@tauri-apps/api/dpi');
-        await window.setPosition(new LogicalPosition(parseInt(x), parseInt(y)));
+        await window.setPosition(new LogicalPosition(100, 100));
+      } catch {
+        // Ignore
       }
-    } catch {
-      // Use default position
     }
   }
 
