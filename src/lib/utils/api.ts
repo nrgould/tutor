@@ -6,6 +6,55 @@ import { buildMemoryContext } from '$lib/services/memoryService';
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
 
+// Max image size for Claude API (4MB to be safe, actual limit is 5MB)
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
+
+/**
+ * Compress a base64 image if it exceeds the size limit.
+ * Uses canvas to resize and convert to JPEG for better compression.
+ */
+async function compressImage(base64Data: string, maxSize: number = MAX_IMAGE_SIZE): Promise<{ data: string; mediaType: 'image/png' | 'image/jpeg' }> {
+  // Check current size (base64 is ~33% larger than binary)
+  const estimatedSize = (base64Data.length * 3) / 4;
+
+  if (estimatedSize <= maxSize) {
+    return { data: base64Data, mediaType: 'image/png' };
+  }
+
+  // Need to compress - use canvas
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      // Calculate scale factor based on size ratio
+      const scaleFactor = Math.sqrt(maxSize / estimatedSize) * 0.8; // 0.8 for safety margin
+      const newWidth = Math.floor(img.width * scaleFactor);
+      const newHeight = Math.floor(img.height * scaleFactor);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        // Fallback to original if canvas fails
+        resolve({ data: base64Data, mediaType: 'image/png' });
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+      // Convert to JPEG with quality adjustment for better compression
+      const compressed = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+      resolve({ data: compressed, mediaType: 'image/jpeg' });
+    };
+    img.onerror = () => {
+      // Fallback to original if image loading fails
+      resolve({ data: base64Data, mediaType: 'image/png' });
+    };
+    img.src = `data:image/png;base64,${base64Data}`;
+  });
+}
+
 // Parse suggestions from Claude's response
 const SUGGESTIONS_REGEX = /\[SUGGESTIONS:\s*(.+?)\]\s*$/;
 
@@ -85,17 +134,18 @@ Keep suggestions short (under 8 words each), relevant to the conversation, and p
   return prompt;
 }
 
-function convertToClaudeMessage(message: Message): ClaudeMessage {
+async function convertToClaudeMessage(message: Message): Promise<ClaudeMessage> {
   const content: ClaudeContent[] = [];
 
-  // Add screenshot if present
+  // Add screenshot if present (with compression)
   if (message.screen_context?.screenshot) {
+    const { data, mediaType } = await compressImage(message.screen_context.screenshot);
     content.push({
       type: 'image',
       source: {
         type: 'base64',
-        media_type: 'image/png',
-        data: message.screen_context.screenshot,
+        media_type: mediaType,
+        data: data,
       },
     });
   }
@@ -142,7 +192,7 @@ export async function* streamChat(
   }
 
   const systemPrompt = buildSystemPrompt(enhancedContext);
-  const claudeMessages = messages.map(convertToClaudeMessage);
+  const claudeMessages = await Promise.all(messages.map(convertToClaudeMessage));
 
   const response = await fetch(CLAUDE_API_URL, {
     method: 'POST',
@@ -319,6 +369,9 @@ export async function analyzeScreenBatch(screenshots: string[]): Promise<string 
   const latestScreenshot = screenshots[screenshots.length - 1];
 
   try {
+    // Compress the screenshot before sending
+    const { data: compressedImage, mediaType } = await compressImage(latestScreenshot);
+
     const response = await fetch(CLAUDE_API_URL, {
       method: 'POST',
       headers: {
@@ -342,8 +395,8 @@ Be concise and factual. No greetings or offers to help.`,
                 type: 'image',
                 source: {
                   type: 'base64',
-                  media_type: 'image/png',
-                  data: latestScreenshot,
+                  media_type: mediaType,
+                  data: compressedImage,
                 },
               },
               {
