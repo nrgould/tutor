@@ -1070,18 +1070,28 @@
           <label class="settings-label">
             Anthropic API Key
             {#if settings.anthropic_api_key}
-              <span class="key-status configured">Configured</span>
+              <span class="key-status">Configured</span>
             {/if}
           </label>
           <span class="settings-hint">Powers the AI tutor chat and quiz generation</span>
           <div class="api-input-row">
-            <input
-              type={showApiKey ? 'text' : 'password'}
-              bind:value={anthropicKeyInput}
-              placeholder={settings.anthropic_api_key ? '••••••••••••••••' : 'sk-ant-...'}
-              class="input"
-              onmousedown={(e) => e.stopPropagation()}
-            />
+            {#if showApiKey && settings.anthropic_api_key && !anthropicKeyInput}
+              <input
+                type="text"
+                value={settings.anthropic_api_key}
+                class="input"
+                readonly
+                onmousedown={(e) => e.stopPropagation()}
+              />
+            {:else}
+              <input
+                type={showApiKey ? 'text' : 'password'}
+                bind:value={anthropicKeyInput}
+                placeholder={settings.anthropic_api_key ? '••••••••••••••••' : 'sk-ant-...'}
+                class="input"
+                onmousedown={(e) => e.stopPropagation()}
+              />
+            {/if}
             <button class="btn-icon" onclick={() => showApiKey = !showApiKey} onmousedown={(e) => e.stopPropagation()} aria-label="Toggle visibility">
               {#if showApiKey}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -1111,18 +1121,28 @@
           <label class="settings-label">
             OpenAI API Key
             {#if settings.openai_api_key}
-              <span class="key-status configured">Configured</span>
+              <span class="key-status">Configured</span>
             {/if}
           </label>
           <span class="settings-hint">Powers semantic embeddings for the knowledge map connections</span>
           <div class="api-input-row">
-            <input
-              type={showOpenAIKey ? 'text' : 'password'}
-              bind:value={openaiKeyInput}
-              placeholder={settings.openai_api_key ? '••••••••••••••••' : 'sk-...'}
-              class="input"
-              onmousedown={(e) => e.stopPropagation()}
-            />
+            {#if showOpenAIKey && settings.openai_api_key && !openaiKeyInput}
+              <input
+                type="text"
+                value={settings.openai_api_key}
+                class="input"
+                readonly
+                onmousedown={(e) => e.stopPropagation()}
+              />
+            {:else}
+              <input
+                type={showOpenAIKey ? 'text' : 'password'}
+                bind:value={openaiKeyInput}
+                placeholder={settings.openai_api_key ? '••••••••••••••••' : 'sk-...'}
+                class="input"
+                onmousedown={(e) => e.stopPropagation()}
+              />
+            {/if}
             <button class="btn-icon" onclick={() => showOpenAIKey = !showOpenAIKey} onmousedown={(e) => e.stopPropagation()} aria-label="Toggle visibility">
               {#if showOpenAIKey}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -1552,11 +1572,8 @@
     font-weight: 600;
     padding: 2px 6px;
     border-radius: 4px;
-  }
-
-  .key-status.configured {
-    background: rgba(48, 209, 88, 0.15);
-    color: #30d158;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(250, 250, 250, 0.6);
   }
 
   .settings-hint {
@@ -1739,7 +1756,7 @@
   }
 
   .toggle-btn.active .toggle-track {
-    background: #22c55e;
+    background: rgba(255, 255, 255, 0.4);
   }
 
   .toggle-thumb {
