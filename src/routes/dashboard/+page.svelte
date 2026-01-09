@@ -17,8 +17,11 @@
   let sessionsThisWeek = $state(0);
 
   let anthropicKeyInput = $state('');
+  let openaiKeyInput = $state('');
   let showApiKey = $state(false);
+  let showOpenAIKey = $state(false);
   let saveSuccess = $state(false);
+  let saveOpenAISuccess = $state(false);
 
   let activeSection = $state<'overview' | 'sessions' | 'review' | 'mind' | 'settings'>('overview');
   let mindTab = $state<'constellation' | 'profile'>('constellation');
@@ -367,7 +370,7 @@
     totalStudyTime = Math.round(totalMinutes);
   }
 
-  async function saveApiKey() {
+  async function saveAnthropicKey() {
     if (!anthropicKeyInput.trim()) return;
     try {
       await settingsStore.setApiKey('anthropic_api_key', anthropicKeyInput.trim());
@@ -375,7 +378,19 @@
       saveSuccess = true;
       setTimeout(() => (saveSuccess = false), 2000);
     } catch (e) {
-      console.error('Failed to save API key:', e);
+      console.error('Failed to save Anthropic API key:', e);
+    }
+  }
+
+  async function saveOpenAIKey() {
+    if (!openaiKeyInput.trim()) return;
+    try {
+      await settingsStore.setApiKey('openai_api_key', openaiKeyInput.trim());
+      openaiKeyInput = '';
+      saveOpenAISuccess = true;
+      setTimeout(() => (saveOpenAISuccess = false), 2000);
+    } catch (e) {
+      console.error('Failed to save OpenAI API key:', e);
     }
   }
 
@@ -1052,12 +1067,18 @@
         </div>
 
         <div class="settings-group">
-          <label class="settings-label">API Key</label>
+          <label class="settings-label">
+            Anthropic API Key
+            {#if settings.anthropic_api_key}
+              <span class="key-status configured">Configured</span>
+            {/if}
+          </label>
+          <span class="settings-hint">Powers the AI tutor chat and quiz generation</span>
           <div class="api-input-row">
             <input
               type={showApiKey ? 'text' : 'password'}
               bind:value={anthropicKeyInput}
-              placeholder={settings.anthropic_api_key ? 'Key configured' : 'Enter Anthropic API key'}
+              placeholder={settings.anthropic_api_key ? '••••••••••••••••' : 'sk-ant-...'}
               class="input"
               onmousedown={(e) => e.stopPropagation()}
             />
@@ -1077,7 +1098,7 @@
             </button>
             <button
               class="btn-secondary"
-              onclick={saveApiKey}
+              onclick={saveAnthropicKey}
               onmousedown={(e) => e.stopPropagation()}
               disabled={!anthropicKeyInput.trim()}
             >
@@ -1087,15 +1108,43 @@
         </div>
 
         <div class="settings-group">
-          <label class="settings-label">Status</label>
-          <div class="status-row">
-            {#if settings.anthropic_api_key}
-              <span class="status-dot active"></span>
-              <span>Connected</span>
-            {:else}
-              <span class="status-dot"></span>
-              <span>Not configured</span>
+          <label class="settings-label">
+            OpenAI API Key
+            {#if settings.openai_api_key}
+              <span class="key-status configured">Configured</span>
             {/if}
+          </label>
+          <span class="settings-hint">Powers semantic embeddings for the knowledge map connections</span>
+          <div class="api-input-row">
+            <input
+              type={showOpenAIKey ? 'text' : 'password'}
+              bind:value={openaiKeyInput}
+              placeholder={settings.openai_api_key ? '••••••••••••••••' : 'sk-...'}
+              class="input"
+              onmousedown={(e) => e.stopPropagation()}
+            />
+            <button class="btn-icon" onclick={() => showOpenAIKey = !showOpenAIKey} onmousedown={(e) => e.stopPropagation()} aria-label="Toggle visibility">
+              {#if showOpenAIKey}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                  <line x1="1" y1="1" x2="23" y2="23"/>
+                </svg>
+              {:else}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+              {/if}
+            </button>
+            <button
+              class="btn-secondary"
+              onclick={saveOpenAIKey}
+              onmousedown={(e) => e.stopPropagation()}
+              disabled={!openaiKeyInput.trim()}
+            >
+              {saveOpenAISuccess ? 'Saved' : 'Save'}
+            </button>
           </div>
         </div>
 
@@ -1489,11 +1538,32 @@
   }
 
   .settings-label {
-    display: block;
-    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
     font-size: 13px;
     font-weight: 500;
-    color: rgba(250, 250, 250, 0.5);
+    color: rgba(250, 250, 250, 0.7);
+  }
+
+  .key-status {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .key-status.configured {
+    background: rgba(48, 209, 88, 0.15);
+    color: #30d158;
+  }
+
+  .settings-hint {
+    display: block;
+    font-size: 11px;
+    color: rgba(250, 250, 250, 0.35);
+    margin-bottom: 10px;
   }
 
   .api-input-row {
