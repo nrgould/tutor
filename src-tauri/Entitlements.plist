@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Allow screen recording -->
+    <key>com.apple.security.screen-capture</key>
+    <true/>
+    <!-- Allow accessibility for global shortcuts -->
+    <key>com.apple.security.accessibility</key>
+    <true/>
+    <!-- App Sandbox (required for App Store, optional otherwise) -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+    <!-- Allow network connections (for API calls) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <!-- Allow reading/writing user files -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+</dict>
+</plist>

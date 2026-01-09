@@ -38,6 +38,19 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "entitlements": "Entitlements.plist",
+      "infoPlist": {
+        "NSScreenCaptureUsageDescription": "Eigen needs screen recording permission to capture your screen and help you study what you're working on.",
+        "NSAccessibilityUsageDescription": "Eigen needs accessibility permission to respond to keyboard shortcuts from any application."
+      },
+      "minimumSystemVersion": "10.15"
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      }
+    }
   }
 }

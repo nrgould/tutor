@@ -2,11 +2,25 @@ import { writable, get } from 'svelte/store';
 import type { Settings, ModelId } from '$lib/types';
 import { invoke } from '@tauri-apps/api/core';
 
+// Detect if running on macOS
+export function isMacOS(): boolean {
+  if (typeof navigator !== 'undefined') {
+    return navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  }
+  return false;
+}
+
+// Get platform-appropriate modifier key
+export const modifierKey = isMacOS() ? 'Cmd' : 'Ctrl';
+
+// Get modifier symbol for display (⌘ on Mac, Ctrl on Windows)
+export const modifierSymbol = isMacOS() ? '⌘' : 'Ctrl';
+
 const defaultSettings: Settings = {
   anthropic_api_key: '',
   openai_api_key: '',
-  hotkey_overlay: 'Ctrl+Shift+Space',
-  hotkey_screenshot: 'Ctrl+Shift+S',
+  hotkey_overlay: `${modifierKey}+Shift+Space`,
+  hotkey_screenshot: `${modifierKey}+Shift+S`,
   theme: 'system',
   overlay_position: { x: 100, y: 100 },
   overlay_size: { width: 400, height: 500 },

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Screen Recording Permission -->
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Eigen needs screen recording permission to capture your screen and help you study what you're working on.</string>
+
+    <!-- Accessibility Permission (for global shortcuts) -->
+    <key>NSAccessibilityUsageDescription</key>
+    <string>Eigen needs accessibility permission to respond to keyboard shortcuts from any application.</string>
+
+    <!-- Camera Permission (if needed in future) -->
+    <key>NSCameraUsageDescription</key>
+    <string>Eigen may use the camera for video-based learning features.</string>
+
+    <!-- Microphone Permission (if needed in future) -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Eigen may use the microphone for voice-based learning features.</string>
+</dict>
+</plist>
