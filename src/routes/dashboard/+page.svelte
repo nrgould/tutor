@@ -8,6 +8,7 @@
   import { getTopics, cleanupDuplicateTopics, organizeTopicHierarchy, resetAllLearningData } from '$lib/services/memoryService';
   import { generateQuizFromTopics, type QuizQuestion } from '$lib/utils/memory';
   import type { Conversation } from '$lib/types';
+  import Onboarding from '$lib/components/Onboarding.svelte';
 
   const settings = $derived($settingsStore);
 
@@ -23,7 +24,8 @@
   let saveSuccess = $state(false);
   let saveOpenAISuccess = $state(false);
 
-  let activeSection = $state<'overview' | 'sessions' | 'review' | 'mind' | 'settings'>('overview');
+  let activeSection = $state<'overview' | 'sessions' | 'review' | 'mind' | 'settings' | 'onboarding'>('overview');
+  let onboardingTestComplete = $state(false);
   let mindTab = $state<'constellation' | 'profile'>('constellation');
 
   // Quiz state (on-demand, no scheduling)
@@ -503,6 +505,12 @@
         onclick={() => activeSection = 'settings'}
         onmousedown={(e) => e.stopPropagation()}
       >Settings</button>
+      <button
+        class="nav-item"
+        class:active={activeSection === 'onboarding'}
+        onclick={() => { activeSection = 'onboarding'; onboardingTestComplete = false; }}
+        onmousedown={(e) => e.stopPropagation()}
+      >Onboarding</button>
     </nav>
 
     <div class="header-right">
@@ -1223,6 +1231,38 @@
           <label class="settings-label">Version</label>
           <span class="version">0.1.0</span>
         </div>
+      </div>
+
+    {:else if activeSection === 'onboarding'}
+      <div class="view onboarding-view">
+        <div class="section-header">
+          <h2>Onboarding Preview</h2>
+          <span class="test-badge">Test Mode</span>
+        </div>
+
+        {#if onboardingTestComplete}
+          <div class="onboarding-complete">
+            <div class="complete-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+            </div>
+            <h3>Onboarding Complete!</h3>
+            <p>The user would now be taken to the main app.</p>
+            <button
+              class="btn-secondary"
+              onclick={() => onboardingTestComplete = false}
+              onmousedown={(e) => e.stopPropagation()}
+            >
+              Preview Again
+            </button>
+          </div>
+        {:else}
+          <div class="onboarding-container">
+            <Onboarding oncomplete={() => onboardingTestComplete = true} />
+          </div>
+        {/if}
       </div>
     {/if}
   </main>
@@ -2579,5 +2619,60 @@
 
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+  /* Onboarding Preview */
+  .onboarding-view {
+    max-width: 800px;
+  }
+
+  .test-badge {
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(250, 250, 250, 0.6);
+  }
+
+  .onboarding-container {
+    position: relative;
+    width: 100%;
+    height: 500px;
+    background: #09090b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .onboarding-container :global(.fixed) {
+    position: absolute;
+  }
+
+  .onboarding-complete {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+  }
+
+  .complete-icon {
+    color: #22c55e;
+    margin-bottom: 20px;
+  }
+
+  .onboarding-complete h3 {
+    margin: 0 0 8px;
+    font-size: 20px;
+    font-weight: 600;
+    color: #fafafa;
+  }
+
+  .onboarding-complete p {
+    margin: 0 0 24px;
+    font-size: 14px;
+    color: rgba(250, 250, 250, 0.5);
   }
 </style>
