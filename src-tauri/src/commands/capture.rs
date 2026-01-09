@@ -191,7 +191,10 @@ pub async fn open_region_selector(
 
         let base64_image = STANDARD.encode(buffer.into_inner());
 
-        Ok::<(u32, u32, String), String>((monitor.width(), monitor.height(), base64_image))
+        let width = monitor.width().map_err(|e| format!("Failed to get width: {}", e))?;
+        let height = monitor.height().map_err(|e| format!("Failed to get height: {}", e))?;
+
+        Ok::<(u32, u32, String), String>((width, height, base64_image))
     })
     .await
     .map_err(|e| format!("Task failed: {}", e))??;
