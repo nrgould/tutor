@@ -122,9 +122,40 @@ pub fn run() {
                 eprintln!("Warning: Could not register hotkey: {}", e);
             }
 
+            // Helper function to set window background transparent on macOS
+            #[cfg(target_os = "macos")]
+            fn set_window_transparent(window: &tauri::WebviewWindow) {
+                use tauri::Manager;
+                if let Ok(ns_window) = window.ns_window() {
+                    unsafe {
+                        use cocoa::base::id;
+                        use objc::{msg_send, sel, sel_impl, runtime::Class};
+                        
+                        let ns_window: id = ns_window as id;
+                        // Get NSColor class and call clearColor
+                        if let Some(ns_color_class) = Class::get("NSColor") {
+                            let clear_color: id = msg_send![ns_color_class, clearColor];
+                            // Set the window background to transparent
+                            let _: () = msg_send![ns_window, setBackgroundColor: clear_color];
+                            // Ensure the window is not opaque (required for transparency to work properly)
+                            let _: () = msg_send![ns_window, setOpaque: cocoa::base::NO];
+                        }
+                    }
+                }
+            }
+
             // Show the main window on startup
             if let Some(window) = app.get_webview_window("main") {
+                #[cfg(target_os = "macos")]
+                {
+                    set_window_transparent(&window);
+                }
                 let _ = window.show();
+                #[cfg(target_os = "macos")]
+                {
+                    // Set again after showing to ensure it takes effect
+                    set_window_transparent(&window);
+                }
                 let _ = window.set_focus();
             }
 

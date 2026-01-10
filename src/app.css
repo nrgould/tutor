@@ -51,6 +51,26 @@ html, body {
 /* Ensure root element is also transparent */
 #app, [data-sveltekit-root] {
   background: transparent !important;
+  background-color: transparent !important;
+}
+
+/* macOS-specific: Ensure window background is transparent */
+@supports (-webkit-appearance: none) {
+  html, body, #app, [data-sveltekit-root] {
+    background: transparent !important;
+    background-color: transparent !important;
+  }
+  
+  /* Prevent white corners on macOS transparent windows */
+  * {
+    -webkit-background-clip: padding-box;
+  }
+  
+  /* Ensure body wrapper is transparent */
+  body > div[style*="display: contents"] {
+    background: transparent !important;
+    background-color: transparent !important;
+  }
 }
 
 /* Window drag region */
