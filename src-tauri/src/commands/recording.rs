@@ -11,6 +11,7 @@ use uuid::Uuid;
 use xcap::Monitor;
 
 use crate::db::with_connection;
+use crate::commands::capture;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecordingSession {
@@ -137,6 +138,16 @@ pub async fn start_recording(
     interval_seconds: Option<i32>,
 ) -> Result<RecordingSession, String> {
     let interval = interval_seconds.unwrap_or(30);
+
+    // Check screen recording permission first
+    let has_permission = capture::check_screen_recording_permission().await
+        .map_err(|e| format!("Failed to check permissions: {}", e))?;
+    
+    if !has_permission {
+        // Emit event to frontend to show permission dialog
+        let _ = app.emit("screen-recording-permission-denied", ());
+        return Err("Screen recording permission is required. Please grant permission in System Settings > Privacy & Security > Screen Recording.".to_string());
+    }
 
     // Check if already recording
     {
@@ -275,7 +286,7 @@ async fn take_and_save_screenshot(
     let _ = app.emit("screenshot-captured", Screenshot {
         id: screenshot_id,
         session_id: session_id.to_string(),
-        image_data: String::new(), // Don't send full image in event
+        image_data: full_image.clone(), // Send full image in event for AI analysis
         thumbnail_data: Some(thumbnail_clone),
         captured_at: now.clone(),
         app_name: None,

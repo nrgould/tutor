@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { settingsStore } from '$lib/stores/settings';
+	import { recordingStore } from '$lib/stores/recording';
 	import { invoke } from '@tauri-apps/api/core';
 	import { getCurrentWindow } from '@tauri-apps/api/window';
 	import { listen } from '@tauri-apps/api/event';
@@ -25,6 +26,7 @@
 	import { toast } from '$lib/stores/toast';
 	import type { Message } from '$lib/types';
 	import Onboarding from '$lib/components/Onboarding.svelte';
+	import PermissionDialog from '$lib/components/PermissionDialog.svelte';
 
 	const settings = $derived($settingsStore);
 
@@ -34,6 +36,8 @@
 	let recordingDuration = $state(0);
 	let showOnboarding = $state(false);
 	let checkingOnboarding = $state(true);
+	let showPermissionDialog = $state(false);
+	let hasScreenRecordingPermission = $state(true); // Assume granted until checked
 
 	// Chat state
 	let showChat = $state(false);
@@ -75,6 +79,9 @@
 			await settingsStore.load();
 			await restoreBarPosition();
 
+			// Initialize recording store to listen to backend events
+			await recordingStore.init();
+
 			try {
 				const onboardingComplete = await getSetting(
 					'onboarding_complete'
@@ -115,11 +122,97 @@
 			);
 		});
 
+		// Listen to backend recording status changes
+		const unlistenRecording = listen<{
+			is_recording: boolean;
+			session_id?: string;
+			screenshot_count: number;
+			started_at?: string;
+		}>('recording-status', async (event) => {
+			const status = event.payload;
+			console.log('Recording status event received:', status);
+			// Sync frontend state with backend recording state
+			if (status.is_recording && !isRecording) {
+				console.log('Backend started recording - syncing frontend');
+				// Backend started recording - start frontend recording logic
+				await startRecording();
+				
+				// Open chat interface
+				if (!showChat) {
+					console.log('Opening chat interface');
+					showChat = true;
+					await resizeWindow(true);
+				}
+			} else if (!status.is_recording && isRecording) {
+				console.log('Backend stopped recording - syncing frontend');
+				// Backend stopped recording - stop frontend recording logic
+				stopRecording();
+			}
+		});
+
+		// Listen for explicit recording started event
+		const unlistenRecordingStarted = listen('recording-started', async () => {
+			console.log('Recording started event received - opening chat');
+			if (!showChat) {
+				showChat = true;
+				await resizeWindow(true);
+			}
+		});
+
+		// Listen for screenshot captures from backend
+		const unlistenScreenshot = listen<{
+			id: string;
+			session_id: string;
+			image_data: string;
+			thumbnail_data?: string;
+			captured_at: string;
+		}>('screenshot-captured', async (event) => {
+			console.log('Screenshot captured event received:', event.payload.id);
+			// Use the full image from backend recording for AI analysis
+			if (event.payload.image_data) {
+				latestScreenshot = event.payload.image_data;
+				screenshotBuffer = [...screenshotBuffer, event.payload.image_data];
+				
+				// Process batch when we have enough screenshots
+				if (screenshotBuffer.length >= BATCH_SIZE && !isProcessingBatch) {
+					console.log('Processing screenshot batch for AI analysis');
+					processBatch();
+				}
+			}
+		});
+
+		// Listen for screen recording permission denied event
+		const unlistenPermission = listen('screen-recording-permission-denied', () => {
+			console.log('Screen recording permission denied - showing dialog');
+			hasScreenRecordingPermission = false;
+			showPermissionDialog = true;
+		});
+
+		// Check permission on startup
+		(async () => {
+			try {
+				const hasPermission = await invoke<boolean>('check_screen_recording_permission');
+				hasScreenRecordingPermission = hasPermission;
+				if (!hasPermission) {
+					console.log('Screen recording permission not granted on startup');
+					showPermissionDialog = true;
+				}
+			} catch (e) {
+				console.error('Failed to check screen recording permission:', e);
+				hasScreenRecordingPermission = false;
+				showPermissionDialog = true;
+			}
+		})();
+
 		return () => {
 			stopRecording();
 			unlistenMove.then((fn) => fn());
 			unlistenConversation.then((fn) => fn());
 			unlistenNudge.then((fn) => fn());
+			unlistenRecording.then((fn) => fn());
+			unlistenRecordingStarted.then((fn) => fn());
+			unlistenScreenshot.then((fn) => fn());
+			unlistenPermission.then((fn) => fn());
 		};
 	});
 
@@ -170,52 +263,79 @@
 	}
 
 	async function toggleRecording() {
+		console.log('Toggle recording clicked. Current state:', isRecording);
 		if (isRecording) {
+			// Stop via backend command, but also immediately update UI
+			// The backend event will confirm, but this prevents UI lag
 			stopRecording();
+			try {
+				await invoke('stop_recording');
+				console.log('Backend stop recording command sent');
+			} catch (e) {
+				console.error('Failed to stop recording:', e);
+				// If backend fails, UI is already stopped, which is fine
+			}
 		} else {
-			startRecording();
+			// Check permission before starting
+			if (!hasScreenRecordingPermission) {
+				console.log('Screen recording permission not granted - showing dialog');
+				showPermissionDialog = true;
+				return;
+			}
+
+			// Verify permission again before starting
+			try {
+				const hasPermission = await invoke<boolean>('check_screen_recording_permission');
+				if (!hasPermission) {
+					console.log('Screen recording permission not granted - showing dialog');
+					hasScreenRecordingPermission = false;
+					showPermissionDialog = true;
+					return;
+				}
+				hasScreenRecordingPermission = true;
+			} catch (e) {
+				console.error('Failed to check permission:', e);
+				showPermissionDialog = true;
+				return;
+			}
+
+			// Start via backend command with 1 second interval
+			try {
+				await invoke('start_recording', { intervalSeconds: 1 });
+				console.log('Backend start recording command sent');
+				// Don't set isRecording here - wait for recording-status event
+				// to ensure backend actually started recording
+			} catch (e) {
+				console.error('Failed to start recording:', e);
+				// If error mentions permission, show dialog
+				if (String(e).includes('permission') || String(e).includes('Permission')) {
+					hasScreenRecordingPermission = false;
+					showPermissionDialog = true;
+				}
+			}
 		}
 	}
 
 	async function startRecording() {
 		if (isRecording) return;
+		console.log('Starting frontend recording logic');
 		isRecording = true;
 		recordingDuration = 0;
 		screenshotBuffer = [];
 
+		// Start duration counter only - backend handles screenshot capture
 		durationInterval = setInterval(() => {
 			recordingDuration++;
 		}, 1000);
-
-		watchInterval = setInterval(async () => {
-			// Double-check recording is still active (prevents race conditions)
-			if (!isRecording) return;
-
-			try {
-				const screenshot = await invoke<string>(
-					'capture_screen_silent'
-				);
-
-				// Check again after async operation
-				if (!isRecording) return;
-
-				latestScreenshot = screenshot;
-				screenshotBuffer = [...screenshotBuffer, screenshot];
-
-				if (
-					screenshotBuffer.length >= BATCH_SIZE &&
-					!isProcessingBatch
-				) {
-					processBatch();
-				}
-			} catch (error) {
-				console.error('Screenshot failed:', error);
-			}
-		}, 1000);
+		
+		// Don't start watchInterval - backend will emit screenshot-captured events
+		// which we listen to above
 	}
 
 	function stopRecording() {
+		console.log('Stopping frontend recording logic');
 		isRecording = false;
+		recordingDuration = 0; // Reset duration when stopping
 		const duration = recordingDuration;
 		if (watchInterval) {
 			clearInterval(watchInterval);
@@ -225,6 +345,9 @@
 			clearInterval(durationInterval);
 			durationInterval = null;
 		}
+		// Clear screenshot buffer and latest screenshot when stopping
+		screenshotBuffer = [];
+		latestScreenshot = '';
 
 		// Process memories from any active conversation when stopping recording
 		console.log('stopRecording state check:', {
@@ -760,7 +883,7 @@
 				</button>
 			{:else}
 				<div class="bar-info">
-					{#if latestScreenshot}
+					{#if isRecording && latestScreenshot}
 						<span class="screen-badge">Screen active</span>
 					{/if}
 					<button
@@ -931,6 +1054,7 @@
 
 {#if showOnboarding && !checkingOnboarding}
 	<Onboarding oncomplete={handleOnboardingComplete} />
+	<PermissionDialog bind:visible={showPermissionDialog} />
 {/if}
 
 <style>
@@ -1100,6 +1224,7 @@
 		flex: 1;
 		display: flex;
 		align-items: center;
+		gap: 8px;
 	}
 
 	.screen-badge {
