@@ -244,7 +244,13 @@ pub fn run() {
 
             let app_handle_shortcut = app.handle().clone();
             let show_item_shortcut = show_item.clone();
-            app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, _event| {
+            app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
+                // Only toggle on key press, not release
+                use tauri_plugin_global_shortcut::ShortcutState;
+                if event.state() != ShortcutState::Pressed {
+                    return;
+                }
+
                 toggle_window(&app_handle_shortcut);
                 // Update menu text after toggling via global shortcut
                 if let Some(window) = app_handle_shortcut.get_webview_window("main") {
