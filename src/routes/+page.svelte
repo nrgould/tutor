@@ -30,6 +30,7 @@
 	import LiquidGlassBar from '$lib/components/shared/LiquidGlassBar.svelte';
 	import LiquidGlassPanel from '$lib/components/shared/LiquidGlassPanel.svelte';
 	import LiquidGlassButtonGroup from '$lib/components/shared/LiquidGlassButtonGroup.svelte';
+	import { setLiquidGlassEffect, isGlassSupported } from 'tauri-plugin-liquid-glass-api';
 
 	const settings = $derived($settingsStore);
 
@@ -82,6 +83,19 @@
 		const init = async () => {
 			await settingsStore.load();
 			await restoreBarPosition();
+
+			// Initialize liquid glass effect (macOS 26+)
+			try {
+				const supported = await isGlassSupported();
+				if (supported) {
+					await setLiquidGlassEffect({ cornerRadius: 26 });
+					console.log('Liquid glass effect enabled');
+				} else {
+					console.log('Liquid glass not supported on this system');
+				}
+			} catch (e) {
+				console.log('Liquid glass initialization skipped:', e);
+			}
 
 			// Initialize recording store to listen to backend events
 			await recordingStore.init();
@@ -894,7 +908,7 @@
 		aria-label="Eigen"
 	>
 		<!-- Main bar -->
-		<LiquidGlassBar class="bar-glass" active={isWindowFocused}>
+		<LiquidGlassBar class="bar-glass" active={isWindowFocused} connected={showChat}>
 			<div class="bar-inner">
 			<button
 				class="record-btn"
@@ -1058,7 +1072,7 @@
 
 		<!-- Chat panel -->
 		{#if showChat}
-			<LiquidGlassPanel class="chat-panel-glass">
+			<LiquidGlassPanel class="chat-panel-glass" connectedTop={true}>
 				<div class="messages" bind:this={messagesContainer}>
 					{#if messages.length === 0 && !isLoading}
 						<div class="empty-state">
@@ -1145,13 +1159,6 @@
 						</svg>
 					</button>
 				</div>
-				<!-- Resize handle -->
-				<div
-					class="resize-handle"
-					onmousedown={startResize}
-					role="separator"
-					aria-label="Resize chat"
-				></div>
 			</LiquidGlassPanel>
 		{/if}
 	</div>
@@ -1247,7 +1254,7 @@
 		z-index: 1;
 	}
 
-	/* Record button - Liquid Glass effect */
+	/* Record button - Transparent for native liquid glass */
 	.record-btn {
 		position: relative;
 		display: flex;
@@ -1263,61 +1270,75 @@
 		outline: none;
 		overflow: hidden;
 
-		/* Fill layer with plus-darker blend */
-		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
-
-		/* Subtle inner glow at top */
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+		/* Match pill button styling */
+		background: rgba(28, 28, 30, 0.5);
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 
 		color: #ef4444;
 		cursor: pointer;
 		transition: all 0.2s ease;
 	}
 
-	/* Blur layer */
+	/* Shimmer border */
 	.record-btn::before {
 		content: '';
 		position: absolute;
-		left: 3px;
-		right: 3px;
-		top: 4px;
-		bottom: 2px;
-		background: rgba(0, 0, 0, 0.1);
-		background-blend-mode: hard-light;
-		filter: blur(10px);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
+		inset: 0;
 		border-radius: 1000px;
-		z-index: -1;
-		opacity: 0.67;
+		padding: 1px;
+		background: linear-gradient(
+			135deg,
+			rgba(255, 255, 255, 0.25) 0%,
+			rgba(255, 255, 255, 0.15) 20%,
+			rgba(255, 255, 255, 0.08) 45%,
+			rgba(255, 255, 255, 0.03) 70%,
+			transparent 90%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
+		pointer-events: none;
+		z-index: 2;
 	}
 
-	/* Glass effect layer */
+	/* Bottom shimmer border */
 	.record-btn::after {
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.001);
 		border-radius: 1000px;
+		padding: 1px;
+		background: linear-gradient(
+			315deg,
+			rgba(255, 255, 255, 0.12) 0%,
+			rgba(255, 255, 255, 0.06) 20%,
+			rgba(255, 255, 255, 0.03) 45%,
+			rgba(255, 255, 255, 0.01) 70%,
+			transparent 90%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
 		pointer-events: none;
+		z-index: 2;
 	}
 
 	.record-btn:hover {
-		background: linear-gradient(0deg, rgba(55, 55, 58, 0.95), rgba(55, 55, 58, 0.95)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
+		background: rgba(28, 28, 30, 0.6);
 	}
 
 	.record-btn.recording {
-		background: linear-gradient(0deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.15)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
+		background: rgba(239, 68, 68, 0.3);
 		padding: 8px 12px;
 	}
 
@@ -1364,7 +1385,7 @@
 		padding: 9px 70px 9px 14px;
 		border-radius: 14px;
 		border: none;
-		background: #2d2d2d;
+		background: rgba(255, 255, 255, 0.08);
 		color: #fafafa;
 		font-size: 14px;
 		outline: none;
@@ -1376,11 +1397,7 @@
 	}
 
 	.input-wrapper input:focus {
-		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+		background: rgba(255, 255, 255, 0.12);
 	}
 
 	.shortcut {
@@ -1410,13 +1427,8 @@
 		outline: none;
 		overflow: hidden;
 
-		/* Fill layer with plus-darker blend and green tint */
-		background: linear-gradient(0deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.15)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
-
-		/* Subtle inner glow at top */
+		/* Match pill button styling */
+		background: rgba(28, 28, 30, 0.5);
 		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 
 		font-size: 12px;
@@ -1424,32 +1436,58 @@
 		color: #22c55e;
 	}
 
-	/* Blur layer for screen-badge */
+	/* Shimmer border for screen-badge */
 	.screen-badge::before {
 		content: '';
 		position: absolute;
-		left: 3px;
-		right: 3px;
-		top: 3px;
-		bottom: 2px;
-		background: rgba(0, 0, 0, 0.1);
-		background-blend-mode: hard-light;
-		filter: blur(10px);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
+		inset: 0;
 		border-radius: 1000px;
-		z-index: -1;
-		opacity: 0.67;
+		padding: 1px;
+		background: linear-gradient(
+			135deg,
+			rgba(255, 255, 255, 0.25) 0%,
+			rgba(255, 255, 255, 0.15) 20%,
+			rgba(255, 255, 255, 0.08) 45%,
+			rgba(255, 255, 255, 0.03) 70%,
+			transparent 90%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
+		pointer-events: none;
+		z-index: 2;
 	}
 
-	/* Glass effect layer for screen-badge */
+	/* Bottom shimmer border for screen-badge */
 	.screen-badge::after {
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.001);
 		border-radius: 1000px;
+		padding: 1px;
+		background: linear-gradient(
+			315deg,
+			rgba(255, 255, 255, 0.12) 0%,
+			rgba(255, 255, 255, 0.06) 20%,
+			rgba(255, 255, 255, 0.03) 45%,
+			rgba(255, 255, 255, 0.01) 70%,
+			transparent 90%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
 		pointer-events: none;
+		z-index: 2;
 	}
 
 	.mode-toggle {
@@ -1464,14 +1502,9 @@
 		outline: none;
 		overflow: hidden;
 
-		/* Fill layer with plus-darker blend */
-		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
-
-		/* Subtle inner glow at top */
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+		/* Match pill button styling */
+		background: rgba(28, 28, 30, 0.5);
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 
 		font-size: 11px;
 		font-weight: 500;
@@ -1480,48 +1513,67 @@
 		transition: all 0.2s ease;
 	}
 
-	/* Blur layer */
+	/* Shimmer border */
 	.mode-toggle::before {
 		content: '';
 		position: absolute;
-		left: 3px;
-		right: 3px;
-		top: 3px;
-		bottom: 2px;
-		background: rgba(0, 0, 0, 0.1);
-		background-blend-mode: hard-light;
-		filter: blur(10px);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
+		inset: 0;
 		border-radius: 1000px;
-		z-index: -1;
-		opacity: 0.67;
+		padding: 1px;
+		background: linear-gradient(
+			135deg,
+			rgba(255, 255, 255, 0.25) 0%,
+			rgba(255, 255, 255, 0.15) 20%,
+			rgba(255, 255, 255, 0.08) 45%,
+			rgba(255, 255, 255, 0.03) 70%,
+			transparent 90%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
+		pointer-events: none;
+		z-index: 2;
 	}
 
-	/* Glass effect layer */
+	/* Bottom shimmer border */
 	.mode-toggle::after {
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.001);
 		border-radius: 1000px;
+		padding: 1px;
+		background: linear-gradient(
+			315deg,
+			rgba(255, 255, 255, 0.12) 0%,
+			rgba(255, 255, 255, 0.06) 20%,
+			rgba(255, 255, 255, 0.03) 45%,
+			rgba(255, 255, 255, 0.01) 70%,
+			transparent 90%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
 		pointer-events: none;
+		z-index: 2;
 	}
 
 	.mode-toggle:hover {
 		color: rgba(255, 255, 255, 0.8);
-		background: linear-gradient(0deg, rgba(55, 55, 58, 0.95), rgba(55, 55, 58, 0.95)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
+		background: rgba(28, 28, 30, 0.6);
 	}
 
 	.mode-toggle.active {
-		background: linear-gradient(0deg, rgba(147, 51, 234, 0.15), rgba(147, 51, 234, 0.15)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
+		background: rgba(147, 51, 234, 0.3);
 		color: #a855f7;
 	}
 
@@ -1531,7 +1583,7 @@
 		gap: 4px;
 	}
 
-	/* Icon button - Liquid Glass effect */
+	/* Icon button */
 	.icon-btn {
 		position: relative;
 		display: flex;
@@ -1546,61 +1598,77 @@
 		outline: none;
 		overflow: hidden;
 
-		/* Fill layer with plus-darker blend */
-		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
-
-		/* Subtle inner glow at top */
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+		/* Match pill button styling */
+		background: rgba(28, 28, 30, 0.5);
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 
 		color: rgba(250, 250, 250, 0.6);
 		cursor: pointer;
 		transition: all 0.2s ease;
 	}
 
-	/* Blur layer */
+	/* Shimmer border */
 	.icon-btn::before {
 		content: '';
 		position: absolute;
-		left: 3px;
-		right: 3px;
-		top: 4px;
-		bottom: 2px;
-		background: rgba(0, 0, 0, 0.1);
-		background-blend-mode: hard-light;
-		filter: blur(10px);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
+		inset: 0;
 		border-radius: 1000px;
-		z-index: -1;
-		opacity: 0.67;
+		padding: 1px;
+		background: linear-gradient(
+			135deg,
+			rgba(255, 255, 255, 0.25) 0%,
+			rgba(255, 255, 255, 0.15) 20%,
+			rgba(255, 255, 255, 0.08) 45%,
+			rgba(255, 255, 255, 0.03) 70%,
+			transparent 90%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
+		pointer-events: none;
+		z-index: 2;
 	}
 
-	/* Glass effect layer */
+	/* Bottom shimmer border */
 	.icon-btn::after {
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.001);
 		border-radius: 1000px;
+		padding: 1px;
+		background: linear-gradient(
+			315deg,
+			rgba(255, 255, 255, 0.12) 0%,
+			rgba(255, 255, 255, 0.06) 20%,
+			rgba(255, 255, 255, 0.03) 45%,
+			rgba(255, 255, 255, 0.01) 70%,
+			transparent 90%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
 		pointer-events: none;
+		z-index: 2;
 	}
 
 	.icon-btn:hover {
 		color: #fafafa;
-		background: linear-gradient(0deg, rgba(55, 55, 58, 0.95), rgba(55, 55, 58, 0.95)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
+		background: rgba(28, 28, 30, 0.6);
 	}
 
 	/* Chat panel with liquid glass */
 	:global(.chat-panel-glass) {
 		flex: 1;
-		margin-top: 8px;
 		overflow: hidden;
 	}
 
@@ -1716,10 +1784,9 @@
 		align-items: center;
 		gap: 0;
 		padding: 12px;
-		border-top: 1px solid rgba(255, 255, 255, 0.06);
 	}
 
-	/* Chat input wrapper - flat by default, liquid glass on focus */
+	/* Chat input wrapper */
 	.input-wrapper-chat {
 		position: relative;
 		flex: 1;
@@ -1728,7 +1795,7 @@
 		border-radius: 1000px;
 		isolation: isolate;
 		overflow: hidden;
-		background: #2d2d2d;
+		background: rgba(255, 255, 255, 0.08);
 		transition: all 0.2s ease;
 	}
 
@@ -1780,13 +1847,9 @@
 		transition: opacity 0.2s ease;
 	}
 
-	/* Focused state - liquid glass effect */
+	/* Focused state */
 	.input-wrapper-chat:focus-within {
-		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+		background: rgba(255, 255, 255, 0.12);
 	}
 
 	.input-wrapper-chat:focus-within::before {
@@ -1837,7 +1900,7 @@
 		background: rgba(255, 255, 255, 0.4);
 	}
 
-	/* Send button - Liquid Glass effect */
+	/* Send button - Match pill button styling */
 	.send-btn {
 		position: relative;
 		display: flex;
@@ -1848,76 +1911,91 @@
 		padding: 0;
 		margin-left: 8px;
 		border: none;
-		border-radius: 12px;
+		border-radius: 1000px;
 		cursor: pointer;
 		transition: all 0.15s ease;
 		flex-shrink: 0;
 		isolation: isolate;
 		overflow: hidden;
 
-		/* Fill layer with plus-darker blend */
-		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
-
-		/* Subtle inner glow at top */
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+		/* Match pill button styling */
+		background: rgba(28, 28, 30, 0.5);
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 
 		color: rgba(250, 250, 250, 0.8);
 	}
 
-	/* Blur layer */
+	/* Shimmer border */
 	.send-btn::before {
 		content: '';
 		position: absolute;
-		left: 3px;
-		right: 3px;
-		top: 4px;
-		bottom: 2px;
-		background: rgba(0, 0, 0, 0.1);
-		background-blend-mode: hard-light;
-		filter: blur(10px);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
-		border-radius: 10px;
-		z-index: -1;
-		opacity: 0.67;
+		inset: 0;
+		border-radius: 1000px;
+		padding: 1px;
+		background: linear-gradient(
+			135deg,
+			rgba(255, 255, 255, 0.25) 0%,
+			rgba(255, 255, 255, 0.15) 20%,
+			rgba(255, 255, 255, 0.08) 45%,
+			rgba(255, 255, 255, 0.03) 70%,
+			transparent 90%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
+		pointer-events: none;
+		z-index: 2;
 	}
 
-	/* Glass effect layer */
+	/* Bottom shimmer border */
 	.send-btn::after {
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: rgba(0, 0, 0, 0.001);
-		border-radius: 12px;
+		border-radius: 1000px;
+		padding: 1px;
+		background: linear-gradient(
+			315deg,
+			rgba(255, 255, 255, 0.12) 0%,
+			rgba(255, 255, 255, 0.06) 20%,
+			rgba(255, 255, 255, 0.03) 45%,
+			rgba(255, 255, 255, 0.01) 70%,
+			transparent 90%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
 		pointer-events: none;
+		z-index: 2;
 	}
 
 	.send-btn:hover:not(:disabled) {
-		background: linear-gradient(0deg, rgba(55, 55, 58, 0.95), rgba(55, 55, 58, 0.95)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
+		background: rgba(28, 28, 30, 0.6);
 		color: #fafafa;
 	}
 
 	.send-btn:active:not(:disabled) {
-		background: linear-gradient(0deg, rgba(35, 35, 38, 0.95), rgba(35, 35, 38, 0.95)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+		background: rgba(28, 28, 30, 0.7);
 	}
 
 	.send-btn:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
+		box-shadow: none;
 	}
 
-	.send-btn:disabled::before {
+	.send-btn:disabled::before,
+	.send-btn:disabled::after {
 		opacity: 0;
 	}
 
@@ -1980,7 +2058,6 @@
 		flex-wrap: wrap;
 		gap: 8px;
 		padding: 8px 12px;
-		border-top: 1px solid rgba(255, 255, 255, 0.06);
 	}
 
 	.suggestion-pill {
@@ -2003,9 +2080,9 @@
 		color: #fafafa;
 	}
 
-	/* Window unfocused state - flat buttons without liquid glass effects */
+	/* Window unfocused state - dimmer backgrounds */
 	.container.window-unfocused .record-btn {
-		background: #2d2d2d;
+		background: rgba(255, 255, 255, 0.06);
 		box-shadow: none;
 	}
 
@@ -2015,11 +2092,11 @@
 	}
 
 	.container.window-unfocused .record-btn.recording {
-		background: #2d2d2d;
+		background: rgba(239, 68, 68, 0.1);
 	}
 
 	.container.window-unfocused .icon-btn {
-		background: #2d2d2d;
+		background: rgba(255, 255, 255, 0.06);
 		box-shadow: none;
 	}
 
@@ -2029,7 +2106,7 @@
 	}
 
 	.container.window-unfocused .mode-toggle {
-		background: #2d2d2d;
+		background: rgba(255, 255, 255, 0.06);
 		box-shadow: none;
 	}
 
@@ -2039,16 +2116,26 @@
 	}
 
 	.container.window-unfocused .mode-toggle.active {
-		background: #2d2d2d;
+		background: rgba(147, 51, 234, 0.1);
 	}
 
 	.container.window-unfocused .screen-badge {
-		background: #2d2d2d;
+		background: rgba(34, 197, 94, 0.08);
 		box-shadow: none;
 	}
 
 	.container.window-unfocused .screen-badge::before,
 	.container.window-unfocused .screen-badge::after {
+		opacity: 0;
+	}
+
+	.container.window-unfocused .send-btn {
+		background: rgba(255, 255, 255, 0.06);
+		box-shadow: none;
+	}
+
+	.container.window-unfocused .send-btn::before,
+	.container.window-unfocused .send-btn::after {
 		opacity: 0;
 	}
 

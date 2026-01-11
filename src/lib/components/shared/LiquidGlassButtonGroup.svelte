@@ -40,14 +40,11 @@
 		overflow: hidden;
 		padding: 4px;
 
-		/* Fill layer with plus-darker blend */
-		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#1d1d1d;
-		background-blend-mode: plus-darker, normal, color-dodge;
+		/* Semi-transparent dark background for visibility */
+		background: rgba(28, 28, 30, 0.5);
 
 		/* Subtle inner glow at top */
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 	}
 
 	/* Blur layer */
@@ -145,6 +142,7 @@
 
 	/* Individual icon buttons inside the group */
 	.group-content :global(.group-icon-btn) {
+		position: relative;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -159,6 +157,19 @@
 		transition: all 0.15s ease;
 	}
 
+	/* Divider between buttons */
+	.group-content :global(.group-icon-btn + .group-icon-btn)::before {
+		content: '';
+		position: absolute;
+		left: -2px;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 1px;
+		height: 14px;
+		background: rgba(255, 255, 255, 0.15);
+		pointer-events: none;
+	}
+
 	.group-content :global(.group-icon-btn:hover) {
 		background: rgba(255, 255, 255, 0.1);
 		color: #fafafa;
@@ -168,9 +179,9 @@
 		background: rgba(255, 255, 255, 0.15);
 	}
 
-	/* Inactive state - flat background, no effects */
+	/* Inactive state - slightly lighter than background */
 	.liquid-glass-button-group.inactive {
-		background: #2d2d2d;
+		background: rgba(255, 255, 255, 0.06);
 		box-shadow: none;
 	}
 
