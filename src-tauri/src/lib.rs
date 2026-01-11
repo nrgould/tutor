@@ -266,7 +266,7 @@ pub fn run() {
                     unsafe {
                         use cocoa::base::id;
                         use objc::{msg_send, sel, sel_impl, runtime::Class};
-                        
+
                         let ns_window: id = ns_window as id;
                         // Get NSColor class and call clearColor
                         if let Some(ns_color_class) = Class::get("NSColor") {
@@ -275,6 +275,8 @@ pub fn run() {
                             let _: () = msg_send![ns_window, setBackgroundColor: clear_color];
                             // Ensure the window is not opaque (required for transparency to work properly)
                             let _: () = msg_send![ns_window, setOpaque: cocoa::base::NO];
+                            // Remove window shadow - this removes the blue border artifact
+                            let _: () = msg_send![ns_window, setHasShadow: cocoa::base::NO];
                         }
                     }
                 }
