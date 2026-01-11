@@ -76,6 +76,50 @@ pub async fn capture_screen(window: Window) -> Result<String, String> {
     result.map_err(|e| format!("Task failed: {}", e))?
 }
 
+/// Open macOS System Settings to Screen Recording permissions
+#[tauri::command]
+pub async fn open_screen_recording_settings() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+            .spawn()
+            .map_err(|e| format!("Failed to open system settings: {}", e))?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("This command is only available on macOS".to_string())
+    }
+}
+
+/// Check if screen recording permission is granted
+/// Returns true if permission is granted, false otherwise
+#[tauri::command]
+pub async fn check_screen_recording_permission() -> Result<bool, String> {
+    // Attempt a test capture to check permissions
+    // On macOS, if permission isn't granted, Monitor::all() or capture_image() will fail
+    tokio::task::spawn_blocking(|| {
+        match Monitor::all() {
+            Ok(monitors) => {
+                if let Some(monitor) = monitors.into_iter().next() {
+                    // Try to capture - this will fail if permission isn't granted
+                    match monitor.capture_image() {
+                        Ok(_) => Ok(true),
+                        Err(_) => Ok(false), // Permission denied
+                    }
+                } else {
+                    Ok(false) // No monitors found
+                }
+            }
+            Err(_) => Ok(false), // Permission denied or error
+        }
+    })
+    .await
+    .map_err(|e| format!("Task failed: {}", e))?
+}
+
 /// Silent capture - doesn't hide/show window. Use for background recording.
 #[tauri::command]
 pub async fn capture_screen_silent() -> Result<String, String> {
