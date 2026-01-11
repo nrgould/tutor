@@ -65,17 +65,23 @@ export async function saveMessage(
   content: string,
   screenContext?: ScreenContext
 ): Promise<Message> {
-  const message: Message = {
+  const message = {
     id: generateId(),
     conversation_id: conversationId,
     role,
     content,
-    screen_context: screenContext,
+    // Backend expects screen_context as a JSON string, not an object
+    screen_context: screenContext ? JSON.stringify(screenContext) : null,
     created_at: new Date().toISOString(),
   };
 
   await invoke('save_message', { message });
-  return message;
+
+  // Return with the original object type for frontend use
+  return {
+    ...message,
+    screen_context: screenContext,
+  } as Message;
 }
 
 export async function getMessages(conversationId: string): Promise<Message[]> {
