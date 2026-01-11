@@ -477,6 +477,23 @@
 		inputValue = '';
 		suggestions = []; // Clear suggestions when sending
 
+		// Capture fresh screenshot immediately when recording
+		// This ensures Claude always has the most up-to-date view
+		let freshScreenshot: string | null = null;
+		if (isRecording) {
+			try {
+				freshScreenshot = await invoke<string>('capture_screen_silent');
+				latestScreenshot = freshScreenshot; // Update the latest screenshot too
+			} catch (e) {
+				console.error('Failed to capture fresh screenshot:', e);
+				// Fall back to existing latestScreenshot if capture fails
+				freshScreenshot = latestScreenshot;
+			}
+		}
+
+		// Use fresh screenshot if available, otherwise fall back to latestScreenshot
+		const screenshotToUse = freshScreenshot || latestScreenshot;
+
 		// Create conversation if needed
 		if (!currentConversationId) {
 			try {
@@ -493,7 +510,7 @@
 			id: crypto.randomUUID(),
 			role: 'user' as const,
 			content,
-			hasScreen: !!latestScreenshot,
+			hasScreen: !!screenshotToUse,
 		};
 		messages = [...messages, userMessage];
 
@@ -503,7 +520,7 @@
 				currentConversationId,
 				'user',
 				content,
-				latestScreenshot ? { screenshot: latestScreenshot } : undefined
+				screenshotToUse ? { screenshot: screenshotToUse } : undefined
 			).catch(console.error);
 		}
 
@@ -526,8 +543,8 @@
 				content: m.content,
 				created_at: new Date().toISOString(),
 				screen_context:
-					m.id === userMessage.id && latestScreenshot
-						? { screenshot: latestScreenshot }
+					m.id === userMessage.id && screenshotToUse
+						? { screenshot: screenshotToUse }
 						: undefined,
 			}));
 
