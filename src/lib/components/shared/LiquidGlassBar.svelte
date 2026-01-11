@@ -39,8 +39,8 @@
 		isolation: isolate;
 		overflow: hidden;
 
-		/* Fill layer - adapted from liquid glass medium */
-		background: linear-gradient(0deg, rgba(25, 25, 25, 0.95), rgba(25, 25, 25, 0.95)), #191919;
+		/* Fill layer - dark background when active */
+		background: linear-gradient(0deg, rgba(29, 29, 29, 0.95), rgba(29, 29, 29, 0.95)), #1d1d1d;
 		background-blend-mode: normal, color-dodge;
 
 		/* Backdrop blur for glass effect */
@@ -155,17 +155,8 @@
 		}
 	}
 
-	/* Inactive state - same background as active, just no shimmer effects */
+	/* Inactive state - keep same background, just maintain shimmer border */
 	.liquid-glass-bar.inactive {
-		box-shadow: none;
-	}
-
-	.liquid-glass-bar.inactive::before {
-		opacity: 0;
-	}
-
-	.liquid-glass-bar.inactive .top-shimmer,
-	.liquid-glass-bar.inactive .bottom-shimmer {
-		opacity: 0;
+		background: linear-gradient(0deg, rgba(29, 29, 29, 0.95), rgba(29, 29, 29, 0.95)), #1d1d1d;
 	}
 </style>

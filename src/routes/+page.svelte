@@ -1264,9 +1264,9 @@
 		overflow: hidden;
 
 		/* Fill layer with plus-darker blend */
-		background: linear-gradient(0deg, rgba(55, 55, 58, 0.9), rgba(55, 55, 58, 0.9)),
+		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#272727;
+			#1d1d1d;
 		background-blend-mode: plus-darker, normal, color-dodge;
 
 		/* Subtle inner glow at top */
@@ -1306,9 +1306,9 @@
 	}
 
 	.record-btn:hover {
-		background: linear-gradient(0deg, rgba(65, 65, 68, 0.95), rgba(65, 65, 68, 0.95)),
+		background: linear-gradient(0deg, rgba(55, 55, 58, 0.95), rgba(55, 55, 58, 0.95)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
-			#272727;
+			#1d1d1d;
 		background-blend-mode: plus-darker, normal, color-dodge;
 		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
 	}
@@ -1316,7 +1316,7 @@
 	.record-btn.recording {
 		background: linear-gradient(0deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.15)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
-			#272727;
+			#1d1d1d;
 		background-blend-mode: plus-darker, normal, color-dodge;
 		padding: 8px 12px;
 	}
@@ -1364,23 +1364,7 @@
 		padding: 9px 70px 9px 14px;
 		border-radius: 14px;
 		border: none;
-
-		/* Fill layer with blend mode */
-		background: linear-gradient(
-				0deg,
-				rgba(245, 245, 245, 0.08),
-				rgba(245, 245, 245, 0.08)
-			),
-			rgba(38, 38, 38, 0.4);
-		background-blend-mode: normal, color-dodge;
-
-		/* Backdrop blur for glass */
-		backdrop-filter: blur(40px);
-		-webkit-backdrop-filter: blur(40px);
-
-		/* Glass shine overlay */
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
-
+		background: #2d2d2d;
 		color: #fafafa;
 		font-size: 14px;
 		outline: none;
@@ -1392,13 +1376,11 @@
 	}
 
 	.input-wrapper input:focus {
-		background: linear-gradient(
-				0deg,
-				rgba(245, 245, 245, 0.12),
-				rgba(245, 245, 245, 0.12)
-			),
-			rgba(38, 38, 38, 0.4);
-		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
+		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
+			#1d1d1d;
+		background-blend-mode: plus-darker, normal, color-dodge;
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
 	}
 
 	.shortcut {
@@ -1431,7 +1413,7 @@
 		/* Fill layer with plus-darker blend and green tint */
 		background: linear-gradient(0deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.15)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
-			#272727;
+			#1d1d1d;
 		background-blend-mode: plus-darker, normal, color-dodge;
 
 		/* Subtle inner glow at top */
@@ -1483,9 +1465,9 @@
 		overflow: hidden;
 
 		/* Fill layer with plus-darker blend */
-		background: linear-gradient(0deg, rgba(55, 55, 58, 0.9), rgba(55, 55, 58, 0.9)),
+		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#272727;
+			#1d1d1d;
 		background-blend-mode: plus-darker, normal, color-dodge;
 
 		/* Subtle inner glow at top */
@@ -1528,9 +1510,9 @@
 
 	.mode-toggle:hover {
 		color: rgba(255, 255, 255, 0.8);
-		background: linear-gradient(0deg, rgba(65, 65, 68, 0.95), rgba(65, 65, 68, 0.95)),
+		background: linear-gradient(0deg, rgba(55, 55, 58, 0.95), rgba(55, 55, 58, 0.95)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
-			#272727;
+			#1d1d1d;
 		background-blend-mode: plus-darker, normal, color-dodge;
 		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
 	}
@@ -1538,7 +1520,7 @@
 	.mode-toggle.active {
 		background: linear-gradient(0deg, rgba(147, 51, 234, 0.15), rgba(147, 51, 234, 0.15)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
-			#272727;
+			#1d1d1d;
 		background-blend-mode: plus-darker, normal, color-dodge;
 		color: #a855f7;
 	}
@@ -1565,9 +1547,9 @@
 		overflow: hidden;
 
 		/* Fill layer with plus-darker blend */
-		background: linear-gradient(0deg, rgba(55, 55, 58, 0.9), rgba(55, 55, 58, 0.9)),
+		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#272727;
+			#1d1d1d;
 		background-blend-mode: plus-darker, normal, color-dodge;
 
 		/* Subtle inner glow at top */
@@ -1608,9 +1590,9 @@
 
 	.icon-btn:hover {
 		color: #fafafa;
-		background: linear-gradient(0deg, rgba(65, 65, 68, 0.95), rgba(65, 65, 68, 0.95)),
+		background: linear-gradient(0deg, rgba(55, 55, 58, 0.95), rgba(55, 55, 58, 0.95)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
-			#272727;
+			#1d1d1d;
 		background-blend-mode: plus-darker, normal, color-dodge;
 		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
 	}
@@ -1746,7 +1728,7 @@
 		border-radius: 1000px;
 		isolation: isolate;
 		overflow: hidden;
-		background: #292929;
+		background: #2d2d2d;
 		transition: all 0.2s ease;
 	}
 
@@ -1800,9 +1782,9 @@
 
 	/* Focused state - liquid glass effect */
 	.input-wrapper-chat:focus-within {
-		background: linear-gradient(0deg, rgba(55, 55, 58, 0.9), rgba(55, 55, 58, 0.9)),
+		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#272727;
+			#1d1d1d;
 		background-blend-mode: plus-darker, normal, color-dodge;
 		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
 	}
@@ -1855,7 +1837,9 @@
 		background: rgba(255, 255, 255, 0.4);
 	}
 
+	/* Send button - Liquid Glass effect */
 	.send-btn {
+		position: relative;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -1868,56 +1852,73 @@
 		cursor: pointer;
 		transition: all 0.15s ease;
 		flex-shrink: 0;
+		isolation: isolate;
+		overflow: hidden;
 
-		/* 3D effect with main color #1b4879 */
-		background: linear-gradient(
-			180deg,
-			#2a5a8f 0%,
-			#1b4879 50%,
-			#143a61 100%
-		);
-		box-shadow:
-			0 2px 4px rgba(0, 0, 0, 0.3),
-			0 4px 8px rgba(0, 0, 0, 0.2),
-			inset 0 1px 0 rgba(255, 255, 255, 0.2),
-			inset 0 -1px 0 rgba(0, 0, 0, 0.2);
-		color: #ffffff;
+		/* Fill layer with plus-darker blend */
+		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
+			#1d1d1d;
+		background-blend-mode: plus-darker, normal, color-dodge;
+
+		/* Subtle inner glow at top */
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+
+		color: rgba(250, 250, 250, 0.8);
+	}
+
+	/* Blur layer */
+	.send-btn::before {
+		content: '';
+		position: absolute;
+		left: 3px;
+		right: 3px;
+		top: 4px;
+		bottom: 2px;
+		background: rgba(0, 0, 0, 0.1);
+		background-blend-mode: hard-light;
+		filter: blur(10px);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		border-radius: 10px;
+		z-index: -1;
+		opacity: 0.67;
+	}
+
+	/* Glass effect layer */
+	.send-btn::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.001);
+		border-radius: 12px;
+		pointer-events: none;
 	}
 
 	.send-btn:hover:not(:disabled) {
-		background: linear-gradient(
-			180deg,
-			#3268a0 0%,
-			#1f5285 50%,
-			#184570 100%
-		);
-		box-shadow:
-			0 3px 6px rgba(0, 0, 0, 0.35),
-			0 6px 12px rgba(0, 0, 0, 0.25),
-			inset 0 1px 0 rgba(255, 255, 255, 0.25),
-			inset 0 -1px 0 rgba(0, 0, 0, 0.2);
-		transform: translateY(-1px);
+		background: linear-gradient(0deg, rgba(55, 55, 58, 0.95), rgba(55, 55, 58, 0.95)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
+			#1d1d1d;
+		background-blend-mode: plus-darker, normal, color-dodge;
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
+		color: #fafafa;
 	}
 
 	.send-btn:active:not(:disabled) {
-		background: linear-gradient(
-			180deg,
-			#143a61 0%,
-			#1b4879 50%,
-			#2a5a8f 100%
-		);
-		box-shadow:
-			0 1px 2px rgba(0, 0, 0, 0.3),
-			inset 0 1px 2px rgba(0, 0, 0, 0.2);
-		transform: translateY(1px);
+		background: linear-gradient(0deg, rgba(35, 35, 38, 0.95), rgba(35, 35, 38, 0.95)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
+			#1d1d1d;
+		background-blend-mode: plus-darker, normal, color-dodge;
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 	}
 
 	.send-btn:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
-		box-shadow:
-			0 1px 2px rgba(0, 0, 0, 0.2),
-			inset 0 1px 0 rgba(255, 255, 255, 0.1);
+	}
+
+	.send-btn:disabled::before {
+		opacity: 0;
 	}
 
 	/* Markdown */
@@ -2004,7 +2005,7 @@
 
 	/* Window unfocused state - flat buttons without liquid glass effects */
 	.container.window-unfocused .record-btn {
-		background: #292929;
+		background: #2d2d2d;
 		box-shadow: none;
 	}
 
@@ -2014,11 +2015,11 @@
 	}
 
 	.container.window-unfocused .record-btn.recording {
-		background: #292929;
+		background: #2d2d2d;
 	}
 
 	.container.window-unfocused .icon-btn {
-		background: #292929;
+		background: #2d2d2d;
 		box-shadow: none;
 	}
 
@@ -2028,7 +2029,7 @@
 	}
 
 	.container.window-unfocused .mode-toggle {
-		background: #292929;
+		background: #2d2d2d;
 		box-shadow: none;
 	}
 
@@ -2038,11 +2039,11 @@
 	}
 
 	.container.window-unfocused .mode-toggle.active {
-		background: #292929;
+		background: #2d2d2d;
 	}
 
 	.container.window-unfocused .screen-badge {
-		background: #292929;
+		background: #2d2d2d;
 		box-shadow: none;
 	}
 
@@ -2050,4 +2051,5 @@
 	.container.window-unfocused .screen-badge::after {
 		opacity: 0;
 	}
+
 </style>

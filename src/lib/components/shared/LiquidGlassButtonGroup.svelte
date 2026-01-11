@@ -41,9 +41,9 @@
 		padding: 4px;
 
 		/* Fill layer with plus-darker blend */
-		background: linear-gradient(0deg, rgba(55, 55, 58, 0.9), rgba(55, 55, 58, 0.9)),
+		background: linear-gradient(0deg, rgba(45, 45, 48, 0.9), rgba(45, 45, 48, 0.9)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#272727;
+			#1d1d1d;
 		background-blend-mode: plus-darker, normal, color-dodge;
 
 		/* Subtle inner glow at top */
@@ -170,7 +170,7 @@
 
 	/* Inactive state - flat background, no effects */
 	.liquid-glass-button-group.inactive {
-		background: #292929;
+		background: #2d2d2d;
 		box-shadow: none;
 	}
 
