@@ -42,17 +42,21 @@
 		/* Base gradient for highlight effect */
 		background: radial-gradient(
 			57.2% 57.2% at 13.35% 16.4%,
-			rgba(255, 255, 255, 0.08) 0%,
+			rgba(255, 255, 255, 0.05) 0%,
 			rgba(255, 255, 255, 0) 100%
 		);
 
-		/* Depth shadows */
+		/* Depth shadows - no harsh borders */
 		box-shadow:
-			0px 25px 50px -12px rgba(0, 0, 0, 0.25),
-			inset 0px 0px 20px rgba(255, 255, 255, 0.05);
+			0px 20px 40px -15px rgba(0, 0, 0, 0.15),
+			inset 0px 0px 25px rgba(255, 255, 255, 0.03);
 
 		/* Isolation for blend modes */
 		isolation: isolate;
+
+		/* Ensure no border */
+		border: none;
+		outline: none;
 	}
 
 	/* Base lens layer styles */

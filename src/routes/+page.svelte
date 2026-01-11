@@ -1126,7 +1126,7 @@
 		z-index: 1;
 	}
 
-	/* Record button */
+	/* Record button - 3D glass effect */
 	.record-btn {
 		display: flex;
 		align-items: center;
@@ -1135,23 +1135,50 @@
 		padding: 8px;
 		min-width: 36px;
 		height: 36px;
-		background: rgba(255, 255, 255, 0.06);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 8px;
+
+		/* 3D gradient - lighter at top, darker at bottom */
+		background: linear-gradient(
+			180deg,
+			rgba(255, 255, 255, 0.12) 0%,
+			rgba(255, 255, 255, 0.04) 100%
+		);
+
+		/* Fully rounded */
+		border-radius: 100px;
+
+		/* No border */
+		border: none;
+
+		/* Subtle shadow for depth */
+		box-shadow:
+			0 2px 8px rgba(0, 0, 0, 0.1),
+			inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
 		color: #ef4444;
 		cursor: pointer;
-		transition:
-			background 0.15s,
-			border-color 0.15s;
+		transition: all 0.15s ease;
 	}
 
 	.record-btn:hover {
-		background: rgba(255, 255, 255, 0.1);
+		background: linear-gradient(
+			180deg,
+			rgba(255, 255, 255, 0.18) 0%,
+			rgba(255, 255, 255, 0.08) 100%
+		);
+		box-shadow:
+			0 4px 12px rgba(0, 0, 0, 0.15),
+			inset 0 1px 0 rgba(255, 255, 255, 0.15);
 	}
 
 	.record-btn.recording {
-		background: rgba(239, 68, 68, 0.12);
-		border-color: rgba(239, 68, 68, 0.25);
+		background: linear-gradient(
+			180deg,
+			rgba(239, 68, 68, 0.25) 0%,
+			rgba(239, 68, 68, 0.15) 100%
+		);
+		box-shadow:
+			0 2px 8px rgba(239, 68, 68, 0.3),
+			inset 0 1px 0 rgba(255, 255, 255, 0.1);
 		padding: 8px 12px;
 	}
 
@@ -1195,13 +1222,27 @@
 	.input-wrapper input {
 		width: 100%;
 		padding: 9px 70px 9px 14px;
-		background: rgba(255, 255, 255, 0.06);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 8px;
+
+		/* Glass effect with subtle gradient */
+		background: linear-gradient(
+			180deg,
+			rgba(255, 255, 255, 0.08) 0%,
+			rgba(255, 255, 255, 0.04) 100%
+		);
+
+		/* Fully rounded */
+		border-radius: 100px;
+
+		/* No border */
+		border: none;
+
+		/* Inner shadow for inset effect */
+		box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+
 		color: #fafafa;
 		font-size: 14px;
 		outline: none;
-		transition: border-color 0.15s;
+		transition: all 0.15s ease;
 	}
 
 	.input-wrapper input::placeholder {
@@ -1209,7 +1250,14 @@
 	}
 
 	.input-wrapper input:focus {
-		border-color: rgba(255, 255, 255, 0.2);
+		background: linear-gradient(
+			180deg,
+			rgba(255, 255, 255, 0.12) 0%,
+			rgba(255, 255, 255, 0.06) 100%
+		);
+		box-shadow:
+			inset 0 1px 3px rgba(0, 0, 0, 0.15),
+			0 0 0 2px rgba(255, 255, 255, 0.1);
 	}
 
 	.shortcut {
@@ -1231,9 +1279,17 @@
 	}
 
 	.screen-badge {
-		padding: 5px 10px;
-		background: rgba(34, 197, 94, 0.12);
-		border-radius: 6px;
+		padding: 6px 12px;
+		background: linear-gradient(
+			180deg,
+			rgba(34, 197, 94, 0.2) 0%,
+			rgba(34, 197, 94, 0.12) 100%
+		);
+		border-radius: 100px;
+		border: none;
+		box-shadow:
+			0 2px 8px rgba(34, 197, 94, 0.15),
+			inset 0 1px 0 rgba(255, 255, 255, 0.1);
 		font-size: 12px;
 		font-weight: 500;
 		color: #22c55e;
@@ -1243,10 +1299,17 @@
 		display: flex;
 		align-items: center;
 		gap: 5px;
-		padding: 5px 10px;
-		background: rgba(255, 255, 255, 0.06);
-		border: 1px solid rgba(255, 255, 255, 0.1);
-		border-radius: 6px;
+		padding: 6px 12px;
+		background: linear-gradient(
+			180deg,
+			rgba(255, 255, 255, 0.12) 0%,
+			rgba(255, 255, 255, 0.04) 100%
+		);
+		border: none;
+		border-radius: 100px;
+		box-shadow:
+			0 2px 8px rgba(0, 0, 0, 0.1),
+			inset 0 1px 0 rgba(255, 255, 255, 0.1);
 		font-size: 11px;
 		font-weight: 500;
 		color: rgba(255, 255, 255, 0.6);
@@ -1255,18 +1318,32 @@
 	}
 
 	.mode-toggle:hover {
-		background: rgba(255, 255, 255, 0.1);
+		background: linear-gradient(
+			180deg,
+			rgba(255, 255, 255, 0.18) 0%,
+			rgba(255, 255, 255, 0.08) 100%
+		);
 		color: rgba(255, 255, 255, 0.8);
 	}
 
 	.mode-toggle.active {
-		background: rgba(147, 51, 234, 0.15);
-		border-color: rgba(147, 51, 234, 0.3);
+		background: linear-gradient(
+			180deg,
+			rgba(147, 51, 234, 0.25) 0%,
+			rgba(147, 51, 234, 0.15) 100%
+		);
+		box-shadow:
+			0 2px 8px rgba(147, 51, 234, 0.2),
+			inset 0 1px 0 rgba(255, 255, 255, 0.1);
 		color: #a855f7;
 	}
 
 	.mode-toggle.active:hover {
-		background: rgba(147, 51, 234, 0.25);
+		background: linear-gradient(
+			180deg,
+			rgba(147, 51, 234, 0.35) 0%,
+			rgba(147, 51, 234, 0.2) 100%
+		);
 	}
 
 	.bar-actions {
@@ -1275,7 +1352,7 @@
 		gap: 4px;
 	}
 
-	/* Icon button */
+	/* Icon button - 3D glass effect */
 	.icon-btn {
 		display: flex;
 		align-items: center;
@@ -1283,19 +1360,40 @@
 		width: 36px;
 		height: 36px;
 		padding: 0;
-		background: rgba(255, 255, 255, 0.06);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 8px;
-		color: rgba(250, 250, 250, 0.5);
+
+		/* 3D gradient */
+		background: linear-gradient(
+			180deg,
+			rgba(255, 255, 255, 0.12) 0%,
+			rgba(255, 255, 255, 0.04) 100%
+		);
+
+		/* Fully rounded */
+		border-radius: 100px;
+
+		/* No border */
+		border: none;
+
+		/* Subtle shadow for depth */
+		box-shadow:
+			0 2px 8px rgba(0, 0, 0, 0.1),
+			inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+		color: rgba(250, 250, 250, 0.6);
 		cursor: pointer;
-		transition:
-			color 0.15s,
-			background 0.15s;
+		transition: all 0.15s ease;
 	}
 
 	.icon-btn:hover {
 		color: #fafafa;
-		background: rgba(255, 255, 255, 0.1);
+		background: linear-gradient(
+			180deg,
+			rgba(255, 255, 255, 0.18) 0%,
+			rgba(255, 255, 255, 0.08) 100%
+		);
+		box-shadow:
+			0 4px 12px rgba(0, 0, 0, 0.15),
+			inset 0 1px 0 rgba(255, 255, 255, 0.15);
 	}
 
 	/* Chat panel */
