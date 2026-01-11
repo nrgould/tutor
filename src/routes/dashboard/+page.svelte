@@ -424,7 +424,7 @@
       await mainWindow.setFocus();
     }
 
-    // Close the dashboard
+    // Close the settings window
     await getCurrentWindow().close();
   }
 
@@ -465,7 +465,7 @@
 </script>
 
 
-<div class="app" onmousedown={startDrag} role="application" aria-label="Eigen Dashboard">
+<div class="app" onmousedown={startDrag} role="application" aria-label="Eigen Settings">
   <header class="header">
     <div class="header-left">
       <div class="brand">

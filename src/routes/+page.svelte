@@ -107,13 +107,18 @@
 			await setSetting('bar_position_y', String(event.payload.y));
 		});
 
-		// Listen for load-conversation events from dashboard
+		// Listen for load-conversation events from settings
 		const unlistenConversation = listen<{ conversationId: string }>(
 			'load-conversation',
 			async (event) => {
 				await loadConversation(event.payload.conversationId);
 			}
 		);
+
+		// Listen for open-settings event from menu bar
+		const unlistenSettings = listen('open-settings', async () => {
+			await openSettings();
+		});
 
 		// Listen for nudge clicks from nudge window
 		const unlistenNudge = listen<{
@@ -221,6 +226,7 @@
 			stopRecording();
 			unlistenMove.then((fn) => fn());
 			unlistenConversation.then((fn) => fn());
+			unlistenSettings.then((fn) => fn());
 			unlistenNudge.then((fn) => fn());
 			unlistenRecording.then((fn) => fn());
 			unlistenRecordingStarted.then((fn) => fn());
@@ -816,17 +822,17 @@
 		}
 	}
 
-	async function openDashboard() {
+	async function openSettings() {
 		const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-		const existing = await WebviewWindow.getByLabel('dashboard');
+		const existing = await WebviewWindow.getByLabel('settings');
 		if (existing) {
 			await existing.show();
 			await existing.setFocus();
 			return;
 		}
-		new WebviewWindow('dashboard', {
+		new WebviewWindow('settings', {
 			url: '/dashboard',
-			title: 'Eigen',
+			title: 'Settings',
 			width: 900,
 			height: 700,
 			resizable: true,
@@ -936,9 +942,9 @@
 
 				<button
 					class="icon-btn"
-					onclick={openDashboard}
-					title="Dashboard"
-					aria-label="Dashboard"
+					onclick={openSettings}
+					title="Settings"
+					aria-label="Settings"
 				>
 					<svg
 						width="16"
