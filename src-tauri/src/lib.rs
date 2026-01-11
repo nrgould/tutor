@@ -277,6 +277,8 @@ pub fn run() {
                             let _: () = msg_send![ns_window, setOpaque: cocoa::base::NO];
                             // Remove window shadow - this removes the blue border artifact
                             let _: () = msg_send![ns_window, setHasShadow: cocoa::base::NO];
+                            // Make transparent areas click-through (forward events to apps behind)
+                            let _: () = msg_send![ns_window, setIgnoresMouseEvents: cocoa::base::NO];
                         }
                     }
                 }

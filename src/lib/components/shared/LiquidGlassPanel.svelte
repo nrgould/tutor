@@ -1,26 +1,23 @@
 <script lang="ts">
 	/**
-	 * LiquidGlassBar - Dark glass container with top shimmer
+	 * LiquidGlassPanel - Flexible glass container for panels like chat
 	 *
-	 * The bar itself is a dark translucent container with a white shimmer
-	 * on the top border that fades toward the edges. Internal components
-	 * (buttons, inputs) should use the .liquid-glass-element class for
-	 * the actual liquid glass effect.
-	 * When active=false, shows flat #292929 background without effects.
+	 * Similar to LiquidGlassBar but designed for variable-height panels.
+	 * Features both top-left and bottom-right shimmer borders.
 	 */
 
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		class?: string;
-		active?: boolean;
+		borderRadius?: number;
 		children?: Snippet;
 	}
 
-	let { class: className = '', active = true, children }: Props = $props();
+	let { class: className = '', borderRadius = 18, children }: Props = $props();
 </script>
 
-<div class="liquid-glass-bar {className}" class:active class:inactive={!active}>
+<div class="liquid-glass-panel {className}" style="--border-radius: {borderRadius}px">
 	<!-- Top-left shimmer overlay -->
 	<div class="top-shimmer"></div>
 	<!-- Bottom-right shimmer overlay (subtler) -->
@@ -33,13 +30,13 @@
 </div>
 
 <style>
-	.liquid-glass-bar {
+	.liquid-glass-panel {
 		position: relative;
-		border-radius: 26px;
+		border-radius: var(--border-radius, 18px);
 		isolation: isolate;
 		overflow: hidden;
 
-		/* Fill layer - adapted from liquid glass medium */
+		/* Fill layer - dark glass background */
 		background: linear-gradient(0deg, rgba(25, 25, 25, 0.95), rgba(25, 25, 25, 0.95)), #191919;
 		background-blend-mode: normal, color-dodge;
 
@@ -54,7 +51,7 @@
 	}
 
 	/* Blur layer */
-	.liquid-glass-bar::before {
+	.liquid-glass-panel::before {
 		content: '';
 		position: absolute;
 		left: 4px;
@@ -66,7 +63,7 @@
 		filter: blur(20px);
 		backdrop-filter: blur(40px);
 		-webkit-backdrop-filter: blur(40px);
-		border-radius: 24px;
+		border-radius: calc(var(--border-radius, 18px) - 2px);
 		z-index: -1;
 		pointer-events: none;
 	}
@@ -77,15 +74,15 @@
 		inset: 0;
 		pointer-events: none;
 		z-index: 2;
-		border-radius: 26px;
+		border-radius: var(--border-radius, 18px);
 
-		/* Shimmer border using gradient on pseudo-element */
+		/* Shimmer border using gradient */
 		background: linear-gradient(
 			135deg,
-			rgba(255, 255, 255, 0.25) 0%,
-			rgba(255, 255, 255, 0.15) 20%,
-			rgba(255, 255, 255, 0.08) 45%,
-			rgba(255, 255, 255, 0.03) 70%,
+			rgba(255, 255, 255, 0.2) 0%,
+			rgba(255, 255, 255, 0.12) 20%,
+			rgba(255, 255, 255, 0.06) 45%,
+			rgba(255, 255, 255, 0.02) 70%,
 			transparent 90%
 		);
 
@@ -107,14 +104,14 @@
 		inset: 0;
 		pointer-events: none;
 		z-index: 2;
-		border-radius: 26px;
+		border-radius: var(--border-radius, 18px);
 
 		/* Mirror gradient: 315deg = opposite of 135deg, reduced opacity */
 		background: linear-gradient(
 			315deg,
-			rgba(255, 255, 255, 0.12) 0%,
-			rgba(255, 255, 255, 0.06) 20%,
-			rgba(255, 255, 255, 0.03) 45%,
+			rgba(255, 255, 255, 0.1) 0%,
+			rgba(255, 255, 255, 0.05) 20%,
+			rgba(255, 255, 255, 0.02) 45%,
 			rgba(255, 255, 255, 0.01) 70%,
 			transparent 90%
 		);
@@ -132,12 +129,12 @@
 	}
 
 	/* Glass effect layer */
-	.liquid-glass-bar::after {
+	.liquid-glass-panel::after {
 		content: '';
 		position: absolute;
 		inset: 0;
 		background: rgba(0, 0, 0, 0.001);
-		border-radius: 26px;
+		border-radius: var(--border-radius, 18px);
 		pointer-events: none;
 		z-index: 3;
 	}
@@ -146,26 +143,15 @@
 	.content {
 		position: relative;
 		z-index: 4;
+		display: flex;
+		flex-direction: column;
+		height: 100%;
 	}
 
 	/* Fallback for browsers without backdrop-filter */
 	@supports not (backdrop-filter: blur(10px)) {
-		.liquid-glass-bar {
-			background: rgba(28, 28, 30, 0.95);
+		.liquid-glass-panel {
+			background: rgba(25, 25, 25, 0.98);
 		}
-	}
-
-	/* Inactive state - same background as active, just no shimmer effects */
-	.liquid-glass-bar.inactive {
-		box-shadow: none;
-	}
-
-	.liquid-glass-bar.inactive::before {
-		opacity: 0;
-	}
-
-	.liquid-glass-bar.inactive .top-shimmer,
-	.liquid-glass-bar.inactive .bottom-shimmer {
-		opacity: 0;
 	}
 </style>

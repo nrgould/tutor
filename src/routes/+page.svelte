@@ -28,6 +28,8 @@
 	import Onboarding from '$lib/components/Onboarding.svelte';
 	import PermissionDialog from '$lib/components/PermissionDialog.svelte';
 	import LiquidGlassBar from '$lib/components/shared/LiquidGlassBar.svelte';
+	import LiquidGlassPanel from '$lib/components/shared/LiquidGlassPanel.svelte';
+	import LiquidGlassButtonGroup from '$lib/components/shared/LiquidGlassButtonGroup.svelte';
 
 	const settings = $derived($settingsStore);
 
@@ -39,6 +41,7 @@
 	let checkingOnboarding = $state(true);
 	let showPermissionDialog = $state(false);
 	let hasScreenRecordingPermission = $state(true); // Assume granted until checked
+	let isWindowFocused = $state(true); // Track window focus for liquid glass effects
 
 	// Chat state
 	let showChat = $state(false);
@@ -205,6 +208,15 @@
 			}
 		})();
 
+		// Listen for window focus/blur to toggle liquid glass effects
+		const unlistenFocus = window.onFocusChanged(({ payload: focused }) => {
+			isWindowFocused = focused;
+			// Auto-focus input when window becomes focused
+			if (focused) {
+				focusInput();
+			}
+		});
+
 		return () => {
 			stopRecording();
 			unlistenMove.then((fn) => fn());
@@ -214,6 +226,7 @@
 			unlistenRecordingStarted.then((fn) => fn());
 			unlistenScreenshot.then((fn) => fn());
 			unlistenPermission.then((fn) => fn());
+			unlistenFocus.then((fn) => fn());
 		};
 	});
 
@@ -447,15 +460,55 @@
 		return entries.join('\n');
 	}
 
-	async function resizeWindow(expanded: boolean) {
+	async function resizeWindow(showingChat: boolean) {
 		try {
 			const window = getCurrentWindow();
 			const { LogicalSize } = await import('@tauri-apps/api/dpi');
-			const newHeight = expanded ? BAR_HEIGHT + CHAT_HEIGHT : BAR_HEIGHT;
+			const newHeight = showingChat ? BAR_HEIGHT + CHAT_HEIGHT : BAR_HEIGHT;
 			await window.setSize(new LogicalSize(480, newHeight));
 		} catch (error) {
 			console.error('Failed to resize window:', error);
 		}
+	}
+
+	let isResizing = $state(false);
+	let resizeStartY = $state(0);
+	let resizeStartHeight = $state(0);
+
+	async function startResize(e: MouseEvent) {
+		if (e.button !== 0) return;
+		e.preventDefault();
+
+		isResizing = true;
+		resizeStartY = e.clientY;
+
+		const window = getCurrentWindow();
+		const size = await window.innerSize();
+		resizeStartHeight = size.height;
+
+		document.addEventListener('mousemove', handleResize);
+		document.addEventListener('mouseup', stopResize);
+	}
+
+	async function handleResize(e: MouseEvent) {
+		if (!isResizing) return;
+
+		const deltaY = e.clientY - resizeStartY;
+		const newHeight = Math.max(BAR_HEIGHT + 200, Math.min(resizeStartHeight + deltaY, BAR_HEIGHT + 800));
+
+		try {
+			const window = getCurrentWindow();
+			const { LogicalSize } = await import('@tauri-apps/api/dpi');
+			await window.setSize(new LogicalSize(480, newHeight));
+		} catch (error) {
+			console.error('Failed to resize:', error);
+		}
+	}
+
+	function stopResize() {
+		isResizing = false;
+		document.removeEventListener('mousemove', handleResize);
+		document.removeEventListener('mouseup', stopResize);
 	}
 
 	async function scrollToBottom() {
@@ -817,12 +870,14 @@
 <div class="window-wrapper">
 	<div
 		class="container"
+		class:window-focused={isWindowFocused}
+		class:window-unfocused={!isWindowFocused}
 		onmousedown={startDrag}
 		role="application"
 		aria-label="Eigen"
 	>
 		<!-- Main bar -->
-		<LiquidGlassBar class="bar-glass">
+		<LiquidGlassBar class="bar-glass" active={isWindowFocused}>
 			<div class="bar-inner">
 			<button
 				class="record-btn"
@@ -922,11 +977,50 @@
 
 				<div class="bar-actions">
 					{#if messages.length > 0}
+						<!-- Multiple buttons: grouped pill -->
+						<LiquidGlassButtonGroup active={isWindowFocused}>
+							<button
+								class="group-icon-btn"
+								onclick={startNewChat}
+								title="New chat"
+								aria-label="New chat"
+							>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path d="M12 5v14m-7-7h14" />
+								</svg>
+							</button>
+							<button
+								class="group-icon-btn"
+								onclick={closeChat}
+								title="Close"
+								aria-label="Close chat"
+							>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+								>
+									<path d="M18 6L6 18M6 6l12 12" />
+								</svg>
+							</button>
+						</LiquidGlassButtonGroup>
+					{:else}
+						<!-- Single button: standalone -->
 						<button
 							class="icon-btn"
-							onclick={startNewChat}
-							title="New chat"
-							aria-label="New chat"
+							onclick={closeChat}
+							title="Close"
+							aria-label="Close chat"
 						>
 							<svg
 								width="14"
@@ -936,27 +1030,10 @@
 								stroke="currentColor"
 								stroke-width="2"
 							>
-								<path d="M12 5v14m-7-7h14" />
+								<path d="M18 6L6 18M6 6l12 12" />
 							</svg>
 						</button>
 					{/if}
-					<button
-						class="icon-btn"
-						onclick={closeChat}
-						title="Close"
-						aria-label="Close chat"
-					>
-						<svg
-							width="14"
-							height="14"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path d="M18 6L6 18M6 6l12 12" />
-						</svg>
-					</button>
 				</div>
 			{/if}
 			</div>
@@ -964,7 +1041,7 @@
 
 		<!-- Chat panel -->
 		{#if showChat}
-			<div class="chat-panel">
+			<LiquidGlassPanel class="chat-panel-glass">
 				<div class="messages" bind:this={messagesContainer}>
 					{#if messages.length === 0 && !isLoading}
 						<div class="empty-state">
@@ -1023,14 +1100,16 @@
 				{/if}
 
 				<div class="chat-input">
-					<input
-						type="text"
-						bind:value={inputValue}
-						bind:this={inputRef}
-						placeholder="Message..."
-						onkeydown={handleKeydown}
-						disabled={isLoading}
-					/>
+					<div class="input-wrapper-chat">
+						<input
+							type="text"
+							bind:value={inputValue}
+							bind:this={inputRef}
+							placeholder="Message..."
+							onkeydown={handleKeydown}
+							disabled={isLoading}
+						/>
+					</div>
 					<button
 						class="send-btn"
 						onclick={() => handleSend()}
@@ -1038,18 +1117,25 @@
 						aria-label="Send"
 					>
 						<svg
-							width="14"
-							height="14"
+							width="16"
+							height="16"
 							viewBox="0 0 24 24"
 							fill="none"
 							stroke="currentColor"
 							stroke-width="2"
 						>
-							<path d="M5 12h14M12 5l7 7-7 7" />
+							<path d="M12 19V5M5 12l7-7 7 7" />
 						</svg>
 					</button>
 				</div>
-			</div>
+				<!-- Resize handle -->
+				<div
+					class="resize-handle"
+					onmousedown={startResize}
+					role="separator"
+					aria-label="Resize chat"
+				></div>
+			</LiquidGlassPanel>
 		{/if}
 	</div>
 </div>
@@ -1163,7 +1249,7 @@
 		/* Fill layer with plus-darker blend */
 		background: linear-gradient(0deg, rgba(55, 55, 58, 0.9), rgba(55, 55, 58, 0.9)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#1a1a1a;
+			#272727;
 		background-blend-mode: plus-darker, normal, color-dodge;
 
 		/* Subtle inner glow at top */
@@ -1205,7 +1291,7 @@
 	.record-btn:hover {
 		background: linear-gradient(0deg, rgba(65, 65, 68, 0.95), rgba(65, 65, 68, 0.95)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
-			#1a1a1a;
+			#272727;
 		background-blend-mode: plus-darker, normal, color-dodge;
 		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
 	}
@@ -1213,7 +1299,7 @@
 	.record-btn.recording {
 		background: linear-gradient(0deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.15)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
-			#1a1a1a;
+			#272727;
 		background-blend-mode: plus-darker, normal, color-dodge;
 		padding: 8px 12px;
 	}
@@ -1328,7 +1414,7 @@
 		/* Fill layer with plus-darker blend and green tint */
 		background: linear-gradient(0deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.15)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
-			#1a1a1a;
+			#272727;
 		background-blend-mode: plus-darker, normal, color-dodge;
 
 		/* Subtle inner glow at top */
@@ -1382,7 +1468,7 @@
 		/* Fill layer with plus-darker blend */
 		background: linear-gradient(0deg, rgba(55, 55, 58, 0.9), rgba(55, 55, 58, 0.9)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#1a1a1a;
+			#272727;
 		background-blend-mode: plus-darker, normal, color-dodge;
 
 		/* Subtle inner glow at top */
@@ -1427,7 +1513,7 @@
 		color: rgba(255, 255, 255, 0.8);
 		background: linear-gradient(0deg, rgba(65, 65, 68, 0.95), rgba(65, 65, 68, 0.95)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
-			#1a1a1a;
+			#272727;
 		background-blend-mode: plus-darker, normal, color-dodge;
 		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
 	}
@@ -1435,7 +1521,7 @@
 	.mode-toggle.active {
 		background: linear-gradient(0deg, rgba(147, 51, 234, 0.15), rgba(147, 51, 234, 0.15)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
-			#1a1a1a;
+			#272727;
 		background-blend-mode: plus-darker, normal, color-dodge;
 		color: #a855f7;
 	}
@@ -1464,7 +1550,7 @@
 		/* Fill layer with plus-darker blend */
 		background: linear-gradient(0deg, rgba(55, 55, 58, 0.9), rgba(55, 55, 58, 0.9)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
-			#1a1a1a;
+			#272727;
 		background-blend-mode: plus-darker, normal, color-dodge;
 
 		/* Subtle inner glow at top */
@@ -1507,21 +1593,15 @@
 		color: #fafafa;
 		background: linear-gradient(0deg, rgba(65, 65, 68, 0.95), rgba(65, 65, 68, 0.95)),
 			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
-			#1a1a1a;
+			#272727;
 		background-blend-mode: plus-darker, normal, color-dodge;
 		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
 	}
 
-	/* Chat panel */
-	.chat-panel {
-		display: flex;
-		flex-direction: column;
+	/* Chat panel with liquid glass */
+	:global(.chat-panel-glass) {
 		flex: 1;
-		background: rgba(9, 9, 11, 0.92);
-		backdrop-filter: blur(24px);
-		-webkit-backdrop-filter: blur(24px);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 14px;
+		margin-top: 8px;
 		overflow: hidden;
 	}
 
@@ -1635,57 +1715,192 @@
 	.chat-input {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: 0;
 		padding: 12px;
 		border-top: 1px solid rgba(255, 255, 255, 0.06);
 	}
 
-	.chat-input input {
+	/* Chat input wrapper - flat by default, liquid glass on focus */
+	.input-wrapper-chat {
+		position: relative;
 		flex: 1;
-		padding: 10px 14px;
-		background: rgba(255, 255, 255, 0.06);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 10px;
+		display: flex;
+		align-items: center;
+		border-radius: 1000px;
+		isolation: isolate;
+		overflow: hidden;
+		background: #292929;
+		transition: all 0.2s ease;
+	}
+
+	/* Blur layer - hidden by default */
+	.input-wrapper-chat::before {
+		content: '';
+		position: absolute;
+		left: 3px;
+		right: 3px;
+		top: 4px;
+		bottom: 2px;
+		background: rgba(0, 0, 0, 0.1);
+		background-blend-mode: hard-light;
+		filter: blur(10px);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		border-radius: 1000px;
+		z-index: -1;
+		opacity: 0;
+		transition: opacity 0.2s ease;
+	}
+
+	/* Top-left shimmer - hidden by default */
+	.input-wrapper-chat::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		z-index: 5;
+		border-radius: 1000px;
+		background: linear-gradient(
+			135deg,
+			rgba(255, 255, 255, 0.25) 0%,
+			rgba(255, 255, 255, 0.15) 20%,
+			rgba(255, 255, 255, 0.08) 45%,
+			rgba(255, 255, 255, 0.03) 70%,
+			transparent 90%
+		);
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
+		padding: 1px;
+		opacity: 0;
+		transition: opacity 0.2s ease;
+	}
+
+	/* Focused state - liquid glass effect */
+	.input-wrapper-chat:focus-within {
+		background: linear-gradient(0deg, rgba(55, 55, 58, 0.9), rgba(55, 55, 58, 0.9)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
+			#272727;
+		background-blend-mode: plus-darker, normal, color-dodge;
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+	}
+
+	.input-wrapper-chat:focus-within::before {
+		opacity: 0.67;
+	}
+
+	.input-wrapper-chat:focus-within::after {
+		opacity: 1;
+	}
+
+	.input-wrapper-chat input {
+		flex: 1;
+		padding: 10px 16px;
+		background: transparent;
+		border: none;
+		border-radius: 1000px;
 		color: #fafafa;
 		font-size: 14px;
 		outline: none;
-		transition: border-color 0.15s;
+		position: relative;
+		z-index: 1;
 	}
 
-	.chat-input input::placeholder {
+	.input-wrapper-chat input::placeholder {
 		color: rgba(250, 250, 250, 0.4);
 	}
 
-	.chat-input input:focus {
-		border-color: rgba(255, 255, 255, 0.2);
+	.input-wrapper-chat input:disabled {
+		opacity: 0.5;
 	}
 
-	.chat-input input:disabled {
-		opacity: 0.5;
+	/* Resize handle */
+	.resize-handle {
+		position: absolute;
+		bottom: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 36px;
+		height: 5px;
+		background: rgba(255, 255, 255, 0.2);
+		border-radius: 3px;
+		cursor: ns-resize;
+		transition: background 0.15s;
+		margin-bottom: 6px;
+	}
+
+	.resize-handle:hover {
+		background: rgba(255, 255, 255, 0.4);
 	}
 
 	.send-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 36px;
-		height: 36px;
+		width: 40px;
+		height: 40px;
 		padding: 0;
-		background: #fafafa;
+		margin-left: 8px;
 		border: none;
-		border-radius: 8px;
-		color: #09090b;
+		border-radius: 12px;
 		cursor: pointer;
-		transition: opacity 0.15s;
+		transition: all 0.15s ease;
+		flex-shrink: 0;
+
+		/* 3D effect with main color #1b4879 */
+		background: linear-gradient(
+			180deg,
+			#2a5a8f 0%,
+			#1b4879 50%,
+			#143a61 100%
+		);
+		box-shadow:
+			0 2px 4px rgba(0, 0, 0, 0.3),
+			0 4px 8px rgba(0, 0, 0, 0.2),
+			inset 0 1px 0 rgba(255, 255, 255, 0.2),
+			inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+		color: #ffffff;
 	}
 
 	.send-btn:hover:not(:disabled) {
-		opacity: 0.9;
+		background: linear-gradient(
+			180deg,
+			#3268a0 0%,
+			#1f5285 50%,
+			#184570 100%
+		);
+		box-shadow:
+			0 3px 6px rgba(0, 0, 0, 0.35),
+			0 6px 12px rgba(0, 0, 0, 0.25),
+			inset 0 1px 0 rgba(255, 255, 255, 0.25),
+			inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+		transform: translateY(-1px);
+	}
+
+	.send-btn:active:not(:disabled) {
+		background: linear-gradient(
+			180deg,
+			#143a61 0%,
+			#1b4879 50%,
+			#2a5a8f 100%
+		);
+		box-shadow:
+			0 1px 2px rgba(0, 0, 0, 0.3),
+			inset 0 1px 2px rgba(0, 0, 0, 0.2);
+		transform: translateY(1px);
 	}
 
 	.send-btn:disabled {
-		opacity: 0.3;
+		opacity: 0.4;
 		cursor: not-allowed;
+		box-shadow:
+			0 1px 2px rgba(0, 0, 0, 0.2),
+			inset 0 1px 0 rgba(255, 255, 255, 0.1);
 	}
 
 	/* Markdown */
@@ -1768,5 +1983,54 @@
 		background: rgba(255, 255, 255, 0.12);
 		border-color: rgba(255, 255, 255, 0.2);
 		color: #fafafa;
+	}
+
+	/* Window unfocused state - flat buttons without liquid glass effects */
+	.container.window-unfocused .record-btn {
+		background: #292929;
+		box-shadow: none;
+	}
+
+	.container.window-unfocused .record-btn::before,
+	.container.window-unfocused .record-btn::after {
+		opacity: 0;
+	}
+
+	.container.window-unfocused .record-btn.recording {
+		background: #292929;
+	}
+
+	.container.window-unfocused .icon-btn {
+		background: #292929;
+		box-shadow: none;
+	}
+
+	.container.window-unfocused .icon-btn::before,
+	.container.window-unfocused .icon-btn::after {
+		opacity: 0;
+	}
+
+	.container.window-unfocused .mode-toggle {
+		background: #292929;
+		box-shadow: none;
+	}
+
+	.container.window-unfocused .mode-toggle::before,
+	.container.window-unfocused .mode-toggle::after {
+		opacity: 0;
+	}
+
+	.container.window-unfocused .mode-toggle.active {
+		background: #292929;
+	}
+
+	.container.window-unfocused .screen-badge {
+		background: #292929;
+		box-shadow: none;
+	}
+
+	.container.window-unfocused .screen-badge::before,
+	.container.window-unfocused .screen-badge::after {
+		opacity: 0;
 	}
 </style>
