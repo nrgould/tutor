@@ -121,10 +121,6 @@
     }
   }
 
-  function skipOnboarding() {
-    oncomplete({ name: '', courses: [], goals: '' });
-  }
-
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -135,11 +131,36 @@
       }
     }
   }
+
+  function canContinue(): boolean {
+    const currentStep = getCurrentStep();
+    if (currentStep === 1 && isMac && !hasScreenPermission) return false;
+    if (currentStep === 2 && !userName.trim()) return false;
+    if (currentStep === 3 && selectedSubjects.length === 0) return false;
+    if (currentStep === 4 && !selectedGoal) return false;
+    return true;
+  }
+
+  function getButtonText(): string {
+    const currentStep = getCurrentStep();
+    if (currentStep === 1 && isMac && !hasScreenPermission) return 'Grant screen access';
+    if (currentStep === 5) return 'Start learning';
+    return 'Continue';
+  }
+
+  function handleButtonClick() {
+    const currentStep = getCurrentStep();
+    if (currentStep === 1 && isMac && !hasScreenPermission) {
+      requestPermission();
+    } else {
+      handleContinue();
+    }
+  }
 </script>
 
 <div class="onboarding" in:fade={{ duration: 200 }} out:fade={{ duration: 150 }}>
-  <div class="content">
-    <!-- Step 0: Welcome -->
+  <!-- Main content area -->
+  <div class="main">
     {#if getCurrentStep() === 0}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <div class="icon-box">
@@ -151,20 +172,12 @@
         </div>
         <h1>Welcome to Eigen</h1>
         <p class="subtitle">Your AI-powered study companion</p>
-        <button class="btn-primary" onclick={handleContinue}>
-          Continue
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-          </svg>
-        </button>
       </div>
 
-    <!-- Step 1: Permissions (Mac only) -->
     {:else if getCurrentStep() === 1 && isMac}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>Let's get you set up</h1>
         <p class="subtitle">Eigen needs permission to see your screen</p>
-
         <div class="permission-row">
           <div class="permission-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -187,27 +200,11 @@
             <div class="status pending">Required</div>
           {/if}
         </div>
-
         {#if !hasScreenPermission}
-          <button class="btn-primary" onclick={requestPermission}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="2" y="3" width="20" height="14" rx="2"/>
-              <path d="M8 21h8M12 17v4"/>
-            </svg>
-            Grant screen access
-          </button>
           <p class="hint">Enable Eigen in System Settings when prompted</p>
-        {:else}
-          <button class="btn-primary" onclick={handleContinue}>
-            Continue
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 18l6-6-6-6"/>
-            </svg>
-          </button>
         {/if}
       </div>
 
-    <!-- Step 2: Name -->
     {:else if getCurrentStep() === 2}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>What should we call you?</h1>
@@ -219,17 +216,10 @@
           class="input"
           onkeydown={handleKeydown}
         />
-        <button class="btn-primary" onclick={handleContinue} disabled={!userName.trim()}>
-          Continue
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-          </svg>
-        </button>
       </div>
 
-    <!-- Step 3: Subjects -->
     {:else if getCurrentStep() === 3}
-      <div class="step wide" in:fly={{ x: 20, duration: 250 }}>
+      <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>What are you studying?</h1>
         <p class="subtitle">Select all that apply</p>
         <div class="chips">
@@ -255,15 +245,8 @@
             Add
           </button>
         </div>
-        <button class="btn-primary" onclick={handleContinue} disabled={selectedSubjects.length === 0}>
-          Continue
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-          </svg>
-        </button>
       </div>
 
-    <!-- Step 4: Goals -->
     {:else if getCurrentStep() === 4}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>What's your main goal?</h1>
@@ -287,15 +270,8 @@
             </button>
           {/each}
         </div>
-        <button class="btn-primary" onclick={handleContinue} disabled={!selectedGoal}>
-          Continue
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-          </svg>
-        </button>
       </div>
 
-    <!-- Step 5: Shortcut -->
     {:else if getCurrentStep() === 5}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>Show & hide Eigen instantly</h1>
@@ -308,29 +284,27 @@
           <kbd>Space</kbd>
         </div>
         <p class="hint">Try it now, or continue to start learning</p>
-        <button class="btn-primary" onclick={handleContinue}>
-          Start learning
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 18l6-6-6-6"/>
-          </svg>
-        </button>
       </div>
     {/if}
   </div>
 
-  <!-- Progress -->
+  <!-- Fixed footer -->
   <div class="footer">
+    <button
+      class="btn-primary"
+      onclick={handleButtonClick}
+      disabled={!canContinue() && !(getCurrentStep() === 1 && isMac && !hasScreenPermission)}
+    >
+      {getButtonText()}
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 18l6-6-6-6"/>
+      </svg>
+    </button>
     <div class="dots">
       {#each Array(totalSteps) as _, i}
         <div class="dot" class:active={i === step} class:done={i < step}></div>
       {/each}
     </div>
-    <button class="skip" onclick={skipOnboarding}>
-      Skip
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M9 18l6-6-6-6"/>
-      </svg>
-    </button>
   </div>
 </div>
 
@@ -344,25 +318,22 @@
     flex-direction: column;
   }
 
-  .content {
+  .main {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 32px 24px;
+    padding: 24px;
+    overflow: hidden;
   }
 
   .step {
     width: 100%;
-    max-width: 360px;
+    max-width: 380px;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-  }
-
-  .step.wide {
-    max-width: 440px;
   }
 
   .icon-box {
@@ -374,21 +345,36 @@
     align-items: center;
     justify-content: center;
     color: white;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
 
   h1 {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 600;
     color: #18181b;
-    margin: 0 0 8px 0;
+    margin: 0 0 6px 0;
     letter-spacing: -0.02em;
   }
 
   .subtitle {
-    font-size: 15px;
+    font-size: 14px;
     color: #71717a;
-    margin: 0 0 28px 0;
+    margin: 0 0 24px 0;
+  }
+
+  .hint {
+    font-size: 13px;
+    color: #a1a1aa;
+    margin: 0;
+  }
+
+  /* Footer */
+  .footer {
+    padding: 0 24px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
   }
 
   .btn-primary {
@@ -397,7 +383,7 @@
     justify-content: center;
     gap: 8px;
     width: 100%;
-    max-width: 260px;
+    max-width: 320px;
     height: 48px;
     font-size: 15px;
     font-weight: 500;
@@ -419,8 +405,8 @@
   }
 
   .btn-secondary {
-    height: 42px;
-    padding: 0 20px;
+    height: 40px;
+    padding: 0 16px;
     font-size: 14px;
     font-weight: 500;
     color: #18181b;
@@ -438,251 +424,6 @@
   .btn-secondary:disabled {
     opacity: 0.4;
     cursor: not-allowed;
-  }
-
-  /* Permission */
-  .permission-row {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 16px;
-    background: white;
-    border: 1px solid #e4e4e7;
-    border-radius: 12px;
-    margin-bottom: 24px;
-  }
-
-  .permission-icon {
-    width: 40px;
-    height: 40px;
-    background: #f4f4f5;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #52525b;
-  }
-
-  .permission-text {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    text-align: left;
-  }
-
-  .permission-label {
-    font-size: 14px;
-    font-weight: 500;
-    color: #18181b;
-  }
-
-  .permission-desc {
-    font-size: 13px;
-    color: #71717a;
-  }
-
-  .status {
-    font-size: 12px;
-    font-weight: 500;
-    padding: 4px 10px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .status.pending {
-    background: #fef3c7;
-    color: #b45309;
-  }
-
-  .status.granted {
-    background: #dcfce7;
-    color: #16a34a;
-  }
-
-  .hint {
-    font-size: 13px;
-    color: #a1a1aa;
-    margin-top: 16px;
-  }
-
-  /* Input */
-  .input {
-    width: 100%;
-    height: 48px;
-    padding: 0 16px;
-    font-size: 15px;
-    color: #18181b;
-    background: white;
-    border: 1px solid #e4e4e7;
-    border-radius: 12px;
-    margin-bottom: 20px;
-    transition: border-color 0.15s;
-  }
-
-  .input:focus {
-    outline: none;
-    border-color: #a1a1aa;
-  }
-
-  .input::placeholder {
-    color: #a1a1aa;
-  }
-
-  .input.small {
-    flex: 1;
-    height: 42px;
-    margin-bottom: 0;
-    font-size: 14px;
-  }
-
-  /* Chips */
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-    margin-bottom: 16px;
-  }
-
-  .chip {
-    padding: 8px 14px;
-    font-size: 13px;
-    font-weight: 450;
-    color: #52525b;
-    background: white;
-    border: 1px solid #e4e4e7;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .chip:hover {
-    border-color: #a1a1aa;
-  }
-
-  .chip.selected {
-    color: white;
-    background: #18181b;
-    border-color: #18181b;
-  }
-
-  .add-row {
-    display: flex;
-    gap: 8px;
-    width: 100%;
-    margin-bottom: 20px;
-  }
-
-  /* Goals */
-  .goals {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 24px;
-  }
-
-  .goal-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    width: 100%;
-    padding: 14px 16px;
-    background: white;
-    border: 1px solid #e4e4e7;
-    border-radius: 12px;
-    cursor: pointer;
-    text-align: left;
-    transition: border-color 0.15s;
-  }
-
-  .goal-row:hover {
-    border-color: #a1a1aa;
-  }
-
-  .goal-row.selected {
-    border-color: #18181b;
-  }
-
-  .goal-radio {
-    width: 20px;
-    height: 20px;
-    border: 2px solid #d4d4d8;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: border-color 0.15s;
-  }
-
-  .goal-radio.checked {
-    border-color: #18181b;
-  }
-
-  .radio-dot {
-    width: 10px;
-    height: 10px;
-    background: #18181b;
-    border-radius: 50%;
-  }
-
-  .goal-text {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .goal-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: #18181b;
-  }
-
-  .goal-desc {
-    font-size: 13px;
-    color: #71717a;
-  }
-
-  /* Keys */
-  .keys {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 20px;
-  }
-
-  kbd {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 48px;
-    height: 48px;
-    padding: 0 14px;
-    font-size: 15px;
-    font-weight: 500;
-    font-family: inherit;
-    color: #18181b;
-    background: white;
-    border: 1px solid #e4e4e7;
-    border-radius: 10px;
-  }
-
-  .plus {
-    font-size: 16px;
-    color: #a1a1aa;
-  }
-
-  /* Footer */
-  .footer {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    padding: 16px 24px 32px;
   }
 
   .dots {
@@ -708,19 +449,233 @@
     background: #a1a1aa;
   }
 
-  .skip {
+  /* Permission */
+  .permission-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+
+  .permission-icon {
+    width: 36px;
+    height: 36px;
+    background: #f4f4f5;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #52525b;
+    flex-shrink: 0;
+  }
+
+  .permission-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    min-width: 0;
+  }
+
+  .permission-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #18181b;
+  }
+
+  .permission-desc {
+    font-size: 12px;
+    color: #71717a;
+  }
+
+  .status {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 14px;
-    color: #71717a;
-    background: none;
-    border: none;
-    cursor: pointer;
-    transition: color 0.15s;
+    flex-shrink: 0;
   }
 
-  .skip:hover {
+  .status.pending {
+    background: #fef3c7;
+    color: #b45309;
+  }
+
+  .status.granted {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+
+  /* Input */
+  .input {
+    width: 100%;
+    height: 48px;
+    padding: 0 16px;
+    font-size: 15px;
+    color: #18181b;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 12px;
+    transition: border-color 0.15s;
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: #a1a1aa;
+  }
+
+  .input::placeholder {
+    color: #a1a1aa;
+  }
+
+  .input.small {
+    flex: 1;
+    height: 40px;
+    font-size: 14px;
+  }
+
+  /* Chips */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  .chip {
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 450;
     color: #52525b;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .chip:hover {
+    border-color: #a1a1aa;
+  }
+
+  .chip.selected {
+    color: white;
+    background: #18181b;
+    border-color: #18181b;
+  }
+
+  .add-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+
+  /* Goals */
+  .goals {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .goal-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s;
+  }
+
+  .goal-row:hover {
+    border-color: #a1a1aa;
+  }
+
+  .goal-row.selected {
+    border-color: #18181b;
+  }
+
+  .goal-radio {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #d4d4d8;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s;
+    flex-shrink: 0;
+  }
+
+  .goal-radio.checked {
+    border-color: #18181b;
+  }
+
+  .radio-dot {
+    width: 8px;
+    height: 8px;
+    background: #18181b;
+    border-radius: 50%;
+  }
+
+  .goal-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .goal-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #18181b;
+  }
+
+  .goal-desc {
+    font-size: 12px;
+    color: #71717a;
+  }
+
+  /* Keys */
+  .keys {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  kbd {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    height: 44px;
+    padding: 0 12px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    color: #18181b;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
+  }
+
+  .plus {
+    font-size: 14px;
+    color: #a1a1aa;
   }
 </style>
