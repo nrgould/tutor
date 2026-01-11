@@ -1,9 +1,11 @@
 <script lang="ts">
 	/**
-	 * LiquidGlassBar - Apple Liquid Glass Effect for Command Bar
+	 * LiquidGlassBar - Dark glass container with top shimmer
 	 *
-	 * Creates a frosted glass effect using multiple stacked backdrop-filter layers
-	 * with progressive blur values, matching the Figma liquid glass design.
+	 * The bar itself is a dark translucent container with a white shimmer
+	 * on the top border that fades toward the edges. Internal components
+	 * (buttons, inputs) should use the .liquid-glass-element class for
+	 * the actual liquid glass effect.
 	 */
 
 	import type { Snippet } from 'svelte';
@@ -17,16 +19,8 @@
 </script>
 
 <div class="liquid-glass-bar {className}">
-	<!-- Layer 0: Outermost, heaviest blur -->
-	<div class="lens lens-0"></div>
-	<!-- Layer 1 -->
-	<div class="lens lens-1"></div>
-	<!-- Layer 2 -->
-	<div class="lens lens-2"></div>
-	<!-- Layer 3 -->
-	<div class="lens lens-3"></div>
-	<!-- Layer 4: Innermost, lightest blur -->
-	<div class="lens lens-4"></div>
+	<!-- Top shimmer overlay -->
+	<div class="top-shimmer"></div>
 
 	<!-- Content -->
 	<div class="content">
@@ -37,75 +31,86 @@
 <style>
 	.liquid-glass-bar {
 		position: relative;
-		border-radius: 100px;
-
-		/* Base gradient for highlight effect */
-		background: radial-gradient(
-			57.2% 57.2% at 13.35% 16.4%,
-			rgba(255, 255, 255, 0.05) 0%,
-			rgba(255, 255, 255, 0) 100%
-		);
-
-		/* Depth shadows - no harsh borders */
-		box-shadow:
-			0px 20px 40px -15px rgba(0, 0, 0, 0.15),
-			inset 0px 0px 25px rgba(255, 255, 255, 0.03);
-
-		/* Isolation for blend modes */
+		border-radius: 22px;
 		isolation: isolate;
 
-		/* Ensure no border */
-		border: none;
-		outline: none;
+		/* Dark fill layer with blend mode */
+		background: linear-gradient(
+				0deg,
+				rgba(40, 40, 42, 0.85),
+				rgba(40, 40, 42, 0.85)
+			),
+			#0a0a0a;
+		background-blend-mode: normal, color-dodge;
+
+		/* Backdrop blur for glass effect */
+		backdrop-filter: blur(40px);
+		-webkit-backdrop-filter: blur(40px);
+
+		/* Absolutely no borders or outlines */
+		border: none !important;
+		outline: none !important;
+		box-shadow: none !important;
 	}
 
-	/* Base lens layer styles */
-	.lens {
+	/* Blur layer positioned slightly below top */
+	.liquid-glass-bar::before {
+		content: '';
 		position: absolute;
-		background: rgba(255, 255, 255, 0.01);
-		border-radius: 100px;
+		left: 4px;
+		right: 4px;
+		top: 6px;
+		bottom: 4px;
+		background: rgba(0, 0, 0, 0.15);
+		background-blend-mode: hard-light;
+		filter: blur(20px);
+		backdrop-filter: blur(40px);
+		-webkit-backdrop-filter: blur(40px);
+		border-radius: 20px;
+		z-index: -1;
 		pointer-events: none;
 	}
 
-	/* Layer 0: Outermost */
-	.lens-0 {
-		inset: 0;
-		backdrop-filter: blur(50px) saturate(180%);
-		-webkit-backdrop-filter: blur(50px) saturate(180%);
-	}
+	/* Top shimmer - subtle white glow at top edge */
+	.top-shimmer {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 0;
+		height: 12px;
+		pointer-events: none;
 
-	/* Layer 1 */
-	.lens-1 {
-		inset: 1px;
-		backdrop-filter: blur(25px) saturate(160%);
-		-webkit-backdrop-filter: blur(25px) saturate(160%);
-	}
+		/* Shimmer gradient from top */
+		background: linear-gradient(
+			180deg,
+			rgba(255, 255, 255, 0.2) 0%,
+			rgba(255, 255, 255, 0.1) 40%,
+			transparent 100%
+		);
 
-	/* Layer 2 */
-	.lens-2 {
-		inset: 3px;
-		backdrop-filter: blur(12px) saturate(140%);
-		-webkit-backdrop-filter: blur(12px) saturate(140%);
-	}
+		/* Fade from sides */
+		mask-image: linear-gradient(
+			90deg,
+			transparent 0%,
+			black 8%,
+			black 92%,
+			transparent 100%
+		);
 
-	/* Layer 3 */
-	.lens-3 {
-		inset: 6px;
-		backdrop-filter: blur(5px) saturate(120%);
-		-webkit-backdrop-filter: blur(5px) saturate(120%);
-	}
-
-	/* Layer 4: Innermost */
-	.lens-4 {
-		inset: 10px;
-		backdrop-filter: blur(1px);
-		-webkit-backdrop-filter: blur(1px);
+		border-radius: 22px 22px 0 0;
+		mix-blend-mode: overlay;
 	}
 
 	/* Content layer */
 	.content {
 		position: relative;
-		z-index: 10;
-		pointer-events: auto;
+		z-index: 1;
+	}
+
+	/* Fallback for browsers without backdrop-filter */
+	@supports not (backdrop-filter: blur(10px)) {
+		.liquid-glass-bar {
+			background: rgba(28, 28, 30, 0.95);
+		}
 	}
 </style>

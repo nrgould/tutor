@@ -1065,6 +1065,10 @@
 		box-sizing: border-box;
 	}
 
+	:global(*:focus) {
+		outline: none !important;
+	}
+
 	:global(body) {
 		margin: 0;
 		padding: 0;
@@ -1077,11 +1081,15 @@
 			system-ui,
 			sans-serif;
 		-webkit-font-smoothing: antialiased;
+		border: none !important;
+		outline: none !important;
 	}
 
 	:global(html) {
 		background: transparent !important;
 		background-color: transparent !important;
+		border: none !important;
+		outline: none !important;
 	}
 
 	.window-wrapper {
@@ -1102,16 +1110,27 @@
 		background-color: transparent !important;
 		overflow: hidden;
 		position: relative;
+		border: none;
+		outline: none;
+		box-shadow: none;
 	}
 
 	.container:active {
 		cursor: grabbing;
 	}
 
+	.container:focus {
+		outline: none;
+		border: none;
+	}
+
 	/* Liquid Glass Bar Wrapper */
 	:global(.bar-glass) {
 		height: 52px;
 		min-height: 52px;
+		border: none !important;
+		outline: none !important;
+		box-shadow: none !important;
 	}
 
 	/* Bar Inner Content */
@@ -1126,8 +1145,9 @@
 		z-index: 1;
 	}
 
-	/* Record button - 3D glass effect */
+	/* Record button - Liquid Glass effect */
 	.record-btn {
+		position: relative;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -1135,50 +1155,67 @@
 		padding: 8px;
 		min-width: 36px;
 		height: 36px;
-
-		/* 3D gradient - lighter at top, darker at bottom */
-		background: linear-gradient(
-			180deg,
-			rgba(255, 255, 255, 0.12) 0%,
-			rgba(255, 255, 255, 0.04) 100%
-		);
-
-		/* Fully rounded */
-		border-radius: 100px;
-
-		/* No border */
+		border-radius: 1000px;
 		border: none;
+		isolation: isolate;
+		outline: none;
+		box-shadow: none;
 
-		/* Subtle shadow for depth */
-		box-shadow:
-			0 2px 8px rgba(0, 0, 0, 0.1),
-			inset 0 1px 0 rgba(255, 255, 255, 0.1);
+		/* Dark fill layer with blend modes */
+		background: linear-gradient(0deg, rgba(60, 60, 62, 0.8), rgba(60, 60, 62, 0.8)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+			#1a1a1a;
+		background-blend-mode: normal, overlay, color-dodge;
+
+		/* Backdrop blur for glass */
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
 
 		color: #ef4444;
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition: all 0.2s ease;
+	}
+
+	/* Blur layer */
+	.record-btn::before {
+		content: '';
+		position: absolute;
+		left: 4px;
+		right: 4px;
+		top: 5px;
+		bottom: 3px;
+		background: rgba(0, 0, 0, 0.2);
+		background-blend-mode: hard-light;
+		filter: blur(10px);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		border-radius: 1000px;
+		z-index: -1;
+		opacity: 0.67;
+	}
+
+	/* Glass effect layer */
+	.record-btn::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: rgba(255, 255, 255, 0.02);
+		border-radius: 1000px;
+		pointer-events: none;
 	}
 
 	.record-btn:hover {
-		background: linear-gradient(
-			180deg,
-			rgba(255, 255, 255, 0.18) 0%,
-			rgba(255, 255, 255, 0.08) 100%
-		);
-		box-shadow:
-			0 4px 12px rgba(0, 0, 0, 0.15),
-			inset 0 1px 0 rgba(255, 255, 255, 0.15);
+		background: linear-gradient(0deg, rgba(70, 70, 72, 0.9), rgba(70, 70, 72, 0.9)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
+			#1a1a1a;
+		background-blend-mode: normal, overlay, color-dodge;
 	}
 
 	.record-btn.recording {
-		background: linear-gradient(
-			180deg,
-			rgba(239, 68, 68, 0.25) 0%,
-			rgba(239, 68, 68, 0.15) 100%
-		);
-		box-shadow:
-			0 2px 8px rgba(239, 68, 68, 0.3),
-			inset 0 1px 0 rgba(255, 255, 255, 0.1);
+		background: linear-gradient(0deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.2)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+			#1a1a1a;
+		background-blend-mode: normal, overlay, color-dodge;
 		padding: 8px 12px;
 	}
 
@@ -1220,29 +1257,32 @@
 	}
 
 	.input-wrapper input {
+		position: relative;
 		width: 100%;
 		padding: 9px 70px 9px 14px;
-
-		/* Glass effect with subtle gradient */
-		background: linear-gradient(
-			180deg,
-			rgba(255, 255, 255, 0.08) 0%,
-			rgba(255, 255, 255, 0.04) 100%
-		);
-
-		/* Fully rounded */
-		border-radius: 100px;
-
-		/* No border */
+		border-radius: 14px;
 		border: none;
 
-		/* Inner shadow for inset effect */
-		box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+		/* Fill layer with blend mode */
+		background: linear-gradient(
+				0deg,
+				rgba(245, 245, 245, 0.08),
+				rgba(245, 245, 245, 0.08)
+			),
+			rgba(38, 38, 38, 0.4);
+		background-blend-mode: normal, color-dodge;
+
+		/* Backdrop blur for glass */
+		backdrop-filter: blur(40px);
+		-webkit-backdrop-filter: blur(40px);
+
+		/* Glass shine overlay */
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 
 		color: #fafafa;
 		font-size: 14px;
 		outline: none;
-		transition: all 0.15s ease;
+		transition: all 0.2s ease;
 	}
 
 	.input-wrapper input::placeholder {
@@ -1251,13 +1291,12 @@
 
 	.input-wrapper input:focus {
 		background: linear-gradient(
-			180deg,
-			rgba(255, 255, 255, 0.12) 0%,
-			rgba(255, 255, 255, 0.06) 100%
-		);
-		box-shadow:
-			inset 0 1px 3px rgba(0, 0, 0, 0.15),
-			0 0 0 2px rgba(255, 255, 255, 0.1);
+				0deg,
+				rgba(245, 245, 245, 0.12),
+				rgba(245, 245, 245, 0.12)
+			),
+			rgba(38, 38, 38, 0.4);
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.25);
 	}
 
 	.shortcut {
@@ -1279,71 +1318,128 @@
 	}
 
 	.screen-badge {
+		position: relative;
 		padding: 6px 12px;
-		background: linear-gradient(
-			180deg,
-			rgba(34, 197, 94, 0.2) 0%,
-			rgba(34, 197, 94, 0.12) 100%
-		);
-		border-radius: 100px;
+		border-radius: 1000px;
 		border: none;
-		box-shadow:
-			0 2px 8px rgba(34, 197, 94, 0.15),
-			inset 0 1px 0 rgba(255, 255, 255, 0.1);
+		isolation: isolate;
+		outline: none;
+		box-shadow: none;
+
+		/* Dark fill layer with blend modes and green tint */
+		background: linear-gradient(0deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.2)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+			#1a1a1a;
+		background-blend-mode: normal, overlay, color-dodge;
+
+		/* Backdrop blur for glass */
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+
 		font-size: 12px;
 		font-weight: 500;
 		color: #22c55e;
 	}
 
+	/* Blur layer for screen-badge */
+	.screen-badge::before {
+		content: '';
+		position: absolute;
+		left: 4px;
+		right: 4px;
+		top: 4px;
+		bottom: 3px;
+		background: rgba(0, 0, 0, 0.2);
+		background-blend-mode: hard-light;
+		filter: blur(10px);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		border-radius: 1000px;
+		z-index: -1;
+		opacity: 0.67;
+	}
+
+	/* Glass effect layer for screen-badge */
+	.screen-badge::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: rgba(255, 255, 255, 0.02);
+		border-radius: 1000px;
+		pointer-events: none;
+	}
+
 	.mode-toggle {
+		position: relative;
 		display: flex;
 		align-items: center;
 		gap: 5px;
 		padding: 6px 12px;
-		background: linear-gradient(
-			180deg,
-			rgba(255, 255, 255, 0.12) 0%,
-			rgba(255, 255, 255, 0.04) 100%
-		);
+		border-radius: 1000px;
 		border: none;
-		border-radius: 100px;
-		box-shadow:
-			0 2px 8px rgba(0, 0, 0, 0.1),
-			inset 0 1px 0 rgba(255, 255, 255, 0.1);
+		isolation: isolate;
+		outline: none;
+		box-shadow: none;
+
+		/* Dark fill layer with blend modes */
+		background: linear-gradient(0deg, rgba(60, 60, 62, 0.8), rgba(60, 60, 62, 0.8)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+			#1a1a1a;
+		background-blend-mode: normal, overlay, color-dodge;
+
+		/* Backdrop blur for glass */
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+
 		font-size: 11px;
 		font-weight: 500;
 		color: rgba(255, 255, 255, 0.6);
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition: all 0.2s ease;
+	}
+
+	/* Blur layer */
+	.mode-toggle::before {
+		content: '';
+		position: absolute;
+		left: 4px;
+		right: 4px;
+		top: 4px;
+		bottom: 3px;
+		background: rgba(0, 0, 0, 0.2);
+		background-blend-mode: hard-light;
+		filter: blur(10px);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		border-radius: 1000px;
+		z-index: -1;
+		opacity: 0.67;
+	}
+
+	/* Glass effect layer */
+	.mode-toggle::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: rgba(255, 255, 255, 0.02);
+		border-radius: 1000px;
+		pointer-events: none;
 	}
 
 	.mode-toggle:hover {
-		background: linear-gradient(
-			180deg,
-			rgba(255, 255, 255, 0.18) 0%,
-			rgba(255, 255, 255, 0.08) 100%
-		);
 		color: rgba(255, 255, 255, 0.8);
+		background: linear-gradient(0deg, rgba(70, 70, 72, 0.9), rgba(70, 70, 72, 0.9)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
+			#1a1a1a;
+		background-blend-mode: normal, overlay, color-dodge;
 	}
 
 	.mode-toggle.active {
-		background: linear-gradient(
-			180deg,
-			rgba(147, 51, 234, 0.25) 0%,
-			rgba(147, 51, 234, 0.15) 100%
-		);
-		box-shadow:
-			0 2px 8px rgba(147, 51, 234, 0.2),
-			inset 0 1px 0 rgba(255, 255, 255, 0.1);
+		background: linear-gradient(0deg, rgba(147, 51, 234, 0.2), rgba(147, 51, 234, 0.2)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+			#1a1a1a;
+		background-blend-mode: normal, overlay, color-dodge;
 		color: #a855f7;
-	}
-
-	.mode-toggle.active:hover {
-		background: linear-gradient(
-			180deg,
-			rgba(147, 51, 234, 0.35) 0%,
-			rgba(147, 51, 234, 0.2) 100%
-		);
 	}
 
 	.bar-actions {
@@ -1352,48 +1448,70 @@
 		gap: 4px;
 	}
 
-	/* Icon button - 3D glass effect */
+	/* Icon button - Liquid Glass effect */
 	.icon-btn {
+		position: relative;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		width: 36px;
 		height: 36px;
 		padding: 0;
-
-		/* 3D gradient */
-		background: linear-gradient(
-			180deg,
-			rgba(255, 255, 255, 0.12) 0%,
-			rgba(255, 255, 255, 0.04) 100%
-		);
-
-		/* Fully rounded */
-		border-radius: 100px;
-
-		/* No border */
+		border-radius: 1000px;
 		border: none;
+		isolation: isolate;
+		outline: none;
+		box-shadow: none;
 
-		/* Subtle shadow for depth */
-		box-shadow:
-			0 2px 8px rgba(0, 0, 0, 0.1),
-			inset 0 1px 0 rgba(255, 255, 255, 0.1);
+		/* Dark fill layer with blend modes */
+		background: linear-gradient(0deg, rgba(60, 60, 62, 0.8), rgba(60, 60, 62, 0.8)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+			#1a1a1a;
+		background-blend-mode: normal, overlay, color-dodge;
+
+		/* Backdrop blur for glass */
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
 
 		color: rgba(250, 250, 250, 0.6);
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition: all 0.2s ease;
+	}
+
+	/* Blur layer */
+	.icon-btn::before {
+		content: '';
+		position: absolute;
+		left: 4px;
+		right: 4px;
+		top: 5px;
+		bottom: 3px;
+		background: rgba(0, 0, 0, 0.2);
+		background-blend-mode: hard-light;
+		filter: blur(10px);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		border-radius: 1000px;
+		z-index: -1;
+		opacity: 0.67;
+	}
+
+	/* Glass effect layer */
+	.icon-btn::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: rgba(255, 255, 255, 0.02);
+		border-radius: 1000px;
+		pointer-events: none;
 	}
 
 	.icon-btn:hover {
 		color: #fafafa;
-		background: linear-gradient(
-			180deg,
-			rgba(255, 255, 255, 0.18) 0%,
-			rgba(255, 255, 255, 0.08) 100%
-		);
-		box-shadow:
-			0 4px 12px rgba(0, 0, 0, 0.15),
-			inset 0 1px 0 rgba(255, 255, 255, 0.15);
+		background: linear-gradient(0deg, rgba(70, 70, 72, 0.9), rgba(70, 70, 72, 0.9)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
+			#1a1a1a;
+		background-blend-mode: normal, overlay, color-dodge;
 	}
 
 	/* Chat panel */
