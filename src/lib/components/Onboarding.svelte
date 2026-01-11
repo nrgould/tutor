@@ -24,15 +24,11 @@
   let checkingPermission = $state(false);
   let isMac = $state(false);
 
-  // Check platform on mount
   onMount(() => {
-    // Detect macOS via navigator
     isMac = navigator.userAgent.includes('Mac');
     if (!isMac) {
-      // Skip permission step on non-Mac
       hasScreenPermission = true;
     } else {
-      // Check permission status on Mac
       checkPermission();
     }
   });
@@ -45,17 +41,15 @@
   ];
 
   const goals = [
-    { id: 'exams', icon: '📝', title: 'Ace my exams', desc: 'Prepare for tests and finals' },
-    { id: 'understand', icon: '💡', title: 'Understand deeply', desc: 'Master concepts, not just memorize' },
-    { id: 'homework', icon: '📚', title: 'Get homework help', desc: 'Work through assignments' },
-    { id: 'explore', icon: '🔬', title: 'Explore topics', desc: 'Learn something new' },
+    { id: 'exams', title: 'Ace my exams', desc: 'Prepare for tests and finals' },
+    { id: 'understand', title: 'Understand deeply', desc: 'Master concepts, not just memorize' },
+    { id: 'homework', title: 'Get homework help', desc: 'Work through assignments' },
+    { id: 'explore', title: 'Explore topics', desc: 'Learn something new' },
   ];
 
-  // Total steps: Welcome, Permissions (Mac only), Name, Subjects, Goals, Shortcut
   const totalSteps = $derived(isMac ? 6 : 5);
 
   function getStepIndex(logicalStep: number): number {
-    // If not Mac, skip the permissions step (step 1)
     if (!isMac && logicalStep >= 1) {
       return logicalStep + 1;
     }
@@ -80,7 +74,6 @@
   async function requestPermission() {
     try {
       await invoke('open_screen_recording_settings');
-      // Poll for permission after opening settings
       const checkInterval = setInterval(async () => {
         try {
           const hasPermission = await invoke<boolean>('check_screen_recording_permission');
@@ -90,8 +83,6 @@
           }
         } catch {}
       }, 1000);
-
-      // Stop polling after 30 seconds
       setTimeout(() => clearInterval(checkInterval), 30000);
     } catch (e) {
       console.error('Failed to open settings:', e);
@@ -115,8 +106,6 @@
 
   function handleContinue() {
     const currentStep = getCurrentStep();
-
-    // Validation
     if (currentStep === 2 && !userName.trim()) return;
     if (currentStep === 3 && selectedSubjects.length === 0) return;
     if (currentStep === 4 && !selectedGoal) return;
@@ -124,7 +113,6 @@
     if (step < totalSteps - 1) {
       step++;
     } else {
-      // Complete onboarding
       oncomplete({
         name: userName.trim(),
         courses: selectedSubjects,
@@ -134,11 +122,7 @@
   }
 
   function skipOnboarding() {
-    oncomplete({
-      name: '',
-      courses: [],
-      goals: '',
-    });
+    oncomplete({ name: '', courses: [], goals: '' });
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -153,36 +137,21 @@
   }
 </script>
 
-<div
-  class="onboarding-container"
-  in:fade={{ duration: 300 }}
-  out:fade={{ duration: 200 }}
->
-  <!-- Skip button -->
-  <button class="skip-btn" onclick={skipOnboarding}>
-    Skip
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M9 18l6-6-6-6"/>
-    </svg>
-  </button>
-
-  <div class="content-wrapper">
+<div class="onboarding" in:fade={{ duration: 200 }} out:fade={{ duration: 150 }}>
+  <div class="content">
     <!-- Step 0: Welcome -->
     {#if getCurrentStep() === 0}
-      <div class="step-content" in:fly={{ x: 20, duration: 300 }}>
-        <div class="logo-container">
-          <div class="logo">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 6v6l4 2"/>
-            </svg>
-          </div>
+      <div class="step" in:fly={{ x: 20, duration: 250 }}>
+        <div class="icon-box">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
         </div>
-
-        <h1 class="title">Welcome to Eigen</h1>
+        <h1>Welcome to Eigen</h1>
         <p class="subtitle">Your AI-powered study companion</p>
-
-        <button class="primary-btn" onclick={handleContinue}>
+        <button class="btn-primary" onclick={handleContinue}>
           Continue
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 18l6-6-6-6"/>
@@ -192,48 +161,44 @@
 
     <!-- Step 1: Permissions (Mac only) -->
     {:else if getCurrentStep() === 1 && isMac}
-      <div class="step-content" in:fly={{ x: 20, duration: 300 }}>
-        <h1 class="title">Let's get you set up</h1>
-        <p class="subtitle">Eigen needs permission to see your screen so it can help you study</p>
+      <div class="step" in:fly={{ x: 20, duration: 250 }}>
+        <h1>Let's get you set up</h1>
+        <p class="subtitle">Eigen needs permission to see your screen</p>
 
-        <div class="permission-card">
+        <div class="permission-row">
           <div class="permission-icon">
-            {#if hasScreenPermission}
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                <polyline points="22 4 12 14.01 9 11.01"/>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <path d="M8 21h8M12 17v4"/>
+            </svg>
+          </div>
+          <div class="permission-text">
+            <span class="permission-label">Screen recording</span>
+            <span class="permission-desc">Help you with what's on screen</span>
+          </div>
+          {#if hasScreenPermission}
+            <div class="status granted">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
               </svg>
-            {:else}
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                <line x1="8" y1="21" x2="16" y2="21"/>
-                <line x1="12" y1="17" x2="12" y2="21"/>
-              </svg>
-            {/if}
-          </div>
-          <div class="permission-info">
-            <span class="permission-title">Allow Eigen to see your screen</span>
-            <span class="permission-desc">Eigen can help explain what you're looking at</span>
-          </div>
-          <div class="permission-status" class:granted={hasScreenPermission}>
-            {hasScreenPermission ? 'Granted' : 'Required'}
-          </div>
+              Enabled
+            </div>
+          {:else}
+            <div class="status pending">Required</div>
+          {/if}
         </div>
 
         {#if !hasScreenPermission}
-          <button class="permission-btn" onclick={requestPermission} disabled={checkingPermission}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-              <line x1="8" y1="21" x2="16" y2="21"/>
-              <line x1="12" y1="17" x2="12" y2="21"/>
+          <button class="btn-primary" onclick={requestPermission}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="3" width="20" height="14" rx="2"/>
+              <path d="M8 21h8M12 17v4"/>
             </svg>
             Grant screen access
           </button>
-          <p class="permission-hint">
-            Click the button above, then enable Eigen in System Settings
-          </p>
+          <p class="hint">Enable Eigen in System Settings when prompted</p>
         {:else}
-          <button class="primary-btn" onclick={handleContinue}>
+          <button class="btn-primary" onclick={handleContinue}>
             Continue
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 18l6-6-6-6"/>
@@ -244,24 +209,17 @@
 
     <!-- Step 2: Name -->
     {:else if getCurrentStep() === 2}
-      <div class="step-content" in:fly={{ x: 20, duration: 300 }}>
-        <h1 class="title">What should we call you?</h1>
+      <div class="step" in:fly={{ x: 20, duration: 250 }}>
+        <h1>What should we call you?</h1>
         <p class="subtitle">Let's personalize your experience</p>
-
         <input
           type="text"
           bind:value={userName}
           placeholder="Your name"
-          class="text-input"
+          class="input"
           onkeydown={handleKeydown}
-          autofocus
         />
-
-        <button
-          class="primary-btn"
-          onclick={handleContinue}
-          disabled={!userName.trim()}
-        >
+        <button class="btn-primary" onclick={handleContinue} disabled={!userName.trim()}>
           Continue
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 18l6-6-6-6"/>
@@ -271,11 +229,10 @@
 
     <!-- Step 3: Subjects -->
     {:else if getCurrentStep() === 3}
-      <div class="step-content" in:fly={{ x: 20, duration: 300 }}>
-        <h1 class="title">What are you studying?</h1>
+      <div class="step wide" in:fly={{ x: 20, duration: 250 }}>
+        <h1>What are you studying?</h1>
         <p class="subtitle">Select all that apply</p>
-
-        <div class="chips-container">
+        <div class="chips">
           {#each subjects as subject}
             <button
               class="chip"
@@ -286,29 +243,19 @@
             </button>
           {/each}
         </div>
-
-        <div class="custom-input-row">
+        <div class="add-row">
           <input
             type="text"
             bind:value={customSubject}
             placeholder="Other subject..."
-            class="text-input small"
+            class="input small"
             onkeydown={handleKeydown}
           />
-          <button
-            class="add-btn"
-            onclick={addCustomSubject}
-            disabled={!customSubject.trim()}
-          >
+          <button class="btn-secondary" onclick={addCustomSubject} disabled={!customSubject.trim()}>
             Add
           </button>
         </div>
-
-        <button
-          class="primary-btn"
-          onclick={handleContinue}
-          disabled={selectedSubjects.length === 0}
-        >
+        <button class="btn-primary" onclick={handleContinue} disabled={selectedSubjects.length === 0}>
           Continue
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 18l6-6-6-6"/>
@@ -318,38 +265,29 @@
 
     <!-- Step 4: Goals -->
     {:else if getCurrentStep() === 4}
-      <div class="step-content" in:fly={{ x: 20, duration: 300 }}>
-        <h1 class="title">What's your main goal?</h1>
+      <div class="step" in:fly={{ x: 20, duration: 250 }}>
+        <h1>What's your main goal?</h1>
         <p class="subtitle">We'll tailor your experience</p>
-
-        <div class="goals-container">
+        <div class="goals">
           {#each goals as goal}
             <button
-              class="goal-card"
+              class="goal-row"
               class:selected={selectedGoal === goal.id}
               onclick={() => selectedGoal = goal.id}
             >
-              <span class="goal-icon">{goal.icon}</span>
+              <div class="goal-radio" class:checked={selectedGoal === goal.id}>
+                {#if selectedGoal === goal.id}
+                  <div class="radio-dot"></div>
+                {/if}
+              </div>
               <div class="goal-text">
                 <span class="goal-title">{goal.title}</span>
                 <span class="goal-desc">{goal.desc}</span>
               </div>
-              <div class="goal-check">
-                {#if selectedGoal === goal.id}
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                {/if}
-              </div>
             </button>
           {/each}
         </div>
-
-        <button
-          class="primary-btn"
-          onclick={handleContinue}
-          disabled={!selectedGoal}
-        >
+        <button class="btn-primary" onclick={handleContinue} disabled={!selectedGoal}>
           Continue
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 18l6-6-6-6"/>
@@ -357,37 +295,20 @@
         </button>
       </div>
 
-    <!-- Step 5: Keyboard Shortcut -->
+    <!-- Step 5: Shortcut -->
     {:else if getCurrentStep() === 5}
-      <div class="step-content" in:fly={{ x: 20, duration: 300 }}>
-        <h1 class="title">Show & hide Eigen instantly</h1>
+      <div class="step" in:fly={{ x: 20, duration: 250 }}>
+        <h1>Show & hide Eigen instantly</h1>
         <p class="subtitle">Use this keyboard shortcut anytime</p>
-
-        <div class="shortcut-display">
-          <div class="key">
-            {#if isMac}
-              <span>⌃</span>
-            {:else}
-              <span>Ctrl</span>
-            {/if}
-          </div>
-          <span class="key-plus">+</span>
-          <div class="key">
-            {#if isMac}
-              <span>⇧</span>
-            {:else}
-              <span>Shift</span>
-            {/if}
-          </div>
-          <span class="key-plus">+</span>
-          <div class="key">
-            <span>Space</span>
-          </div>
+        <div class="keys">
+          <kbd>{isMac ? '⌃' : 'Ctrl'}</kbd>
+          <span class="plus">+</span>
+          <kbd>{isMac ? '⇧' : 'Shift'}</kbd>
+          <span class="plus">+</span>
+          <kbd>Space</kbd>
         </div>
-
-        <p class="shortcut-hint">Press the shortcut now to try it, or continue to start learning</p>
-
-        <button class="primary-btn" onclick={handleContinue}>
+        <p class="hint">Try it now, or continue to start learning</p>
+        <button class="btn-primary" onclick={handleContinue}>
           Start learning
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 18l6-6-6-6"/>
@@ -397,136 +318,137 @@
     {/if}
   </div>
 
-  <!-- Progress dots -->
-  <div class="progress-dots">
-    {#each Array(totalSteps) as _, i}
-      <div
-        class="dot"
-        class:active={i === step}
-        class:completed={i < step}
-      ></div>
-    {/each}
+  <!-- Progress -->
+  <div class="footer">
+    <div class="dots">
+      {#each Array(totalSteps) as _, i}
+        <div class="dot" class:active={i === step} class:done={i < step}></div>
+      {/each}
+    </div>
+    <button class="skip" onclick={skipOnboarding}>
+      Skip
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 18l6-6-6-6"/>
+      </svg>
+    </button>
   </div>
 </div>
 
 <style>
-  .onboarding-container {
+  .onboarding {
     position: absolute;
     inset: 0;
     z-index: 9999;
-    background: white;
+    background: #fafafa;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
   }
 
-  .skip-btn {
-    position: absolute;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 8px 16px;
-    font-size: 14px;
-    color: #6b7280;
-    background: none;
-    border: none;
-    cursor: pointer;
-    transition: color 0.2s;
-  }
-
-  .skip-btn:hover {
-    color: #374151;
-  }
-
-  .content-wrapper {
+  .content {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px;
-    padding-bottom: 80px;
+    padding: 32px 24px;
   }
 
-  .step-content {
+  .step {
     width: 100%;
-    max-width: 400px;
+    max-width: 360px;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
   }
 
-  .logo-container {
-    margin-bottom: 24px;
+  .step.wide {
+    max-width: 440px;
   }
 
-  .logo {
-    width: 80px;
-    height: 80px;
-    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-    border-radius: 20px;
+  .icon-box {
+    width: 64px;
+    height: 64px;
+    background: #18181b;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
+    margin-bottom: 24px;
   }
 
-  .title {
-    font-size: 28px;
+  h1 {
+    font-size: 24px;
     font-weight: 600;
-    color: #111827;
+    color: #18181b;
     margin: 0 0 8px 0;
-    line-height: 1.2;
+    letter-spacing: -0.02em;
   }
 
   .subtitle {
-    font-size: 16px;
-    color: #6b7280;
-    margin: 0 0 32px 0;
-    line-height: 1.5;
+    font-size: 15px;
+    color: #71717a;
+    margin: 0 0 28px 0;
   }
 
-  .primary-btn {
+  .btn-primary {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     width: 100%;
-    max-width: 280px;
-    padding: 14px 24px;
-    font-size: 16px;
+    max-width: 260px;
+    height: 48px;
+    font-size: 15px;
     font-weight: 500;
     color: white;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    background: #18181b;
     border: none;
     border-radius: 12px;
     cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    transition: background 0.15s;
   }
 
-  .primary-btn:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  .btn-primary:hover:not(:disabled) {
+    background: #27272a;
   }
 
-  .primary-btn:disabled {
-    opacity: 0.5;
+  .btn-primary:disabled {
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
-  /* Permission styles */
-  .permission-card {
+  .btn-secondary {
+    height: 42px;
+    padding: 0 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #18181b;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: #f4f4f5;
+  }
+
+  .btn-secondary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Permission */
+  .permission-row {
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 16px 20px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    gap: 14px;
+    padding: 16px;
+    background: white;
+    border: 1px solid #e4e4e7;
     border-radius: 12px;
     margin-bottom: 24px;
   }
@@ -534,15 +456,15 @@
   .permission-icon {
     width: 40px;
     height: 40px;
+    background: #f4f4f5;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: white;
-    border-radius: 10px;
-    color: #6b7280;
+    color: #52525b;
   }
 
-  .permission-info {
+  .permission-text {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -550,90 +472,75 @@
     text-align: left;
   }
 
-  .permission-title {
+  .permission-label {
     font-size: 14px;
     font-weight: 500;
-    color: #111827;
+    color: #18181b;
   }
 
   .permission-desc {
-    font-size: 12px;
-    color: #6b7280;
+    font-size: 13px;
+    color: #71717a;
   }
 
-  .permission-status {
+  .status {
     font-size: 12px;
     font-weight: 500;
     padding: 4px 10px;
     border-radius: 6px;
-    background: #fef3c7;
-    color: #d97706;
-  }
-
-  .permission-status.granted {
-    background: #d1fae5;
-    color: #059669;
-  }
-
-  .permission-btn {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    padding: 14px 24px;
-    font-size: 15px;
-    font-weight: 500;
-    color: white;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
+    gap: 4px;
   }
 
-  .permission-btn:hover {
-    transform: translateY(-1px);
+  .status.pending {
+    background: #fef3c7;
+    color: #b45309;
   }
 
-  .permission-hint {
+  .status.granted {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+
+  .hint {
     font-size: 13px;
-    color: #9ca3af;
+    color: #a1a1aa;
     margin-top: 16px;
   }
 
-  /* Input styles */
-  .text-input {
+  /* Input */
+  .input {
     width: 100%;
-    padding: 14px 18px;
-    font-size: 16px;
-    color: #111827;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    height: 48px;
+    padding: 0 16px;
+    font-size: 15px;
+    color: #18181b;
+    background: white;
+    border: 1px solid #e4e4e7;
     border-radius: 12px;
-    margin-bottom: 24px;
-    transition: all 0.2s;
+    margin-bottom: 20px;
+    transition: border-color 0.15s;
   }
 
-  .text-input:focus {
+  .input:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: #a1a1aa;
   }
 
-  .text-input.small {
+  .input::placeholder {
+    color: #a1a1aa;
+  }
+
+  .input.small {
     flex: 1;
+    height: 42px;
     margin-bottom: 0;
-    padding: 10px 14px;
     font-size: 14px;
   }
 
-  .text-input::placeholder {
-    color: #9ca3af;
-  }
-
-  /* Chips styles */
-  .chips-container {
+  /* Chips */
+  .chips {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
@@ -642,88 +549,85 @@
   }
 
   .chip {
-    padding: 8px 16px;
-    font-size: 14px;
-    color: #374151;
-    background: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    border-radius: 20px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 450;
+    color: #52525b;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s;
   }
 
   .chip:hover {
-    background: #e5e7eb;
+    border-color: #a1a1aa;
   }
 
   .chip.selected {
     color: white;
-    background: #3b82f6;
-    border-color: #3b82f6;
+    background: #18181b;
+    border-color: #18181b;
   }
 
-  .custom-input-row {
+  .add-row {
     display: flex;
     gap: 8px;
     width: 100%;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
 
-  .add-btn {
-    padding: 10px 20px;
-    font-size: 14px;
-    font-weight: 500;
-    color: #3b82f6;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .add-btn:hover:not(:disabled) {
-    background: #dbeafe;
-  }
-
-  .add-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  /* Goals styles */
-  .goals-container {
+  /* Goals */
+  .goals {
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     margin-bottom: 24px;
   }
 
-  .goal-card {
+  .goal-row {
     display: flex;
     align-items: center;
     gap: 14px;
     width: 100%;
     padding: 14px 16px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: white;
+    border: 1px solid #e4e4e7;
     border-radius: 12px;
     cursor: pointer;
-    transition: all 0.2s;
     text-align: left;
+    transition: border-color 0.15s;
   }
 
-  .goal-card:hover {
-    background: #f3f4f6;
+  .goal-row:hover {
+    border-color: #a1a1aa;
   }
 
-  .goal-card.selected {
-    background: #eff6ff;
-    border-color: #3b82f6;
+  .goal-row.selected {
+    border-color: #18181b;
   }
 
-  .goal-icon {
-    font-size: 24px;
+  .goal-radio {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #d4d4d8;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s;
+  }
+
+  .goal-radio.checked {
+    border-color: #18181b;
+  }
+
+  .radio-dot {
+    width: 10px;
+    height: 10px;
+    background: #18181b;
+    border-radius: 50%;
   }
 
   .goal-text {
@@ -733,83 +637,90 @@
   }
 
   .goal-title {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 500;
-    color: #111827;
+    color: #18181b;
   }
 
   .goal-desc {
     font-size: 13px;
-    color: #6b7280;
+    color: #71717a;
   }
 
-  .goal-check {
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #3b82f6;
-  }
-
-  /* Shortcut styles */
-  .shortcut-display {
+  /* Keys */
+  .keys {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
   }
 
-  .key {
+  kbd {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 56px;
-    height: 56px;
-    padding: 0 16px;
-    font-size: 18px;
+    min-width: 48px;
+    height: 48px;
+    padding: 0 14px;
+    font-size: 15px;
     font-weight: 500;
-    color: #374151;
-    background: linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%);
-    border: 1px solid #d1d5db;
-    border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    font-family: inherit;
+    color: #18181b;
+    background: white;
+    border: 1px solid #e4e4e7;
+    border-radius: 10px;
   }
 
-  .key-plus {
-    font-size: 20px;
-    color: #9ca3af;
+  .plus {
+    font-size: 16px;
+    color: #a1a1aa;
   }
 
-  .shortcut-hint {
-    font-size: 14px;
-    color: #9ca3af;
-    margin-bottom: 32px;
-  }
-
-  /* Progress dots */
-  .progress-dots {
+  /* Footer */
+  .footer {
     display: flex;
-    justify-content: center;
-    gap: 8px;
-    padding: 16px;
-    padding-bottom: 60px;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 24px 32px;
+  }
+
+  .dots {
+    display: flex;
+    gap: 6px;
   }
 
   .dot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    background: #e5e7eb;
-    transition: all 0.3s;
+    background: #d4d4d8;
+    transition: all 0.2s;
   }
 
   .dot.active {
-    background: #3b82f6;
-    transform: scale(1.2);
+    background: #18181b;
+    width: 18px;
+    border-radius: 3px;
   }
 
-  .dot.completed {
-    background: #93c5fd;
+  .dot.done {
+    background: #a1a1aa;
+  }
+
+  .skip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    color: #71717a;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .skip:hover {
+    color: #52525b;
   }
 </style>
