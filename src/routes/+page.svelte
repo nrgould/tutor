@@ -27,6 +27,7 @@
 	import type { Message } from '$lib/types';
 	import Onboarding from '$lib/components/Onboarding.svelte';
 	import PermissionDialog from '$lib/components/PermissionDialog.svelte';
+	import LiquidGlassBar from '$lib/components/shared/LiquidGlassBar.svelte';
 
 	const settings = $derived($settingsStore);
 
@@ -822,7 +823,8 @@
 		tabindex="0"
 	>
 		<!-- Main bar -->
-		<div class="bar">
+		<LiquidGlassBar class="bar-glass">
+			<div class="bar-inner">
 			<button
 				class="record-btn"
 				class:recording={isRecording}
@@ -958,7 +960,8 @@
 					</button>
 				</div>
 			{/if}
-		</div>
+			</div>
+		</LiquidGlassBar>
 
 		<!-- Chat panel -->
 		{#if showChat}
@@ -1105,20 +1108,20 @@
 		cursor: grabbing;
 	}
 
-	/* Bar */
-	.bar {
+	/* Liquid Glass Bar Wrapper */
+	:global(.bar-glass) {
+		height: 52px;
+		min-height: 52px;
+	}
+
+	/* Bar Inner Content */
+	.bar-inner {
 		display: flex;
 		align-items: center;
 		gap: 8px;
 		padding: 8px 12px;
 		height: 52px;
 		min-height: 52px;
-		background: rgba(9, 9, 11, 0.95);
-		backdrop-filter: blur(24px);
-		-webkit-backdrop-filter: blur(24px);
-		border: 1px solid rgba(255, 255, 255, 0.08);
-		border-radius: 12px;
-		overflow: hidden;
 		position: relative;
 		z-index: 1;
 	}
