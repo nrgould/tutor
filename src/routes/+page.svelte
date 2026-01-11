@@ -820,7 +820,6 @@
 		onmousedown={startDrag}
 		role="application"
 		aria-label="Eigen"
-		tabindex="0"
 	>
 		<!-- Main bar -->
 		<LiquidGlassBar class="bar-glass">
@@ -1159,17 +1158,16 @@
 		border: none;
 		isolation: isolate;
 		outline: none;
-		box-shadow: none;
+		overflow: hidden;
 
-		/* Dark fill layer with blend modes */
-		background: linear-gradient(0deg, rgba(60, 60, 62, 0.8), rgba(60, 60, 62, 0.8)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+		/* Fill layer with plus-darker blend */
+		background: linear-gradient(0deg, rgba(55, 55, 58, 0.9), rgba(55, 55, 58, 0.9)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
 			#1a1a1a;
-		background-blend-mode: normal, overlay, color-dodge;
+		background-blend-mode: plus-darker, normal, color-dodge;
 
-		/* Backdrop blur for glass */
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
+		/* Subtle inner glow at top */
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
 
 		color: #ef4444;
 		cursor: pointer;
@@ -1180,11 +1178,11 @@
 	.record-btn::before {
 		content: '';
 		position: absolute;
-		left: 4px;
-		right: 4px;
-		top: 5px;
-		bottom: 3px;
-		background: rgba(0, 0, 0, 0.2);
+		left: 3px;
+		right: 3px;
+		top: 4px;
+		bottom: 2px;
+		background: rgba(0, 0, 0, 0.1);
 		background-blend-mode: hard-light;
 		filter: blur(10px);
 		backdrop-filter: blur(20px);
@@ -1199,23 +1197,24 @@
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: rgba(255, 255, 255, 0.02);
+		background: rgba(0, 0, 0, 0.001);
 		border-radius: 1000px;
 		pointer-events: none;
 	}
 
 	.record-btn:hover {
-		background: linear-gradient(0deg, rgba(70, 70, 72, 0.9), rgba(70, 70, 72, 0.9)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
+		background: linear-gradient(0deg, rgba(65, 65, 68, 0.95), rgba(65, 65, 68, 0.95)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
 			#1a1a1a;
-		background-blend-mode: normal, overlay, color-dodge;
+		background-blend-mode: plus-darker, normal, color-dodge;
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
 	}
 
 	.record-btn.recording {
-		background: linear-gradient(0deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.2)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+		background: linear-gradient(0deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.15)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)),
 			#1a1a1a;
-		background-blend-mode: normal, overlay, color-dodge;
+		background-blend-mode: plus-darker, normal, color-dodge;
 		padding: 8px 12px;
 	}
 
@@ -1324,17 +1323,16 @@
 		border: none;
 		isolation: isolate;
 		outline: none;
-		box-shadow: none;
+		overflow: hidden;
 
-		/* Dark fill layer with blend modes and green tint */
-		background: linear-gradient(0deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.2)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+		/* Fill layer with plus-darker blend and green tint */
+		background: linear-gradient(0deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.15)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
 			#1a1a1a;
-		background-blend-mode: normal, overlay, color-dodge;
+		background-blend-mode: plus-darker, normal, color-dodge;
 
-		/* Backdrop blur for glass */
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
+		/* Subtle inner glow at top */
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
 
 		font-size: 12px;
 		font-weight: 500;
@@ -1345,11 +1343,11 @@
 	.screen-badge::before {
 		content: '';
 		position: absolute;
-		left: 4px;
-		right: 4px;
-		top: 4px;
-		bottom: 3px;
-		background: rgba(0, 0, 0, 0.2);
+		left: 3px;
+		right: 3px;
+		top: 3px;
+		bottom: 2px;
+		background: rgba(0, 0, 0, 0.1);
 		background-blend-mode: hard-light;
 		filter: blur(10px);
 		backdrop-filter: blur(20px);
@@ -1364,7 +1362,7 @@
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: rgba(255, 255, 255, 0.02);
+		background: rgba(0, 0, 0, 0.001);
 		border-radius: 1000px;
 		pointer-events: none;
 	}
@@ -1379,17 +1377,16 @@
 		border: none;
 		isolation: isolate;
 		outline: none;
-		box-shadow: none;
+		overflow: hidden;
 
-		/* Dark fill layer with blend modes */
-		background: linear-gradient(0deg, rgba(60, 60, 62, 0.8), rgba(60, 60, 62, 0.8)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+		/* Fill layer with plus-darker blend */
+		background: linear-gradient(0deg, rgba(55, 55, 58, 0.9), rgba(55, 55, 58, 0.9)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
 			#1a1a1a;
-		background-blend-mode: normal, overlay, color-dodge;
+		background-blend-mode: plus-darker, normal, color-dodge;
 
-		/* Backdrop blur for glass */
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
+		/* Subtle inner glow at top */
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
 
 		font-size: 11px;
 		font-weight: 500;
@@ -1402,11 +1399,11 @@
 	.mode-toggle::before {
 		content: '';
 		position: absolute;
-		left: 4px;
-		right: 4px;
-		top: 4px;
-		bottom: 3px;
-		background: rgba(0, 0, 0, 0.2);
+		left: 3px;
+		right: 3px;
+		top: 3px;
+		bottom: 2px;
+		background: rgba(0, 0, 0, 0.1);
 		background-blend-mode: hard-light;
 		filter: blur(10px);
 		backdrop-filter: blur(20px);
@@ -1421,24 +1418,25 @@
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: rgba(255, 255, 255, 0.02);
+		background: rgba(0, 0, 0, 0.001);
 		border-radius: 1000px;
 		pointer-events: none;
 	}
 
 	.mode-toggle:hover {
 		color: rgba(255, 255, 255, 0.8);
-		background: linear-gradient(0deg, rgba(70, 70, 72, 0.9), rgba(70, 70, 72, 0.9)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
+		background: linear-gradient(0deg, rgba(65, 65, 68, 0.95), rgba(65, 65, 68, 0.95)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
 			#1a1a1a;
-		background-blend-mode: normal, overlay, color-dodge;
+		background-blend-mode: plus-darker, normal, color-dodge;
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
 	}
 
 	.mode-toggle.active {
-		background: linear-gradient(0deg, rgba(147, 51, 234, 0.2), rgba(147, 51, 234, 0.2)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+		background: linear-gradient(0deg, rgba(147, 51, 234, 0.15), rgba(147, 51, 234, 0.15)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
 			#1a1a1a;
-		background-blend-mode: normal, overlay, color-dodge;
+		background-blend-mode: plus-darker, normal, color-dodge;
 		color: #a855f7;
 	}
 
@@ -1461,17 +1459,16 @@
 		border: none;
 		isolation: isolate;
 		outline: none;
-		box-shadow: none;
+		overflow: hidden;
 
-		/* Dark fill layer with blend modes */
-		background: linear-gradient(0deg, rgba(60, 60, 62, 0.8), rgba(60, 60, 62, 0.8)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.08)),
+		/* Fill layer with plus-darker blend */
+		background: linear-gradient(0deg, rgba(55, 55, 58, 0.9), rgba(55, 55, 58, 0.9)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.15)),
 			#1a1a1a;
-		background-blend-mode: normal, overlay, color-dodge;
+		background-blend-mode: plus-darker, normal, color-dodge;
 
-		/* Backdrop blur for glass */
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
+		/* Subtle inner glow at top */
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
 
 		color: rgba(250, 250, 250, 0.6);
 		cursor: pointer;
@@ -1482,11 +1479,11 @@
 	.icon-btn::before {
 		content: '';
 		position: absolute;
-		left: 4px;
-		right: 4px;
-		top: 5px;
-		bottom: 3px;
-		background: rgba(0, 0, 0, 0.2);
+		left: 3px;
+		right: 3px;
+		top: 4px;
+		bottom: 2px;
+		background: rgba(0, 0, 0, 0.1);
 		background-blend-mode: hard-light;
 		filter: blur(10px);
 		backdrop-filter: blur(20px);
@@ -1501,17 +1498,18 @@
 		content: '';
 		position: absolute;
 		inset: 0;
-		background: rgba(255, 255, 255, 0.02);
+		background: rgba(0, 0, 0, 0.001);
 		border-radius: 1000px;
 		pointer-events: none;
 	}
 
 	.icon-btn:hover {
 		color: #fafafa;
-		background: linear-gradient(0deg, rgba(70, 70, 72, 0.9), rgba(70, 70, 72, 0.9)),
-			linear-gradient(0deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)),
+		background: linear-gradient(0deg, rgba(65, 65, 68, 0.95), rgba(65, 65, 68, 0.95)),
+			linear-gradient(0deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)),
 			#1a1a1a;
-		background-blend-mode: normal, overlay, color-dodge;
+		background-blend-mode: plus-darker, normal, color-dodge;
+		box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
 	}
 
 	/* Chat panel */

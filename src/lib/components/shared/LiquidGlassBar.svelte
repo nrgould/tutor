@@ -31,29 +31,25 @@
 <style>
 	.liquid-glass-bar {
 		position: relative;
-		border-radius: 22px;
+		border-radius: 26px;
 		isolation: isolate;
+		overflow: hidden;
 
-		/* Dark fill layer with blend mode */
-		background: linear-gradient(
-				0deg,
-				rgba(40, 40, 42, 0.85),
-				rgba(40, 40, 42, 0.85)
-			),
-			#0a0a0a;
+		/* Fill layer - adapted from liquid glass medium */
+		background: linear-gradient(0deg, rgba(50, 50, 52, 0.85), rgba(50, 50, 52, 0.85)), #262626;
 		background-blend-mode: normal, color-dodge;
 
 		/* Backdrop blur for glass effect */
 		backdrop-filter: blur(40px);
 		-webkit-backdrop-filter: blur(40px);
 
-		/* Absolutely no borders or outlines */
-		border: none !important;
-		outline: none !important;
-		box-shadow: none !important;
+		/* No borders or outlines */
+		border: none;
+		outline: none;
+		box-shadow: none;
 	}
 
-	/* Blur layer positioned slightly below top */
+	/* Blur layer */
 	.liquid-glass-bar::before {
 		content: '';
 		position: absolute;
@@ -61,50 +57,61 @@
 		right: 4px;
 		top: 6px;
 		bottom: 4px;
-		background: rgba(0, 0, 0, 0.15);
+		background: rgba(0, 0, 0, 0.08);
 		background-blend-mode: hard-light;
 		filter: blur(20px);
 		backdrop-filter: blur(40px);
 		-webkit-backdrop-filter: blur(40px);
-		border-radius: 20px;
+		border-radius: 24px;
 		z-index: -1;
 		pointer-events: none;
 	}
 
-	/* Top shimmer - subtle white glow at top edge */
+	/* Top-left shimmer border */
 	.top-shimmer {
 		position: absolute;
-		left: 0;
-		right: 0;
-		top: 0;
-		height: 12px;
+		inset: 0;
 		pointer-events: none;
+		z-index: 2;
+		border-radius: 26px;
 
-		/* Shimmer gradient from top */
+		/* Shimmer border using gradient on pseudo-element */
 		background: linear-gradient(
-			180deg,
-			rgba(255, 255, 255, 0.2) 0%,
-			rgba(255, 255, 255, 0.1) 40%,
-			transparent 100%
+			135deg,
+			rgba(255, 255, 255, 0.25) 0%,
+			rgba(255, 255, 255, 0.15) 20%,
+			rgba(255, 255, 255, 0.08) 45%,
+			rgba(255, 255, 255, 0.03) 70%,
+			transparent 90%
 		);
 
-		/* Fade from sides */
-		mask-image: linear-gradient(
-			90deg,
-			transparent 0%,
-			black 8%,
-			black 92%,
-			transparent 100%
-		);
+		/* Mask to create border effect */
+		-webkit-mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		-webkit-mask-composite: xor;
+		mask-composite: exclude;
+		padding: 1px;
+	}
 
-		border-radius: 22px 22px 0 0;
-		mix-blend-mode: overlay;
+	/* Glass effect layer */
+	.liquid-glass-bar::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.001);
+		border-radius: 26px;
+		pointer-events: none;
+		z-index: 3;
 	}
 
 	/* Content layer */
 	.content {
 		position: relative;
-		z-index: 1;
+		z-index: 4;
 	}
 
 	/* Fallback for browsers without backdrop-filter */
