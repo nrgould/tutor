@@ -80,9 +80,20 @@ function createSettingsStore() {
       try {
         const stringValue = typeof value === 'object' ? JSON.stringify(value) : value;
         await invoke('set_setting', { key, value: stringValue });
+
+        // Parse the value back to the correct type for the local store
+        let parsedValue: unknown = value;
+        if (key === 'proactive_nudges' || key === 'socratic_mode' || key === 'extended_thinking') {
+          parsedValue = value === 'true';
+        } else if (key === 'thinking_budget') {
+          parsedValue = parseInt(value as string, 10);
+        } else if (key === 'overlay_position' || key === 'overlay_size') {
+          parsedValue = typeof value === 'string' ? JSON.parse(value) : value;
+        }
+
         update((settings) => ({
           ...settings,
-          [key]: value,
+          [key]: parsedValue,
         }));
       } catch (error) {
         console.error('Failed to save setting:', error);
