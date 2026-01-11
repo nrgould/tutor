@@ -342,6 +342,8 @@ pub fn run() {
             commands::close_region_selector_with_result,
             commands::region_selected,
             commands::get_screen_context,
+            commands::check_screen_recording_permission,
+            commands::open_screen_recording_settings,
             // Database commands
             commands::create_conversation,
             commands::get_conversation,
