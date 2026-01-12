@@ -11,13 +11,14 @@
 	interface Props {
 		class?: string;
 		borderRadius?: number;
+		connectedTop?: boolean; // When true, removes top border-radius to connect with bar above
 		children?: Snippet;
 	}
 
-	let { class: className = '', borderRadius = 18, children }: Props = $props();
+	let { class: className = '', borderRadius = 18, connectedTop = false, children }: Props = $props();
 </script>
 
-<div class="liquid-glass-panel {className}" style="--border-radius: {borderRadius}px">
+<div class="liquid-glass-panel {className}" class:connected-top={connectedTop} style="--border-radius: {borderRadius}px">
 	<!-- Top-left shimmer overlay -->
 	<div class="top-shimmer"></div>
 	<!-- Bottom-right shimmer overlay (subtler) -->
@@ -36,9 +37,8 @@
 		isolation: isolate;
 		overflow: hidden;
 
-		/* Fill layer - dark glass background */
-		background: linear-gradient(0deg, rgba(25, 25, 25, 0.95), rgba(25, 25, 25, 0.95)), #191919;
-		background-blend-mode: normal, color-dodge;
+		/* Very transparent background to let native liquid glass shine through */
+		background: rgba(0, 0, 0, 0.05);
 
 		/* Backdrop blur for glass effect */
 		backdrop-filter: blur(40px);
@@ -153,5 +153,31 @@
 		.liquid-glass-panel {
 			background: rgba(25, 25, 25, 0.98);
 		}
+	}
+
+	/* Connected top state - flat top to connect with bar above */
+	.liquid-glass-panel.connected-top {
+		border-top-left-radius: 0;
+		border-top-right-radius: 0;
+	}
+
+	.liquid-glass-panel.connected-top::before {
+		border-top-left-radius: 0;
+		border-top-right-radius: 0;
+	}
+
+	.liquid-glass-panel.connected-top::after {
+		border-top-left-radius: 0;
+		border-top-right-radius: 0;
+	}
+
+	.liquid-glass-panel.connected-top .top-shimmer {
+		border-top-left-radius: 0;
+		border-top-right-radius: 0;
+	}
+
+	.liquid-glass-panel.connected-top .bottom-shimmer {
+		border-top-left-radius: 0;
+		border-top-right-radius: 0;
 	}
 </style>

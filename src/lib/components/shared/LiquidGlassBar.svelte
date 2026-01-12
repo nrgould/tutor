@@ -14,13 +14,14 @@
 	interface Props {
 		class?: string;
 		active?: boolean;
+		connected?: boolean; // When true, removes bottom border-radius to connect with panel below
 		children?: Snippet;
 	}
 
-	let { class: className = '', active = true, children }: Props = $props();
+	let { class: className = '', active = true, connected = false, children }: Props = $props();
 </script>
 
-<div class="liquid-glass-bar {className}" class:active class:inactive={!active}>
+<div class="liquid-glass-bar {className}" class:active class:inactive={!active} class:connected>
 	<!-- Top-left shimmer overlay -->
 	<div class="top-shimmer"></div>
 	<!-- Bottom-right shimmer overlay (subtler) -->
@@ -39,9 +40,8 @@
 		isolation: isolate;
 		overflow: hidden;
 
-		/* Fill layer - adapted from liquid glass medium */
-		background: linear-gradient(0deg, rgba(25, 25, 25, 0.95), rgba(25, 25, 25, 0.95)), #191919;
-		background-blend-mode: normal, color-dodge;
+		/* Semi-transparent dark background for visibility with native liquid glass */
+		background: rgba(28, 28, 30, 0.6);
 
 		/* Backdrop blur for glass effect */
 		backdrop-filter: blur(40px);
@@ -155,17 +155,34 @@
 		}
 	}
 
-	/* Inactive state - same background as active, just no shimmer effects */
+	/* Inactive state - no background */
 	.liquid-glass-bar.inactive {
-		box-shadow: none;
+		background: transparent;
 	}
 
-	.liquid-glass-bar.inactive::before {
-		opacity: 0;
+	/* Connected state - flat bottom to connect with panel below */
+	.liquid-glass-bar.connected {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
 	}
 
-	.liquid-glass-bar.inactive .top-shimmer,
-	.liquid-glass-bar.inactive .bottom-shimmer {
-		opacity: 0;
+	.liquid-glass-bar.connected::before {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	.liquid-glass-bar.connected::after {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	.liquid-glass-bar.connected .top-shimmer {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	.liquid-glass-bar.connected .bottom-shimmer {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
 	}
 </style>
