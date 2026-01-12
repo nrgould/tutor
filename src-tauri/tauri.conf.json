@@ -17,6 +17,8 @@
         "title": "Eigen",
         "width": 480,
         "height": 52,
+        "minWidth": 480,
+        "minHeight": 52,
         "resizable": true,
         "alwaysOnTop": true,
         "decorations": false,

@@ -101,14 +101,12 @@ pub fn run() {
             // Build tray menu
             let show_item = MenuItemBuilder::with_id("show", "Show Eigen").build(app)?;
             let recording_item = MenuItemBuilder::with_id("recording", "Start Recording").build(app)?;
-            let settings_item = MenuItemBuilder::with_id("settings", "Settings").build(app)?;
-            let quit_item = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+            let settings_item = MenuItemBuilder::with_id("settings", "Settings...").build(app)?;
+            let quit_item = MenuItemBuilder::with_id("quit", "Quit Eigen").build(app)?;
 
             let menu = MenuBuilder::new(app)
                 .item(&show_item)
-                .separator()
                 .item(&recording_item)
-                .separator()
                 .item(&settings_item)
                 .separator()
                 .item(&quit_item)
@@ -196,13 +194,9 @@ pub fn run() {
                             });
                         }
                         "settings" => {
+                            // Emit event to frontend to open settings window
                             if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.set_focus();
-                                // Navigate to settings - emit event to frontend
-                                let _ = window.emit("navigate", "/settings");
-                                // Update menu text after showing
-                                let _ = show_item_menu.set_text("Hide Eigen");
+                                let _ = window.emit("open-settings", ());
                             }
                         }
                         "quit" => {
