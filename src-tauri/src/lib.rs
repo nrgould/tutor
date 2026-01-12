@@ -231,8 +231,12 @@ pub fn run() {
             
             eprintln!("Tray icon created successfully");
 
-            // Register global shortcut (Ctrl+Shift+Space)
-            let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
+            // Register global shortcut
+            // macOS: Cmd+Shift+S, Windows/Linux: Ctrl+Shift+S
+            #[cfg(target_os = "macos")]
+            let shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyS);
+            #[cfg(not(target_os = "macos"))]
+            let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyS);
 
             // Unregister first in case it's stuck from a previous crash
             let _ = app.global_shortcut().unregister(shortcut);
