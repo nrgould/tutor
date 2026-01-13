@@ -77,12 +77,36 @@ pub fn run() {
             let region_capture_result: RegionCaptureResultHandle = Arc::new(RegionCaptureResult::default());
             app.manage(region_capture_result);
 
+            // Run automatic cleanup of old data on startup (async, non-blocking)
+            tauri::async_runtime::spawn(async {
+                // Delay cleanup to not slow down startup
+                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+
+                // Clean up data older than 7 days by default
+                match commands::cleanup_old_data(Some(7)).await {
+                    Ok(result) => {
+                        if result.screenshots_deleted > 0 || result.sessions_deleted > 0 {
+                            eprintln!(
+                                "Startup cleanup: deleted {} sessions, {} screenshots, cleaned {} messages (~{:.1}MB freed)",
+                                result.sessions_deleted,
+                                result.screenshots_deleted,
+                                result.messages_cleaned,
+                                result.bytes_freed_estimate as f64 / 1_000_000.0
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Startup cleanup failed: {}", e);
+                    }
+                }
+            });
+
             // Check screen recording permission on startup
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 // Small delay to ensure app is fully initialized
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-                
+
                 match commands::capture::check_screen_recording_permission().await {
                     Ok(has_permission) => {
                         if !has_permission {
@@ -450,6 +474,9 @@ pub fn run() {
             // Import commands
             commands::import_conversation,
             commands::import_message,
+            // Storage/cleanup commands
+            commands::cleanup_old_data,
+            commands::get_storage_stats,
             // Memory commands
             commands::save_memory,
             commands::get_memories,
