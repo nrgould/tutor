@@ -30,7 +30,7 @@
 	import LiquidGlassBar from '$lib/components/shared/LiquidGlassBar.svelte';
 	import LiquidGlassPanel from '$lib/components/shared/LiquidGlassPanel.svelte';
 	import LiquidGlassButtonGroup from '$lib/components/shared/LiquidGlassButtonGroup.svelte';
-	import { setLiquidGlassEffect, isGlassSupported } from 'tauri-plugin-liquid-glass-api';
+	import { setLiquidGlassEffect, isGlassSupported } from '$lib/mocks/liquid-glass';
 
 	const settings = $derived($settingsStore);
 
