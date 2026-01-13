@@ -295,7 +295,7 @@
         <div class="api-section">
           <div class="api-label">
             <span class="api-name">Anthropic (Claude)</span>
-            <span class="api-badge recommended">Recommended</span>
+            <span class="api-badge required">Required</span>
           </div>
           <input
             type="password"
@@ -316,7 +316,7 @@
         <div class="api-section">
           <div class="api-label">
             <span class="api-name">OpenAI (GPT)</span>
-            <span class="api-badge recommended">Recommended</span>
+            <span class="api-badge required">Required</span>
           </div>
           <input
             type="password"
