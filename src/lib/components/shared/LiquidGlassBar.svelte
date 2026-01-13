@@ -41,7 +41,7 @@
 		overflow: hidden;
 
 		/* Semi-transparent dark background for visibility with native liquid glass */
-		background: rgba(28, 28, 30, 0.6);
+		background: rgba(28, 28, 30, 0.8);
 
 		/* Backdrop blur for glass effect */
 		backdrop-filter: blur(40px);
@@ -155,9 +155,18 @@
 		}
 	}
 
-	/* Inactive state - no background */
+	/* Inactive state - dimmed but still visible */
 	.liquid-glass-bar.inactive {
-		background: transparent;
+		background: rgba(28, 28, 30, 0.95);
+	}
+
+	.liquid-glass-bar.inactive .top-shimmer,
+	.liquid-glass-bar.inactive .bottom-shimmer {
+		opacity: 0.3;
+	}
+
+	.liquid-glass-bar.inactive::before {
+		opacity: 0.5;
 	}
 
 	/* Connected state - flat bottom to connect with panel below */

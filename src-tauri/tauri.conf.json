@@ -25,7 +25,8 @@
         "transparent": true,
         "visible": true,
         "focus": true,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "visibleOnAllWorkspaces": true
       }
     ],
     "security": {
