@@ -11,12 +11,14 @@
     name: string;
     courses: string[];
     goals: string;
+    apiKey?: string;
   }
 
   let { oncomplete }: Props = $props();
 
   let step = $state(0);
   let userName = $state('');
+  let apiKey = $state('');
   let selectedSubjects = $state<string[]>([]);
   let customSubject = $state('');
   let selectedGoal = $state('');
@@ -47,9 +49,10 @@
     { id: 'explore', title: 'Explore topics', desc: 'Learn something new' },
   ];
 
-  const totalSteps = $derived(isMac ? 6 : 5);
+  const totalSteps = $derived(isMac ? 7 : 6);
 
   function getStepIndex(logicalStep: number): number {
+    // On non-Mac, skip permission step (index 1)
     if (!isMac && logicalStep >= 1) {
       return logicalStep + 1;
     }
@@ -106,9 +109,9 @@
 
   function handleContinue() {
     const currentStep = getCurrentStep();
-    if (currentStep === 2 && !userName.trim()) return;
-    if (currentStep === 3 && selectedSubjects.length === 0) return;
-    if (currentStep === 4 && !selectedGoal) return;
+    if (currentStep === 3 && !userName.trim()) return;
+    if (currentStep === 4 && selectedSubjects.length === 0) return;
+    if (currentStep === 5 && !selectedGoal) return;
 
     if (step < totalSteps - 1) {
       step++;
@@ -117,6 +120,7 @@
         name: userName.trim(),
         courses: selectedSubjects,
         goals: selectedGoal,
+        apiKey: apiKey.trim() || undefined,
       });
     }
   }
@@ -124,7 +128,7 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (getCurrentStep() === 3 && customSubject.trim()) {
+      if (getCurrentStep() === 4 && customSubject.trim()) {
         addCustomSubject();
       } else {
         handleContinue();
@@ -135,16 +139,16 @@
   function canContinue(): boolean {
     const currentStep = getCurrentStep();
     if (currentStep === 1 && isMac && !hasScreenPermission) return false;
-    if (currentStep === 2 && !userName.trim()) return false;
-    if (currentStep === 3 && selectedSubjects.length === 0) return false;
-    if (currentStep === 4 && !selectedGoal) return false;
+    if (currentStep === 3 && !userName.trim()) return false;
+    if (currentStep === 4 && selectedSubjects.length === 0) return false;
+    if (currentStep === 5 && !selectedGoal) return false;
     return true;
   }
 
   function getButtonText(): string {
     const currentStep = getCurrentStep();
     if (currentStep === 1 && isMac && !hasScreenPermission) return 'Grant screen access';
-    if (currentStep === 5) return 'Start learning';
+    if (currentStep === 6) return 'Start learning';
     return 'Continue';
   }
 
@@ -207,6 +211,22 @@
 
     {:else if getCurrentStep() === 2}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
+        <h1>Connect your AI</h1>
+        <p class="subtitle">Enter your Anthropic API key to power Eigen</p>
+        <input
+          type="password"
+          bind:value={apiKey}
+          placeholder="sk-ant-..."
+          class="input"
+          onkeydown={handleKeydown}
+        />
+        <p class="hint api-hint">
+          Get your key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>
+        </p>
+      </div>
+
+    {:else if getCurrentStep() === 3}
+      <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>What should we call you?</h1>
         <p class="subtitle">Let's personalize your experience</p>
         <input
@@ -218,7 +238,7 @@
         />
       </div>
 
-    {:else if getCurrentStep() === 3}
+    {:else if getCurrentStep() === 4}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>What are you studying?</h1>
         <p class="subtitle">Select all that apply</p>
@@ -247,7 +267,7 @@
         </div>
       </div>
 
-    {:else if getCurrentStep() === 4}
+    {:else if getCurrentStep() === 5}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>What's your main goal?</h1>
         <p class="subtitle">We'll tailor your experience</p>
@@ -272,7 +292,7 @@
         </div>
       </div>
 
-    {:else if getCurrentStep() === 5}
+    {:else if getCurrentStep() === 6}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>Show & hide Eigen instantly</h1>
         <p class="subtitle">Use this keyboard shortcut anytime</p>
@@ -366,6 +386,20 @@
     font-size: 13px;
     color: #a1a1aa;
     margin: 0;
+  }
+
+  .api-hint {
+    margin-top: 12px;
+  }
+
+  .api-hint a {
+    color: #18181b;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .api-hint a:hover {
+    color: #52525b;
   }
 
   /* Footer */

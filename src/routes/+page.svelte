@@ -78,11 +78,32 @@
 
 	const BAR_HEIGHT = 52;
 	const CHAT_HEIGHT = 400;
+	const ONBOARDING_WIDTH = 480;
+	const ONBOARDING_HEIGHT = 560;
+
+	async function resizeForOnboarding(show: boolean) {
+		try {
+			const window = getCurrentWindow();
+			const { LogicalSize } = await import('@tauri-apps/api/dpi');
+			if (show) {
+				// Make window larger for onboarding, centered
+				await window.setResizable(true);
+				await window.setSize(new LogicalSize(ONBOARDING_WIDTH, ONBOARDING_HEIGHT));
+				await window.center();
+			} else {
+				// Return to bar mode
+				await window.setSize(new LogicalSize(480, BAR_HEIGHT));
+				await window.setResizable(false);
+				await restoreBarPosition();
+			}
+		} catch (error) {
+			console.error('Failed to resize for onboarding:', error);
+		}
+	}
 
 	onMount(() => {
 		const init = async () => {
 			await settingsStore.load();
-			await restoreBarPosition();
 
 			// Initialize liquid glass effect (macOS 26+)
 			try {
@@ -106,9 +127,13 @@
 				);
 				if (!onboardingComplete) {
 					showOnboarding = true;
+					await resizeForOnboarding(true);
+				} else {
+					await restoreBarPosition();
 				}
 			} catch {
 				showOnboarding = true;
+				await resizeForOnboarding(true);
 			}
 			checkingOnboarding = false;
 		};
@@ -287,13 +312,18 @@
 		name: string;
 		courses: string[];
 		goals: string;
+		apiKey?: string;
 	}) {
 		await setSetting('onboarding_complete', 'true');
 		if (profile.name) await setSetting('user_name', profile.name);
 		if (profile.courses.length > 0)
 			await setSetting('user_courses', JSON.stringify(profile.courses));
 		if (profile.goals) await setSetting('user_goals', profile.goals);
+		if (profile.apiKey) {
+			await settingsStore.setApiKey('anthropic_api_key', profile.apiKey);
+		}
 		showOnboarding = false;
+		await resizeForOnboarding(false);
 	}
 
 	async function toggleRecording() {
