@@ -37,8 +37,8 @@
 		isolation: isolate;
 		overflow: hidden;
 
-		/* Very transparent background to let native liquid glass shine through */
-		background: rgba(0, 0, 0, 0.05);
+		/* Semi-transparent dark background for readability */
+		background: rgba(28, 28, 30, 0.85);
 
 		/* Backdrop blur for glass effect */
 		backdrop-filter: blur(40px);
