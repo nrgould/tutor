@@ -316,7 +316,7 @@
         <div class="api-section">
           <div class="api-label">
             <span class="api-name">OpenAI (GPT)</span>
-            <span class="api-badge optional">Optional</span>
+            <span class="api-badge recommended">Recommended</span>
           </div>
           <input
             type="password"
