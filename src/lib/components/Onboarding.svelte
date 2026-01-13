@@ -11,14 +11,16 @@
     name: string;
     courses: string[];
     goals: string;
-    apiKey?: string;
+    anthropicApiKey?: string;
+    openaiApiKey?: string;
   }
 
   let { oncomplete }: Props = $props();
 
   let step = $state(0);
   let userName = $state('');
-  let apiKey = $state('');
+  let anthropicApiKey = $state('');
+  let openaiApiKey = $state('');
   let selectedSubjects = $state<string[]>([]);
   let customSubject = $state('');
   let selectedGoal = $state('');
@@ -49,6 +51,14 @@
     { id: 'explore', title: 'Explore topics', desc: 'Learn something new' },
   ];
 
+  // Steps:
+  // 0: Welcome
+  // 1: Screen permission (Mac only)
+  // 2: Name
+  // 3: Subjects
+  // 4: Goals
+  // 5: API Keys (both Anthropic & OpenAI)
+  // 6: Keyboard shortcut
   const totalSteps = $derived(isMac ? 7 : 6);
 
   function getStepIndex(logicalStep: number): number {
@@ -109,9 +119,9 @@
 
   function handleContinue() {
     const currentStep = getCurrentStep();
-    if (currentStep === 3 && !userName.trim()) return;
-    if (currentStep === 4 && selectedSubjects.length === 0) return;
-    if (currentStep === 5 && !selectedGoal) return;
+    if (currentStep === 2 && !userName.trim()) return;
+    if (currentStep === 3 && selectedSubjects.length === 0) return;
+    if (currentStep === 4 && !selectedGoal) return;
 
     if (step < totalSteps - 1) {
       step++;
@@ -120,7 +130,8 @@
         name: userName.trim(),
         courses: selectedSubjects,
         goals: selectedGoal,
-        apiKey: apiKey.trim() || undefined,
+        anthropicApiKey: anthropicApiKey.trim() || undefined,
+        openaiApiKey: openaiApiKey.trim() || undefined,
       });
     }
   }
@@ -128,7 +139,7 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (getCurrentStep() === 4 && customSubject.trim()) {
+      if (getCurrentStep() === 3 && customSubject.trim()) {
         addCustomSubject();
       } else {
         handleContinue();
@@ -139,9 +150,9 @@
   function canContinue(): boolean {
     const currentStep = getCurrentStep();
     if (currentStep === 1 && isMac && !hasScreenPermission) return false;
-    if (currentStep === 3 && !userName.trim()) return false;
-    if (currentStep === 4 && selectedSubjects.length === 0) return false;
-    if (currentStep === 5 && !selectedGoal) return false;
+    if (currentStep === 2 && !userName.trim()) return false;
+    if (currentStep === 3 && selectedSubjects.length === 0) return false;
+    if (currentStep === 4 && !selectedGoal) return false;
     return true;
   }
 
@@ -211,22 +222,6 @@
 
     {:else if getCurrentStep() === 2}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
-        <h1>Connect your AI</h1>
-        <p class="subtitle">Enter your Anthropic API key to power Eigen</p>
-        <input
-          type="password"
-          bind:value={apiKey}
-          placeholder="sk-ant-..."
-          class="input"
-          onkeydown={handleKeydown}
-        />
-        <p class="hint api-hint">
-          Get your key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>
-        </p>
-      </div>
-
-    {:else if getCurrentStep() === 3}
-      <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>What should we call you?</h1>
         <p class="subtitle">Let's personalize your experience</p>
         <input
@@ -238,7 +233,7 @@
         />
       </div>
 
-    {:else if getCurrentStep() === 4}
+    {:else if getCurrentStep() === 3}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>What are you studying?</h1>
         <p class="subtitle">Select all that apply</p>
@@ -267,7 +262,7 @@
         </div>
       </div>
 
-    {:else if getCurrentStep() === 5}
+    {:else if getCurrentStep() === 4}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>What's your main goal?</h1>
         <p class="subtitle">We'll tailor your experience</p>
@@ -292,16 +287,66 @@
         </div>
       </div>
 
+    {:else if getCurrentStep() === 5}
+      <div class="step api-step" in:fly={{ x: 20, duration: 250 }}>
+        <h1>Connect your AI</h1>
+        <p class="subtitle">Add your API keys to power Eigen</p>
+
+        <div class="api-section">
+          <div class="api-label">
+            <span class="api-name">Anthropic (Claude)</span>
+            <span class="api-badge recommended">Recommended</span>
+          </div>
+          <input
+            type="password"
+            bind:value={anthropicApiKey}
+            placeholder="sk-ant-..."
+            class="input"
+            onkeydown={handleKeydown}
+          />
+          <p class="api-link">
+            <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Get your Anthropic key</a>
+          </p>
+        </div>
+
+        <div class="api-divider">
+          <span>or</span>
+        </div>
+
+        <div class="api-section">
+          <div class="api-label">
+            <span class="api-name">OpenAI (GPT)</span>
+            <span class="api-badge optional">Optional</span>
+          </div>
+          <input
+            type="password"
+            bind:value={openaiApiKey}
+            placeholder="sk-..."
+            class="input"
+            onkeydown={handleKeydown}
+          />
+          <p class="api-link">
+            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">Get your OpenAI key</a>
+          </p>
+        </div>
+
+        <p class="hint api-hint">You can add or change these later in settings</p>
+      </div>
+
     {:else if getCurrentStep() === 6}
       <div class="step" in:fly={{ x: 20, duration: 250 }}>
         <h1>Show & hide Eigen instantly</h1>
         <p class="subtitle">Use this keyboard shortcut anytime</p>
         <div class="keys">
-          <kbd>{isMac ? '⌃' : 'Ctrl'}</kbd>
+          <kbd>{isMac ? '⌥' : 'Ctrl'}</kbd>
           <span class="plus">+</span>
-          <kbd>{isMac ? '⇧' : 'Shift'}</kbd>
-          <span class="plus">+</span>
-          <kbd>Space</kbd>
+          {#if isMac}
+            <kbd>E</kbd>
+          {:else}
+            <kbd>Shift</kbd>
+            <span class="plus">+</span>
+            <kbd>Space</kbd>
+          {/if}
         </div>
         <p class="hint">Try it now, or continue to start learning</p>
       </div>
@@ -344,7 +389,7 @@
     align-items: center;
     justify-content: center;
     padding: 24px;
-    overflow: hidden;
+    overflow-y: auto;
   }
 
   .step {
@@ -353,6 +398,16 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    text-align: center;
+  }
+
+  .step.api-step {
+    text-align: left;
+    align-items: stretch;
+  }
+
+  .step.api-step h1,
+  .step.api-step .subtitle {
     text-align: center;
   }
 
@@ -389,17 +444,82 @@
   }
 
   .api-hint {
-    margin-top: 12px;
+    margin-top: 16px;
+    text-align: center;
   }
 
-  .api-hint a {
+  /* API Section Styles */
+  .api-section {
+    margin-bottom: 4px;
+  }
+
+  .api-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .api-name {
+    font-size: 14px;
+    font-weight: 500;
     color: #18181b;
+  }
+
+  .api-badge {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  .api-badge.recommended {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+
+  .api-badge.optional {
+    background: #f4f4f5;
+    color: #71717a;
+  }
+
+  .api-link {
+    font-size: 12px;
+    margin: 6px 0 0 0;
+  }
+
+  .api-link a {
+    color: #71717a;
     text-decoration: underline;
     text-underline-offset: 2px;
   }
 
-  .api-hint a:hover {
-    color: #52525b;
+  .api-link a:hover {
+    color: #18181b;
+  }
+
+  .api-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0;
+  }
+
+  .api-divider::before,
+  .api-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e4e4e7;
+  }
+
+  .api-divider span {
+    font-size: 12px;
+    color: #a1a1aa;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   /* Footer */

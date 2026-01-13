@@ -312,15 +312,19 @@
 		name: string;
 		courses: string[];
 		goals: string;
-		apiKey?: string;
+		anthropicApiKey?: string;
+		openaiApiKey?: string;
 	}) {
 		await setSetting('onboarding_complete', 'true');
 		if (profile.name) await setSetting('user_name', profile.name);
 		if (profile.courses.length > 0)
 			await setSetting('user_courses', JSON.stringify(profile.courses));
 		if (profile.goals) await setSetting('user_goals', profile.goals);
-		if (profile.apiKey) {
-			await settingsStore.setApiKey('anthropic_api_key', profile.apiKey);
+		if (profile.anthropicApiKey) {
+			await settingsStore.setApiKey('anthropic_api_key', profile.anthropicApiKey);
+		}
+		if (profile.openaiApiKey) {
+			await settingsStore.setApiKey('openai_api_key', profile.openaiApiKey);
 		}
 		showOnboarding = false;
 		await resizeForOnboarding(false);
