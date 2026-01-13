@@ -310,7 +310,7 @@
         </div>
 
         <div class="api-divider">
-          <span>or</span>
+          <span>and</span>
         </div>
 
         <div class="api-section">
