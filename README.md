@@ -62,9 +62,10 @@ Built apps are located in:
 
 ## Keyboard Shortcuts
 
-| Action | Windows | macOS |
-|--------|---------|-------|
-| Toggle Overlay | `Ctrl+Shift+Space` | `Cmd+Shift+Space` |
+| Action | Windows/Linux | macOS |
+|--------|---------------|-------|
+| Toggle Overlay | `Ctrl+Shift+Space` | `Option+E` |
+| Start/Stop Recording | `Ctrl+Shift+R` | `Option+R` |
 | Screenshot | `Ctrl+Shift+S` | `Cmd+Shift+S` |
 
 ## Tech Stack

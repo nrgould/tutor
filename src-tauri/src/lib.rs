@@ -231,33 +231,124 @@ pub fn run() {
             
             eprintln!("Tray icon created successfully");
 
-            // Register global shortcut (Ctrl+Shift+Space)
-            let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
+            // Register global shortcuts
+            // macOS: Option+E (toggle), Option+R (record), Cmd+Shift+S (screenshot)
+            // Windows: Ctrl+Shift+Space (toggle), Ctrl+Shift+R (record), Ctrl+Shift+S (screenshot)
 
-            // Unregister first in case it's stuck from a previous crash
-            let _ = app.global_shortcut().unregister(shortcut);
+            #[cfg(target_os = "macos")]
+            let toggle_shortcut = Shortcut::new(Some(Modifiers::ALT), Code::KeyE);
+            #[cfg(not(target_os = "macos"))]
+            let toggle_shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
 
-            let app_handle_shortcut = app.handle().clone();
+            #[cfg(target_os = "macos")]
+            let recording_shortcut = Shortcut::new(Some(Modifiers::ALT), Code::KeyR);
+            #[cfg(not(target_os = "macos"))]
+            let recording_shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyR);
+
+            #[cfg(target_os = "macos")]
+            let screenshot_shortcut = Shortcut::new(Some(Modifiers::META | Modifiers::SHIFT), Code::KeyS);
+            #[cfg(not(target_os = "macos"))]
+            let screenshot_shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::KeyS);
+
+            // Unregister first in case stuck from a previous crash
+            let _ = app.global_shortcut().unregister(toggle_shortcut);
+            let _ = app.global_shortcut().unregister(recording_shortcut);
+            let _ = app.global_shortcut().unregister(screenshot_shortcut);
+
+            // Option+E: Toggle window visibility
+            let app_handle_toggle = app.handle().clone();
             let show_item_shortcut = show_item.clone();
-            app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
-                // Only toggle on key press, not release
+            app.global_shortcut().on_shortcut(toggle_shortcut, move |_app, _shortcut, event| {
                 use tauri_plugin_global_shortcut::ShortcutState;
                 if event.state() != ShortcutState::Pressed {
                     return;
                 }
-
-                toggle_window(&app_handle_shortcut);
-                // Update menu text after toggling via global shortcut
-                if let Some(window) = app_handle_shortcut.get_webview_window("main") {
+                toggle_window(&app_handle_toggle);
+                if let Some(window) = app_handle_toggle.get_webview_window("main") {
                     let is_visible: bool = window.is_visible().unwrap_or(false);
                     let text = if is_visible { "Hide Eigen" } else { "Show Eigen" };
                     let _ = show_item_shortcut.set_text(text);
                 }
             })?;
 
-            // Try to register, ignore error if already registered
-            if let Err(e) = app.global_shortcut().register(shortcut) {
-                eprintln!("Warning: Could not register hotkey: {}", e);
+            // Option+R: Toggle recording
+            let app_handle_recording = app.handle().clone();
+            let recording_state_shortcut = recording_state.clone();
+            let recording_item_shortcut = recording_item.clone();
+            app.global_shortcut().on_shortcut(recording_shortcut, move |_app, _shortcut, event| {
+                use tauri_plugin_global_shortcut::ShortcutState;
+                if event.state() != ShortcutState::Pressed {
+                    return;
+                }
+                let app_handle = app_handle_recording.clone();
+                let state_clone = recording_state_shortcut.clone();
+                let recording_item_clone = recording_item_shortcut.clone();
+
+                // Show window when starting recording
+                let is_currently_recording = {
+                    let state_guard = state_clone.lock();
+                    state_guard.is_recording
+                };
+
+                if !is_currently_recording {
+                    if let Some(window) = app_handle.get_webview_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                        let _ = window.emit("recording-started", ());
+                    }
+                }
+
+                tauri::async_runtime::spawn(async move {
+                    match toggle_recording(&app_handle).await {
+                        Ok(_) => {
+                            let is_recording = {
+                                let state_guard = state_clone.lock();
+                                state_guard.is_recording
+                            };
+                            let text = if is_recording { "Stop Recording" } else { "Start Recording" };
+                            let _ = recording_item_clone.set_text(text);
+                        }
+                        Err(e) => eprintln!("Failed to toggle recording via shortcut: {}", e),
+                    }
+                });
+            })?;
+
+            // Option+S: Take screenshot
+            let app_handle_screenshot = app.handle().clone();
+            app.global_shortcut().on_shortcut(screenshot_shortcut, move |_app, _shortcut, event| {
+                use tauri_plugin_global_shortcut::ShortcutState;
+                if event.state() != ShortcutState::Pressed {
+                    return;
+                }
+                let app_handle = app_handle_screenshot.clone();
+                tauri::async_runtime::spawn(async move {
+                    match commands::capture::capture_screen_silent().await {
+                        Ok(base64_image) => {
+                            eprintln!("Screenshot captured ({} bytes)", base64_image.len());
+                            // Emit event to frontend with the screenshot data
+                            let _ = app_handle.emit("screenshot-taken", &base64_image);
+                            // Show notification
+                            use tauri_plugin_notification::NotificationExt;
+                            let _ = app_handle.notification()
+                                .builder()
+                                .title("Screenshot Captured")
+                                .body("Screenshot has been captured and is ready to use")
+                                .show();
+                        }
+                        Err(e) => eprintln!("Failed to take screenshot via shortcut: {}", e),
+                    }
+                });
+            })?;
+
+            // Register all shortcuts
+            if let Err(e) = app.global_shortcut().register(toggle_shortcut) {
+                eprintln!("Warning: Could not register toggle hotkey (Option+E): {}", e);
+            }
+            if let Err(e) = app.global_shortcut().register(recording_shortcut) {
+                eprintln!("Warning: Could not register recording hotkey (Option+R): {}", e);
+            }
+            if let Err(e) = app.global_shortcut().register(screenshot_shortcut) {
+                eprintln!("Warning: Could not register screenshot hotkey (Cmd+Shift+S): {}", e);
             }
 
             // Helper function to set window background transparent on macOS
